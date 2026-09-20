@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Reviewed, single-account observations of Copilot Studio agents powered by the GitHub Copilot Harness. Load results and cost evidence, with explicit measurement boundaries.">
+  <meta name="color-scheme" content="light dark">
+  <title>GitHub Copilot Harness | Copilot Studio load report</title>
+  <script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+  </script>
+  <style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+/* Approved benchmark override; the canonical Clawpilot base above stays intact. */
+:root {
+  --cp-bg: #f2f2f8;
+  --cp-bg-elevated: #f8f7fc;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f2f2f8;
+  --cp-border: #e3dfed;
+  --cp-border-strong: #9285aa;
+  --cp-text: #102631;
+  --cp-text-muted: #52637a;
+  --cp-text-soft: #667287;
+  --cp-accent: #7653ae;
+  --cp-accent-hover: #58378b;
+  --cp-accent-soft: #eee8f7;
+  --cp-accent-fg: #ffffff;
+  --cp-link: #066bc7;
+  --cp-success: #207346;
+  --cp-danger: #b4233e;
+  --cp-warning: #8c6208;
+  --cp-chart-blue: #0877dd;
+  --cp-chart-indigo: #5364ba;
+  --cp-chart-purple: #7653ae;
+  --cp-chart-violet: #9651bb;
+  --cp-chart-magenta: #b535c3;
+  --cp-chart-track: #e8e3f0;
+  --cp-transparent: transparent;
+}
+html[data-theme="dark"] {
+  --cp-bg: #171717;
+  --cp-bg-elevated: #222222;
+  --cp-surface: #1f1f1f;
+  --cp-surface-soft: #262626;
+  --cp-border: #3b3b3b;
+  --cp-border-strong: #858585;
+  --cp-text: #f2f2f2;
+  --cp-text-muted: #bdbdbd;
+  --cp-text-soft: #aaaaaa;
+  --cp-accent: #c3a0ef;
+  --cp-accent-hover: #debeff;
+  --cp-accent-soft: #2b2b2b;
+  --cp-accent-fg: #181818;
+  --cp-link: #80baff;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-chart-blue: #69aeff;
+  --cp-chart-indigo: #98a5ff;
+  --cp-chart-purple: #bc98ed;
+  --cp-chart-violet: #d097ee;
+  --cp-chart-magenta: #ed8fea;
+  --cp-chart-track: #3b3b3b;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 16px; }
+body { margin: 0; background: var(--cp-bg); color: var(--cp-text); font: 16px/1.65 "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif; }
+a { color: var(--cp-link); text-underline-offset: 4px; }
+a:hover { text-decoration-thickness: 2px; }
+button { font: inherit; cursor: pointer; }
+button, .pill { border: 1px solid var(--cp-border-strong); border-radius: .625rem; }
+button { padding: 8px 16px; background: var(--cp-surface); color: var(--cp-text); min-height: 44px; }
+button:hover { background: var(--cp-accent-soft); color: var(--cp-accent-hover); }
+:focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 4px; }
+.shell { width: min(1200px, 100%); margin-inline: auto; padding: 0 24px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 24px; border-bottom: 1px solid var(--cp-border); }
+.brand { font-size: .875rem; font-weight: 600; letter-spacing: .04em; }
+.eyebrow { color: var(--cp-text-muted); text-transform: uppercase; font-size: .75rem; letter-spacing: .12em; font-weight: 600; margin-bottom: 12px; }
+.hero { padding: 56px 0 32px; max-width: 920px; }
+h1 { font-size: clamp(2.25rem, 5.6vw, 4.75rem); font-weight: 450; line-height: 1.12; letter-spacing: -.035em; margin: 0 0 24px; }
+.hero-gradient { color: var(--cp-accent); }
+@supports (background-clip: text) {
+  .hero-gradient { background-image: linear-gradient(105deg, var(--cp-chart-blue), var(--cp-chart-purple), var(--cp-chart-magenta)); background-clip: text; color: var(--cp-transparent); }
+}
+.lead { font-size: 1.125rem; max-width: 760px; color: var(--cp-text-muted); }
+h2 { font-size: 1.75rem; font-weight: 600; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 12px; }
+h3 { font-size: 1.125rem; font-weight: 600; margin: 0 0 12px; }
+p { margin: 0 0 16px; }
+.status-line { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; color: var(--cp-text-muted); font-size: .875rem; }
+.pill { padding: 4px 12px; color: var(--cp-warning); background: var(--cp-surface); font-size: .75rem; font-weight: 700; letter-spacing: .04em; }
+.pill.reviewed { color: var(--cp-success); }
+.pill.rejected { color: var(--cp-danger); }
+.section-nav { display: flex; flex-wrap: wrap; gap: 8px; border-block: 1px solid var(--cp-border); padding: 16px 0; margin-bottom: 32px; }
+.section-nav a { padding: 8px 12px; min-height: 44px; border-radius: .625rem; font-size: .875rem; font-weight: 600; color: var(--cp-text-muted); text-decoration: none; }
+.section-nav a:hover { background: var(--cp-surface); color: var(--cp-text); }
+.section-nav a[aria-current="page"] { background: var(--cp-accent-soft); color: var(--cp-accent); box-shadow: inset 0 -2px var(--cp-accent); }
+section { margin-bottom: 48px; }
+.section-intro { color: var(--cp-text-muted); max-width: 880px; margin-bottom: 24px; }
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.card, .note, .empty { border: 1px solid var(--cp-border); border-radius: 16px; padding: 24px; background: var(--cp-surface); }
+.card { min-width: 0; }
+.metric-label { color: var(--cp-text-muted); font-size: .875rem; margin: 0 0 8px; }
+.metric-value { font-size: clamp(1rem, 2vw, 1.5rem); font-weight: 600; letter-spacing: -.02em; margin: 0; }
+.metric-help { color: var(--cp-text-muted); font-size: .75rem; margin: 8px 0 0; }
+.empty { margin: 24px 0; padding-block: 40px; }
+.empty h3 { font-size: 1.25rem; }
+.empty p:last-child, .note p:last-child, .card p:last-child { margin-bottom: 0; }
+.empty p, .note p { color: var(--cp-text-muted); max-width: 820px; }
+.empty .eyebrow { color: var(--cp-warning); }
+.two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.stack { display: grid; gap: 16px; margin: 24px 0; }
+.boundary { border-left: 4px solid var(--cp-accent); }
+dl { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); margin: 0; gap: 8px 16px; }
+dt { color: var(--cp-text-muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+.run-title { font-family: Consolas, "Courier New", Courier, monospace; overflow-wrap: anywhere; }
+.table-wrap { overflow-x: auto; max-width: 100%; margin: 24px 0; border: 1px solid var(--cp-border); border-radius: 16px; background: var(--cp-surface); }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: .875rem; }
+caption { text-align: left; padding: 16px; font-weight: 600; color: var(--cp-text); }
+th, td { padding: 12px 16px; border-top: 1px solid var(--cp-border); vertical-align: top; overflow-wrap: anywhere; }
+th { color: var(--cp-text-muted); background: var(--cp-surface-soft); font-weight: 600; }
+td { min-width: 96px; }
+.fine { font-size: .875rem; color: var(--cp-text-muted); }
+.error { color: var(--cp-danger); border: 1px solid var(--cp-danger); padding: 16px; border-radius: .625rem; }
+footer { padding: 24px 0 40px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: .875rem; }
+footer p { max-width: 920px; }
+footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
+.skip { position: absolute; top: -100px; left: 16px; background: var(--cp-surface); padding: 12px 16px; z-index: 2; }
+.skip:focus { top: 16px; }
+[hidden] { display: none !important; }
+@media (max-width: 700px) {
+  .shell { padding-inline: 16px; }
+  .hero { padding-top: 32px; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .two-column { grid-template-columns: 1fr; }
+  .card, .empty, .note { padding: 20px; }
+  .brand { max-width: 150px; }
+  .section-nav { gap: 4px; }
+  .section-nav a { padding-inline: 8px; }
+  dl { grid-template-columns: 1fr; gap: 0; }
+  dd { margin-bottom: 12px; }
+}
+@media (max-width: 380px) { .cards { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+}
+@media print {
+  :root, html[data-theme="dark"] { --cp-bg: #ffffff; --cp-surface: #ffffff; --cp-text: #102631; --cp-text-muted: #52637a; --cp-accent: #58378b; --cp-link: #066bc7; --cp-border: #9285aa; --cp-surface-soft: #f2f2f8; --cp-warning: #8c6208; --cp-success: #207346; }
+  .section-nav, #theme-toggle, .skip { display: none !important; }
+  section[hidden] { display: block !important; }
+  .hero-gradient { background: none; color: var(--cp-text); }
+  .hero { padding-top: 24px; }
+  .table-wrap { overflow: visible; }
+  .card, .note, .empty, tr { break-inside: avoid; }
+  .shell { width: 100%; padding: 0; }
+  h1 { font-size: 2.5rem; }
+}
+@media (forced-colors: active) {
+  :root, html[data-theme="dark"] {
+    --cp-bg: Canvas; --cp-bg-elevated: Canvas; --cp-surface: Canvas; --cp-surface-soft: Canvas;
+    --cp-text: CanvasText; --cp-text-muted: CanvasText; --cp-accent: LinkText; --cp-accent-hover: LinkText;
+    --cp-accent-soft: Canvas; --cp-border: CanvasText; --cp-border-strong: CanvasText;
+    --cp-link: LinkText; --cp-warning: CanvasText; --cp-danger: CanvasText; --cp-success: CanvasText;
+  }
+  .hero-gradient { background: none; color: var(--cp-text); }
+  .section-nav a[aria-current="page"] { outline: 2px solid var(--cp-accent); outline-offset: -2px; }
+}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to report</a>
+  <div class="shell">
+    <header>
+      <div class="topbar">
+        <span class="brand">COPILOT STUDIO / LOAD LAB</span>
+        <button id="theme-toggle" type="button" aria-label="Switch to dark theme" hidden>Dark theme</button>
+      </div>
+      <div class="hero">
+        <p class="eyebrow">Single-account observations &middot; Separate harness study</p>
+        <h1><span class="hero-gradient">GitHub Copilot Harness</span><br>Load, latency &amp; cost.</h1>
+        <p class="lead">A measured view of Copilot Studio agent behavior. Load results first, cost evidence from the outset, and clear boundaries on what each observation can tell us.</p>
+        <div class="status-line" role="status" aria-live="polite">
+          <span id="publication-status" class="pill">AWAITING VALIDATION</span>
+          <span id="review-status">No results shown before the public aggregate contract is checked.</span>
+        </div>
+      </div>
+    </header>
+    <nav class="section-nav" aria-label="Report sections">
+      <a href="#overview" aria-current="page">Overview</a>
+      <a href="#response-time">Response time</a>
+      <a href="#throughput">Throughput &amp; limits</a>
+      <a href="#observations">Stages &amp; observations</a>
+      <a href="#methodology">Methodology</a>
+      <a href="#costs">Costs</a>
+    </nav>
+    <main id="main" tabindex="-1">
+      <noscript><p class="error">JavaScript is required to validate and display aggregates. No measurements are inferred. The public JSON and schema are available below.</p></noscript>
+      <p id="data-error" class="error" role="alert" hidden></p>
+      <section id="overview" aria-labelledby="overview-heading">
+        <h2 id="overview-heading">Evidence before scale.</h2>
+        <p class="section-intro">Only explicitly reviewed aggregate facts belong here. Missing evidence is not a zero, a successful test, or an absence of throttling.</p>
+        <div id="overview-summary"></div>
+        <div id="run-ledger"></div>
+        <div class="two-column">
+          <article class="note boundary">
+            <h3>What this study measures</h3>
+            <p>Single authenticated account, labelled channel surface, observed message outcomes and visible response latency. Runs, conversations and sessions remain distinct units.</p>
+          </article>
+          <article class="note">
+            <h3>What this study does not claim</h3>
+            <p>A single Teams bot chat can serialize turns. Its behavior alone cannot establish platform-wide capacity, backend parallelism or a universal service limit.</p>
+          </article>
+        </div>
+      </section>
+      <section id="response-time" aria-labelledby="response-heading" hidden>
+        <h2 id="response-heading">Response time</h2>
+        <p class="section-intro">Elapsed time from message send to first visible response and, separately, UI settlement. Settled means feedback controls are present and text remains unchanged for the recorded stability interval. Neither endpoint is backend completion, time to first answer (TTFA) or first token.</p>
+        <div id="response-content"></div>
+        <div class="note">
+          <h3>Read the sample, not just the percentile</h3>
+          <p>Latency samples cover successful, completed messages only. Failed, pending and untimed messages are excluded and remain visible in the run counts. Percentiles are never pooled across runs; small samples do not establish stable tail behavior.</p>
+        </div>
+      </section>
+      <section id="throughput" aria-labelledby="throughput-heading" hidden>
+        <h2 id="throughput-heading">Throughput &amp; limits</h2>
+        <p class="section-intro">Observed arrivals, in-flight message overlap and completions describe a measured window, not a platform capacity ceiling. Unobserved rate and concurrency remain not measured.</p>
+        <div id="throughput-content"></div>
+        <h3>Documented numerical limits</h3>
+        <p class="fine">Documentation is a separate evidence class, never an observed result. Applicability to the tested configuration must be reviewed explicitly.</p>
+        <div id="limits-content"></div>
+      </section>
+      <section id="observations" aria-labelledby="observations-heading" hidden>
+        <h2 id="observations-heading">Stages &amp; observations</h2>
+        <p class="section-intro">Sent message attempts are classified as completed, failed or still pending at the observation cutoff. Unsent drafts are separate client setup issues, excluded from message outcomes. There is no inferred backend stage timeline.</p>
+        <div id="observations-content"></div>
+        <div class="note boundary">
+          <h3>A failure category is not a root-cause claim</h3>
+          <p>Classification follows reviewed visible errors or transport status. Unknown failures stay unknown; slow replies alone are not evidence of throttling. Pending turns are not silently converted into timeouts or successes.</p>
+        </div>
+      </section>
+      <section id="methodology" aria-labelledby="methodology-heading" hidden>
+        <h2 id="methodology-heading">Methodology &amp; boundaries</h2>
+        <p class="section-intro">A reproducible public summary, not a transcript archive. Raw evidence stays outside this repository; every published measurement requires human review.</p>
+        <div class="stack">
+          <article class="note">
+            <h3>01 / Identify the configuration without identifying people</h3>
+            <p>Record published Teams versus Studio Preview, agent version when known, environment type, model, memory setting, workload, workflow and connector involvement. The harness label is GitHub Copilot Harness, not GitHub coding agent or Copilot SDK.</p>
+          </article>
+          <article class="note">
+            <h3>02 / Keep counting units separate</h3>
+            <p>A run is one bounded observation window, not one session. An attempt is one sent user message; retries are new attempts. Unsent drafts do not enter the agent denominator. Completed means a successful, visibly settled response, not verified answer correctness or backend completion. Conversations are channel threads; sessions are runtime sessions only when observed, never inferred from conversations.</p>
+            <p>Each run record owns non-overlapping attempts. Update a pending run in place rather than appending another snapshot. Conversation and session counts are per-run and must not be summed as globally distinct counts.</p>
+          </article>
+          <article class="note">
+            <h3>03 / Measure only what is observable</h3>
+            <p>The observation window starts at the first send and ends at the cutoff, including all measured completions. First-visible and UI-settled latencies use separate elapsed-millisecond samples and nearest-rank p50/p95 over timed completions. UI settlement requires feedback controls plus the stated stable-text interval; it is an observation rule, not backend telemetry. Completion pace is completed messages divided by the full observation window; arrival rate uses its separately observed arrival window. Neither is a steady-state capacity estimate.</p>
+            <p>In-flight concurrency requires observed overlap between message send and terminal outcome. It does not establish simultaneous model execution. Report manual timing and partial windows explicitly.</p>
+          </article>
+          <article class="note boundary">
+            <h3>04 / Do not treat Standard Harness as a controlled baseline</h3>
+            <p>Tenant, Production versus Developer environment, old DirectToEngine versus the new channel transport, model and workload all confound that comparison. No Standard Harness measurements or images are reused here. A causal harness comparison requires a separately controlled experiment.</p>
+          </article>
+          <article class="note">
+            <h3>05 / Review before publication</h3>
+            <p>The public input is closed-schema, aggregate-only JSON. Human review must exclude UPNs, tenant/environment/agent identifiers, internal URLs and citations, Teams/chat identifiers, connection details, credentials, raw transcripts and screenshots. Validation is defense in depth, not an anonymizer or proof that an observation occurred.</p>
+          </article>
+          <article class="note">
+            <h3>06 / Capture cost status from the first run</h3>
+            <p>Every run records costs as pending, settled or unknown. Pending and unknown amounts stay null, not zero. Settled amounts identify currency, evidence source and whether attribution covers this run or a shared window. Shared-window costs and different currencies are never summed.</p>
+          </article>
+        </div>
+        <p class="fine">Future scope: email &rarr; workflow &rarr; agent. That scenario is not implemented or measured by this scaffold.</p>
+      </section>
+      <section id="costs" aria-labelledby="costs-heading" hidden>
+        <h2 id="costs-heading">Costs, tracked from the outset</h2>
+        <p class="section-intro">Billing evidence may lag the load observations. Unsettled cost is not free usage, and missing attribution is not a per-message price.</p>
+        <div id="costs-content"></div>
+        <div class="note">
+          <h3>No implied total or unit cost</h3>
+          <p>This report presents settled amounts per evidence scope, without combining currencies or shared billing windows. A verified zero is allowed only with settled billing evidence; pending and unknown states never display a currency amount.</p>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <p>Independent, single-account observation report for Copilot Studio agents powered by the GitHub Copilot Harness. Observations are configuration-specific, not a service guarantee.</p>
+      <a href="report.json" download>Public aggregate JSON</a>
+      <a href="report.schema.json" download>JSON schema</a>
+      <a href="https://github.com/RyanBowie/copilot-studio-github-harness-load-test">Source &amp; methodology contract</a>
+    </footer>
+  </div>
+  <script type="application/json" id="report-data"><!-- REPORT_JSON --></script>
+  <script type="application/json" id="report-schema"><!-- SCHEMA_JSON --></script>
+  <script type="module">
+<!-- VALIDATOR_JS -->
+<!-- REPORT_JS -->
+  </script>
+</body>
+</html>

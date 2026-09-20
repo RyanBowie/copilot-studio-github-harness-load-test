@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "harness": "GitHub Copilot Harness",
+  "publication": {
+    "status": "awaiting_pilot",
+    "reviewedOn": null
+  },
+  "runs": [],
+  "documentedLimits": []
+}

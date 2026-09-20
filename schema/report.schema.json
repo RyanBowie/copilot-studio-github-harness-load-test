@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ryanbowie.github.io/copilot-studio-github-harness-load-test/report.schema.json",
+  "title": "Reviewed public GitHub Copilot Harness aggregates",
+  "description": "Structural schema. src/validate.mjs additionally enforces cross-field, date, review, and privacy rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "harness", "publication", "runs", "documentedLimits"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "harness": { "const": "GitHub Copilot Harness" },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewedOn"],
+      "properties": {
+        "status": { "enum": ["awaiting_pilot", "reviewed"] },
+        "reviewedOn": { "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] }
+      }
+    },
+    "runs": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/run" } },
+    "documentedLimits": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/limit" } }
+  },
+  "$defs": {
+    "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "key": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._()+-]*$"
+    },
+    "nullableLabel": { "anyOf": [{ "$ref": "#/$defs/label" }, { "type": "null" }] },
+    "count": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+    "positiveCount": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
+    "duration": { "type": "number", "minimum": 0.001, "maximum": 31536000 },
+    "nullableCount": { "anyOf": [{ "$ref": "#/$defs/positiveCount" }, { "type": "null" }] },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runKey", "observedOn", "surface", "agentVersion", "environmentType", "model",
+        "authenticatedAccounts", "memory", "workload", "workflow", "connectors", "counts",
+        "units", "windowSeconds", "firstVisibleLatency", "latency", "concurrency", "arrival", "errors", "clientIssues",
+        "observations", "cost"
+      ],
+      "properties": {
+        "runKey": { "$ref": "#/$defs/key" },
+        "observedOn": { "$ref": "#/$defs/date" },
+        "surface": { "enum": ["published_teams", "studio_preview"] },
+        "agentVersion": { "$ref": "#/$defs/nullableLabel" },
+        "environmentType": { "enum": ["production", "developer", "sandbox", "trial", "unknown"] },
+        "model": { "$ref": "#/$defs/nullableLabel" },
+        "authenticatedAccounts": { "const": 1 },
+        "memory": { "enum": ["on", "off", "unknown"] },
+        "workload": { "enum": ["single_turn", "multi_turn", "mixed"] },
+        "workflow": { "enum": ["involved", "not_involved", "unknown"] },
+        "connectors": { "enum": ["involved", "not_involved", "unknown"] },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["attempted", "completed", "failed", "pending"],
+          "properties": {
+            "attempted": { "$ref": "#/$defs/positiveCount" },
+            "completed": { "$ref": "#/$defs/count" },
+            "failed": { "$ref": "#/$defs/count" },
+            "pending": { "$ref": "#/$defs/count" }
+          }
+        },
+        "units": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conversations", "sessions"],
+          "properties": {
+            "conversations": { "$ref": "#/$defs/nullableCount" },
+            "sessions": { "$ref": "#/$defs/nullableCount" }
+          }
+        },
+        "windowSeconds": { "anyOf": [{ "$ref": "#/$defs/duration" }, { "type": "null" }] },
+        "firstVisibleLatency": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "start", "end", "percentileMethod", "sampleCount", "p50Ms", "p95Ms", "maxMs"],
+              "properties": {
+                "kind": { "const": "visible_response" },
+                "start": { "const": "message_send" },
+                "end": { "const": "first_visible_response" },
+                "percentileMethod": { "const": "nearest_rank" },
+                "sampleCount": { "$ref": "#/$defs/positiveCount" },
+                "p50Ms": { "$ref": "#/$defs/duration" },
+                "p95Ms": { "$ref": "#/$defs/duration" },
+                "maxMs": { "$ref": "#/$defs/duration" }
+              }
+            }
+          ]
+        },
+        "latency": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "start", "end", "stabilitySeconds", "percentileMethod", "sampleCount", "p50Ms", "p95Ms", "maxMs"],
+              "properties": {
+                "kind": { "const": "visible_response" },
+                "start": { "const": "message_send" },
+                "end": { "const": "feedback_controls_and_text_stable" },
+                "stabilitySeconds": { "$ref": "#/$defs/duration" },
+                "percentileMethod": { "const": "nearest_rank" },
+                "sampleCount": { "$ref": "#/$defs/positiveCount" },
+                "p50Ms": { "$ref": "#/$defs/duration" },
+                "p95Ms": { "$ref": "#/$defs/duration" },
+                "maxMs": { "$ref": "#/$defs/duration" }
+              }
+            }
+          ]
+        },
+        "concurrency": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["maxInFlight", "basis"],
+              "properties": {
+                "maxInFlight": { "$ref": "#/$defs/positiveCount" },
+                "basis": { "const": "observed_message_overlap" }
+              }
+            }
+          ]
+        },
+        "arrival": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["attempts", "windowSeconds"],
+              "properties": {
+                "attempts": { "$ref": "#/$defs/positiveCount" },
+                "windowSeconds": { "$ref": "#/$defs/duration" }
+              }
+            }
+          ]
+        },
+        "errors": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["category", "count", "evidence"],
+            "properties": {
+              "category": {
+                "enum": ["throttling", "authentication", "timeout", "transport", "connector", "workflow", "agent", "unknown"]
+              },
+              "count": { "$ref": "#/$defs/positiveCount" },
+              "evidence": { "enum": ["visible_error", "transport_status", "unclassified_failure"] }
+            }
+          }
+        },
+        "clientIssues": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["category", "count", "observedWaitSeconds"],
+            "properties": {
+              "category": { "const": "unsent_draft" },
+              "count": { "$ref": "#/$defs/positiveCount" },
+              "observedWaitSeconds": { "anyOf": [{ "$ref": "#/$defs/duration" }, { "type": "null" }] }
+            }
+          }
+        },
+        "observations": {
+          "type": "array",
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["turn_serialization_observed", "manual_timing", "partial_observation", "channel_reconnect", "standalone_teams_send_tool_missing", "human_review_workflow_attached"]
+          }
+        },
+        "cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "currency", "amount", "source", "scope", "recordedOn"],
+          "properties": {
+            "status": { "enum": ["pending", "settled", "unknown"] },
+            "currency": { "enum": [null, "USD", "GBP", "EUR", "CAD", "AUD", "JPY"] },
+            "amount": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1000000000 }, { "type": "null" }] },
+            "source": { "enum": [null, "billing_export", "invoice", "usage_meter"] },
+            "scope": { "enum": [null, "this_run", "shared_window"] },
+            "recordedOn": { "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] }
+          }
+        }
+      }
+    },
+    "limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limitKey", "scope", "metric", "value", "sourceUrl", "retrievedOn", "applicability"],
+      "properties": {
+        "limitKey": { "$ref": "#/$defs/key" },
+        "scope": { "enum": ["per_agent", "per_environment", "per_user", "per_conversation", "service", "model", "connector"] },
+        "metric": { "enum": ["requests_per_minute", "messages_per_minute", "concurrent_requests"] },
+        "value": { "type": "number", "minimum": 0.001, "maximum": 1000000000 },
+        "sourceUrl": {
+          "type": "string",
+          "maxLength": 256,
+          "pattern": "^https://(learn\\.microsoft\\.com|docs\\.github\\.com)/[a-zA-Z0-9/_-]+(#[a-zA-Z0-9_-]+)?$"
+        },
+        "retrievedOn": { "$ref": "#/$defs/date" },
+        "applicability": { "enum": ["unverified", "confirmed_for_configuration"] }
+      }
+    }
+  }
+}

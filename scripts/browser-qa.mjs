@@ -1,0 +1,154 @@
+import { chromium } from "@playwright/test";
+import { createRequire } from "node:module";
+import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { once } from "node:events";
+import { readFile, mkdir, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { build, renderHtml } from "./build.mjs";
+
+const require = createRequire(import.meta.url);
+const axePath = require.resolve("axe-core/axe.min.js");
+const { html, report } = await build();
+const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
+const emptyHtml = await renderHtml({
+  schemaVersion: 1, harness: "GitHub Copilot Harness",
+  publication: { status: "awaiting_pilot", reviewedOn: null }, runs: [], documentedLimits: []
+}, schema);
+const synthetic = JSON.parse(await readFile(new URL("../tests/fixtures/synthetic-report.json", import.meta.url), "utf8"));
+synthetic.runs.push(structuredClone(synthetic.runs[0]));
+Object.assign(synthetic.runs[1], {
+  runKey: "offline-preview-fixture", surface: "studio_preview", firstVisibleLatency: null, latency: null, arrival: null, concurrency: null, windowSeconds: null,
+  cost: { status: "settled", currency: "USD", amount: 0.000001, source: "billing_export", scope: "shared_window", recordedOn: "2026-09-20" }
+});
+const syntheticHtml = (await renderHtml(synthetic, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC QA FIXTURE - NOT OBSERVED RESULTS</aside>');
+const rejectedHtml = html.replace('"schemaVersion":1', '"schemaVersion":999');
+const server = createServer((request, response) => {
+  const path = new URL(request.url, "http://localhost").pathname;
+  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/rejected" ? rejectedHtml : null;
+  if (content === null) { response.writeHead(404); response.end(); return; }
+  response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  response.end(content);
+});
+server.listen(0, "127.0.0.1");
+await once(server, "listening");
+const origin = `http://127.0.0.1:${server.address().port}`;
+const artifacts = process.env.QA_OUTPUT_DIR ? resolve(process.env.QA_OUTPUT_DIR) : await mkdtemp(resolve(tmpdir(), "github-harness-qa-"));
+await mkdir(artifacts, { recursive: true });
+let browser;
+try {
+  assert.equal((await fetch(origin)).status, 200, "owned local server must be responsive");
+  browser = await chromium.launch(process.env.QA_BROWSER_CHANNEL ? { channel: process.env.QA_BROWSER_CHANNEL } : {});
+  let snapshots = 0;
+  for (const width of [320, 390, 1440]) {
+    for (const theme of ["light", "dark"]) {
+      const context = await browser.newContext({ viewport: { width, height: 1000 }, colorScheme: theme === "light" ? "dark" : "light" });
+      await context.route("**/*", (route) => {
+        if (route.request().url().startsWith(origin)) return route.continue();
+        return route.abort("blockedbyclient");
+      });
+      const page = await context.newPage();
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+      await page.goto(`${origin}/empty?scoutTheme=${theme}&keep=qa#overview`);
+      await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "NOT MEASURED");
+      assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
+      assert.equal(await page.locator(".metric-value").allTextContents().then((texts) => texts.every((text) => text === "NOT MEASURED")), true);
+      const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
+      assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
+      for (const id of ["overview", "response-time", "throughput", "observations", "methodology", "costs"]) {
+        await page.locator(`.section-nav a[href="#${id}"]`).click();
+        await page.locator(`#${id}`).waitFor({ state: "visible" });
+        assert.equal(await page.locator("main > section:visible").count(), 1);
+        assert.equal(await page.locator(`.section-nav a[href="#${id}"]`).getAttribute("aria-current"), "page");
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${width}/${theme}/${id}: no page overflow`);
+        await page.addScriptTag({ path: axePath });
+        const violations = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map(({ id, impact, nodes }) => ({ id, impact, count: nodes.length })));
+        assert.deepEqual(violations, [], `${width}/${theme}/${id}: accessibility violations`);
+      }
+      await page.locator("#theme-toggle").click();
+      const url = new URL(page.url());
+      assert.equal(url.searchParams.get("keep"), "qa");
+      assert.equal(url.hash, "#costs");
+      assert.equal(url.searchParams.get("scoutTheme"), theme === "light" ? "dark" : "light");
+      await page.locator("#theme-toggle").click();
+      await page.locator('.section-nav a[href="#overview"]').click();
+      await page.screenshot({ path: resolve(artifacts, `overview-${width}-${theme}.png`), fullPage: true });
+      snapshots++;
+      await page.locator('.section-nav a[href="#costs"]').click();
+      await page.screenshot({ path: resolve(artifacts, `costs-${width}-${theme}.png`), fullPage: true });
+      snapshots++;
+      assert.deepEqual(errors, [], "no browser errors");
+      await context.close();
+    }
+  }
+  const context = await browser.newContext({ viewport: { width: 390, height: 900 }, colorScheme: "dark" });
+  await context.route("**/*", (route) => route.request().url().startsWith(origin) ? route.continue() : route.abort("blockedbyclient"));
+  const page = await context.newPage();
+  await page.goto(`${origin}/#response-time`);
+  await page.locator("#theme-toggle").waitFor({ state: "visible" });
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark", "system theme applies without a query override");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "light", "system changes propagate");
+  await page.goto(`${origin}/?scoutTheme=invalid#costs`);
+  await page.locator("#theme-toggle").waitFor({ state: "visible" });
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "light", "invalid theme falls back to system");
+  await page.emulateMedia({ media: "print" });
+  assert.equal(await page.locator("main > section:visible").count(), 6, "print includes every section");
+  await page.emulateMedia({ media: "screen", forcedColors: "active", reducedMotion: "reduce" });
+  assert.equal(await page.locator(".hero-gradient").evaluate((element) => getComputedStyle(element).backgroundImage), "none");
+  await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+  await page.goto(origin);
+  await page.keyboard.press("Tab");
+  assert.equal(await page.locator(":focus").textContent(), "Skip to report");
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator(":focus").getAttribute("id"), "main");
+  await page.goto(origin);
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  assert.equal(await page.locator(":focus").getAttribute("id"), "theme-toggle");
+  assert.equal(await page.locator(":focus").evaluate((element) => getComputedStyle(element).outlineWidth), "3px");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  await page.locator("#response-time").waitFor({ state: "visible" });
+  await page.goto(`${origin}/synthetic#overview`);
+  await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "REVIEWED AGGREGATES");
+  assert.match(await page.locator("#run-ledger").textContent(), /Published Teams/);
+  assert.match(await page.locator("#run-ledger").textContent(), /Studio Preview/);
+  for (const id of ["overview", "response-time", "throughput", "observations", "costs"]) {
+    await page.locator(`.section-nav a[href="#${id}"]`).click();
+    await page.locator(`#${id}`).waitFor({ state: "visible" });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await page.addScriptTag({ path: axePath });
+    assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
+  }
+  assert.match(await page.locator("#costs-content").textContent(), /USD 0\.000001/);
+  assert.match(await page.locator("#costs-content").textContent(), /PENDING/);
+  assert.match(await page.locator("#costs-content").textContent(), /shared window/);
+  await page.locator('.section-nav a[href="#response-time"]').click();
+  assert.match(await page.locator("#response-content").textContent(), /First visible/);
+  assert.match(await page.locator("#response-content").textContent(), /feedback controls \+ 0\.5 s stable text/);
+  await page.locator('.section-nav a[href="#observations"]').click();
+  assert.match(await page.locator("#observations-content").textContent(), /Excluded client setup issue/);
+  await page.goto(`${origin}/rejected#overview`);
+  await page.locator("#data-error").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#publication-status").textContent(), "DATA REJECTED");
+  assert.equal(await page.locator(".metric-value").count(), 0);
+  await context.close();
+  const offline = await browser.newContext({ offline: true });
+  const offlinePage = await offline.newPage();
+  await offlinePage.goto(pathToFileURL(fileURLToPath(new URL("../dist/index.html", import.meta.url))).href);
+  const expectedStatus = report.publication.status === "reviewed" ? "REVIEWED AGGREGATES" : "NOT MEASURED";
+  await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
+  assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
+  await offline.close();
+  console.log(`Browser QA passed: six viewport/theme combinations, all sections, axe, keyboard, print, forced colors, system theme, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
+} finally {
+  if (browser) await browser.close();
+  await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));
+}
