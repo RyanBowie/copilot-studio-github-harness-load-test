@@ -112,7 +112,7 @@ The root contains exactly `schemaVersion`, `harness`, `outcomeBasis`, `publicati
 
 ### One run record
 
-Every field in the table is required; only explicitly nullable fields accept `null`.
+Every field in the table is required except `pacedMeasurement`; only explicitly nullable fields accept `null`.
 
 | Field | Meaning and constraints |
 | --- | --- |
@@ -130,6 +130,7 @@ Every field in the table is required; only explicitly nullable fields accept `nu
 | `windowSeconds` | Positive observed full-window duration, or `null`; first send through cutoff, including measured completions |
 | `firstVisibleActivity`, `firstVisibleLatency`, `latency` | Each `null` or an independent activity / first actual answer / UI-settled timing summary described below |
 | `nativeInvocation` | `null` for visible-channel runs; a closed, separately validated native completion/dispatch/evidence object for the published Microsoft 365 Copilot run |
+| `pacedMeasurement` | Optional closed paced-cohort record, described below. Omit on existing runs; mutually exclusive with non-null `nativeInvocation` |
 | `concurrency` | `null` or `{ "maxInFlight": positive integer, "basis": "observed_message_overlap" }`; never a configured worker count |
 | `arrival` | `null` or observed positive `attempts` and `windowSeconds`; no inferred arrival schedule |
 | `errors` | Array of structured failure categories; counts exactly cover failed messages |
@@ -167,7 +168,7 @@ These are **three distinct visible endpoints**, including channel/rendering dela
 
 For runs with multiple sent messages, observed completion pace is `completed / windowSeconds * 60`; arrival rate is `arrival.attempts / arrival.windowSeconds * 60`. A single-message pilot shows its observation window, not an extrapolated per-minute completion rate. The arrival window may differ from the full window but cannot exceed it when both are known; arrivals and maximum in-flight messages cannot exceed attempted messages. These are descriptive window rates, not steady-state platform capacity.
 
-Error categories are `throttling`, `authentication`, `timeout`, `transport`, `connector`, `workflow`, `agent`, `unknown`, once per category. Each has a positive `count` and an `evidence` class: `visible_error`, `transport_status`, `unclassified_failure`, `unclassified_invocation_failure` or `agent_reported_timeout`. Agent-reported timeout is restricted to workflow category, not a proven wire status or throttle. Unknown category and unclassified evidence must be paired; invocation evidence additionally requires `nativeInvocation`. Do not infer throttling from latency or generic server_error. Raw error bodies and correlation IDs are prohibited.
+Error categories are `throttling`, `authentication`, `timeout`, `transport`, `connector`, `workflow`, `agent`, `unknown`, once per category. Each has a positive `count` and an `evidence` class: `visible_error`, `transport_status`, `unclassified_failure`, `unclassified_invocation_failure` or `agent_reported_timeout`. Agent-reported timeout is restricted to workflow category, not a proven wire status or throttle. Unknown category and unclassified evidence must be paired; invocation evidence additionally requires `nativeInvocation` or `pacedMeasurement`. Do not infer throttling from latency or generic server_error. Raw error bodies and correlation IDs are prohibited.
 
 ### Native invocation contract
 
@@ -186,6 +187,38 @@ Error categories are `throttling`, `authentication`, `timeout`, `transport`, `co
 `workflowState` supports this specific reviewed evidence shape: positive `invocationStatusFirstSeenMs`, `historyCheck: "after_message_cutoff"`, positive `runningRuns`, `triggerStatus: "succeeded"`, `humanReviewStatus: "waiting"`, `emailStatus: "waiting"`, `finalOutputs: "not_available"`, `reviewNotificationDelivery: "unconfirmed"`, `humanDecision: "unconfirmed"` and `testerApprovalOrEmail: "none"`. It requires an involved workflow, **not a pending agent call**. The visible invocation status must be inside the message window; the later history check is not silently backdated to that cutoff. Other workflow states require a reviewed schema change rather than coercion into this waiting-state shape.
 
 `followUp` records the later timeout-discovery snapshot: `observedAt` (real UTC instant), `atCutoff` (earlier attempted/completed/failed/pending partition), `outcome: "agent_reported_workflow_timeout"`, `reportedHttpStatus: 504`, `wireStatus: "not_independently_verified"`, `earlierResponseStatus: "stopped"`, `draftVisible: true`, `submissionConfirmed: false`, `retried: false`. It must update a pending requested outcome to failed with agent-reported workflow-timeout evidence, preserve the same sent attempts and keep late answer/settled timings null. It neither changes the workflow-history state nor implies cancellation.
+
+### Optional paced cohorts / offline support only
+
+**No paced campaign results are in the public dataset yet.** This contract is offline preparation, not evidence that a stage qualified, an hour completed or any further calls succeeded. The four reviewed records remain unchanged. Synthetic cases live only in `tests/fixtures/synthetic-paced-report.mjs`; their `offline-*` run keys are rejected by the publication loader. No runner, credentials, private consent, account names, controller artifacts or raw responses are stored here.
+
+Add one **reviewed** run per nonempty calibration stage or hourly arrival cohort, never a duplicate campaign-total run. Use the existing native published surface and single-account greeting workload, with `nativeInvocation: null` and optional `pacedMeasurement` populated. Do not turn a never-started stage or zero-dispatch plan into a run. A stopped calibration-only campaign needs no invented hour record. Existing visible timing, legacy `arrival`/`concurrency`, workflow state and follow-up fields stay null.
+
+All fields below are required inside `pacedMeasurement`; the schema provides the complete machine-readable shape:
+
+| Fields | Contract |
+| --- | --- |
+| `campaignKey`, `phase` | Public nonidentifying grouping slug; `calibration` or `hour`. Never a source ID |
+| `path`, `endpoint`, `requestKind`, `timingBasis` | `workiq_ask_via_native_tool_rpc`, `invocation_completion`, `greeting_only`, `calibrated_native_rpc_completion` |
+| `startedAt`, `arrivalEndedAt`, `observedThroughAt` | Ordered millisecond UTC metadata; cutoff date matches `observedOn`. Do not derive monotonic duration from wall-clock subtraction |
+| `targetRpm`, `plannedArrivalSeconds`, `plannedSlots` | Protocol intent, not observation: 10/25/50/100/150 RPM; 120 s calibration or 3600 s hourly arrivals. Planned slots equal rate times planned minutes |
+| `arrivalSeconds`, `drainSeconds` | Actual observed arrival window and subsequent observation/drain duration. Their sum equals run `windowSeconds`. **Achieved dispatch RPM** is attempts divided by actual arrival seconds times 60, never divided by arrival-plus-drain |
+| `skippedSlots`, `unofferedSlots` | Missed client slots versus remaining slots not offered before stop/cutoff. `attempted + skipped + unoffered = plannedSlots`. Neither belongs in agent attempts or failure statistics |
+| `arrivalStatus`, `stopReason` | `full_window`, `stopped` or `partial`; full requires planned duration, no unoffered slots and null reason. Partial requires early `observation_cutoff`. Stopped requires a reviewed enum reason, not arbitrary text. Native `authentication`/`explicit_throttle` require matching errors; a pre-dispatch `account_guard` is separate and must not invent a failed agent invocation |
+| `drainStatus` | `complete` only with no pending calls, otherwise `bounded_cutoff`. A full arrival hour can still have missed slots, errors or pending drain outcomes |
+| `qualification`, `qualifyingRunKey` | Calibration `qualified` only when all slots dispatched, drain complete, at least 99% requested greetings and healthy measured pacing; otherwise `not_qualified` or `not_evaluated`. Hour uses `not_evaluated` and references the highest prior qualified calibration in the same campaign |
+| `pacing` | `schedule: absolute_slots`, `missedSlotPolicy: skip_without_replay`, `intervalMs: 60000/targetRpm`, `jitterAllowance: 0.05`; paired nullable `observedMinIntervalMs` / `violatingIntervals` describe actual gaps. At 150 RPM, intended 400 ms allows minimum 380 ms. Violations remain reportable but cannot qualify a stage |
+| `peakOutstanding`, `concurrencyBasis`, `concurrencyVerification` | Nullable measured peak (max 100), `outstanding_client_invocations`, paired `start_end_interval_sweep` or null. Not configured workers or backend/model executions |
+| `conversationPolicy`, `conversationEvidence`, `failedConversations` | `fresh_per_request` is intent, not a count. `returned_ids_checked_unique` pairs with known `units.conversations`; otherwise null. Nullable failed-ID count cannot exceed failures or verified distinct conversations. Sessions remain independent |
+| `runnerRetries`, `managedServiceRetries` | Zero and `unknown`, respectively. These do not claim control of managed-service retries |
+| `percentileMethod`, `success`, `failure`, `allOutcomes` | Nearest-rank over separate native completion populations with the same summary fields as the burst. Samples match successful, failed and **settled successful+failed** counts. Pending calls are excluded; no settled samples means null. No pooled or averaged cohort percentiles |
+| `minuteBasis`, `minutes` | `client_dispatch_cohort_outcomes_at_cutoff`; contiguous elapsed-minute buckets with `offsetSeconds`, `durationSeconds`, `attempted`, `completed`, `failed`, `pending`. Only the final bucket may be partial. All bucket totals reconcile to run counts at the same observation cutoff |
+
+**Minute replies/errors belong to requests dispatched in that minute**, even when those outcomes arrive later during drain. They are not completion-minute throughput, fixed clock-hour totals or best rolling-hour totals. The renderer labels that distinction rather than claiming a successful hourly rate from planned RPM. Calibration versus hour, stopped/partial versus full arrivals, intended versus achieved dispatch rate and native versus visible timing stay separate.
+
+The bounded protocol supports distinct calibration rates (at most 670 planned calibration calls) and at most one hour cohort (at most 9000 planned calls), capped at 9670 requests per campaign. Those numbers are protocol constraints, **not executed counts, spending evidence or future authorization**. Private account/consent checks remain the testing owner's responsibility; this report makes no authenticated calls. A generic calibration error can leave an earlier rate qualified, but does not establish a harness limit. No further cohort in the same campaign may follow a terminal guard or pacing violation. Safety/authentication/explicit-throttle/client-pacing stops are not automatic-retry opportunities. Stale Monitor counts, budget acknowledgment and absent posted credits cannot settle cost; keep pending/null until reviewed billing evidence exists.
+
+For ingestion, supply observed slot accounting, UTC markers and monotonic windows, per-dispatch-minute outcomes, distinct verified conversation counts, outcome-specific latency summaries and classification evidence. The offline fixture factory illustrates full, stopped, partial and calibration-only shapes but is not a source of public values. Full responsive UI QA should be rerun after reviewed actual cohorts are supplied.
 
 ### Costs from the first run
 

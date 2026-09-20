@@ -32,9 +32,12 @@ const node = (tag, text, className) => {
   return element;
 };
 const paragraph = (text, className) => node("p", text, className);
-const nativeFirst = (runs) => [...runs.filter((run) => run.nativeInvocation), ...runs.filter((run) => !run.nativeInvocation)];
+const nativeMeasurement = (run) => run.pacedMeasurement ?? run.nativeInvocation;
+const nativeFirst = (runs) => [...runs.filter((run) => run.pacedMeasurement), ...runs.filter((run) => run.nativeInvocation), ...runs.filter((run) => !nativeMeasurement(run))];
 const scopedContext = (report, run) => report.studyContext?.runKeys.includes(run.runKey) ? report.studyContext : null;
 const seconds = (milliseconds) => `${(milliseconds / 1000).toFixed(3)} s`;
+const pacedPhase = (measurement) => measurement.phase === "hour" ? "Hourly arrival cohort" : "Rate calibration cohort";
+const achievedRpm = (run) => number(run.counts.attempted / run.pacedMeasurement.arrivalSeconds * 60);
 
 function empty(target, title, detail) {
   const article = node("article", undefined, "empty");
@@ -80,7 +83,7 @@ function table(target, caption, headers, rows) {
   (typeof target === "string" ? byId(target) : target).replaceChildren(wrapper);
 }
 
-function outcomeCards(runs, native = false) {
+function outcomeCards(runs, native = false, nativeScope = "This native invocation batch only") {
   const cards = node("div", undefined, "cards");
   const metricLabels = native
     ? { attempted: "Attempted invocations", completed: "Greeting replies", failed: "Failed invocations", pending: "Pending invocations" }
@@ -89,7 +92,7 @@ function outcomeCards(runs, native = false) {
     const card = node("article", undefined, "card");
     const count = runs.length ? number(runs.reduce((sum, run) => sum + run.counts[state], 0)) : "NOT MEASURED";
     card.append(paragraph(metricLabels[state], "metric-label"), paragraph(count, "metric-value"),
-      paragraph(runs.length ? (native ? "This native invocation batch only" : "Requested operation outcome, not merely a final message") : "Awaiting reviewed pilot evidence", "metric-help"));
+      paragraph(runs.length ? (native ? nativeScope : "Requested operation outcome, not merely a final message") : "Awaiting reviewed pilot evidence", "metric-help"));
     cards.append(card);
   }
   return cards;
@@ -98,6 +101,19 @@ function outcomeCards(runs, native = false) {
 function renderOverview(report) {
   const overview = byId("overview-summary");
   overview.replaceChildren();
+  for (const run of report.runs.filter((item) => item.pacedMeasurement)) {
+    const paced = run.pacedMeasurement;
+    const feature = node("article", undefined, "note boundary paced-summary");
+    feature.dataset.runKey = run.runKey;
+    feature.append(paragraph("REVIEWED PACED COHORT / NATIVE INVOCATION", "eyebrow"),
+      node("h3", `${pacedPhase(paced)} / ${number(paced.targetRpm)} intended RPM`),
+      paragraph(`${number(run.counts.completed / run.counts.attempted * 100)}% greeting reply success at observation cutoff`),
+      outcomeCards([run], true, "This paced dispatch cohort only"),
+      paragraph(`${achievedRpm(run)} achieved client dispatches/min over ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s arrival window. Arrival status: ${label(paced.arrivalStatus)}; drain: ${label(paced.drainStatus)} (${number(paced.drainSeconds)} s). ${paced.stopReason ? `Stop reason: ${label(paced.stopReason)}.` : "No arrival stop recorded."}`),
+      paragraph(`${number(paced.skippedSlots)} skipped and ${number(paced.unofferedSlots)} unoffered client slots are outside the ${number(run.counts.attempted)} invocation attempts, not agent failures. Qualification: ${label(paced.qualification)}.${paced.qualifyingRunKey ? ` Rate selected from ${paced.qualifyingRunKey}.` : ""}`),
+      paragraph(`Peak outstanding client invocations: ${paced.peakOutstanding === null ? "not measured" : number(paced.peakOutstanding)}; not backend/model concurrency. Costs: ${run.cost.status}.`, "fine"));
+    overview.append(feature);
+  }
   for (const run of report.runs.filter((item) => item.nativeInvocation)) {
     const invocation = run.nativeInvocation;
     const feature = node("article", undefined, "note boundary burst-summary");
@@ -112,7 +128,7 @@ function renderOverview(report) {
       paragraph(`${number(invocation.excludedPreflights)} earlier probes and the separate Teams pilot are excluded from this batch. Runner retries: ${invocation.runnerRetries}; managed-service retries: unknown. Costs: ${run.cost.status}.`, "fine"));
     overview.append(feature);
   }
-  const visibleRuns = report.runs.filter((run) => !run.nativeInvocation);
+  const visibleRuns = report.runs.filter((run) => !nativeMeasurement(run));
   for (const surface of new Set(visibleRuns.map((run) => run.surface))) {
     const group = node("article");
     group.dataset.surface = surface;
@@ -143,7 +159,7 @@ function renderOverview(report) {
       ["Observed", run.observedOn], ["Surface", label(run.surface)], ["Environment", label(run.environmentType)],
       ["Model", run.model ?? "Unknown"], ["Agent version", run.agentVersion ?? "Unknown"],
       ["Authenticated accounts", "1"], ["Memory", label(run.memory)], ["Workload", label(run.workload)], ["Workflow", label(run.workflow)],
-      ["Connectors", label(run.connectors)], ["Conversations / sessions", `${run.units.conversations ?? "Unknown"}${scopedContext(report, run)?.conversationUse === "one_existing_reused" ? " (same existing conversation)" : run.nativeInvocation ? " (distinct Microsoft 365 conversations)" : ""} / ${run.units.sessions ?? "Unknown"}`],
+      ["Connectors", label(run.connectors)], ["Conversations / sessions", `${run.units.conversations ?? "Unknown"}${scopedContext(report, run)?.conversationUse === "one_existing_reused" ? " (same existing conversation)" : nativeMeasurement(run) && run.units.conversations !== null ? " (verified distinct Microsoft 365 conversations)" : ""} / ${run.units.sessions ?? "Unknown"}`],
       ["Requested outcomes", `${number(run.counts.attempted)} attempted / ${number(run.counts.completed)} successful / ${number(run.counts.failed)} failed / ${number(run.counts.pending)} pending`],
       ["Outcome snapshot", run.followUp ? `Updated by follow-up at ${run.followUp.observedAt}` : "At the timing observation cutoff"]
     ]));
@@ -155,22 +171,25 @@ function renderOverview(report) {
 function renderResponses(runs) {
   const nativeContent = byId("native-response-content");
   nativeContent.replaceChildren();
-  for (const run of runs.filter((item) => item.nativeInvocation)) {
-    const invocation = run.nativeInvocation;
+  for (const run of nativeFirst(runs).filter((item) => nativeMeasurement(item))) {
+    const invocation = nativeMeasurement(run);
     const article = node("article", undefined, "stack");
     article.append(node("h3", `${run.runKey} / native invocation completion`),
-      paragraph("Successful replies, failed invocations and all outcomes are separate populations. The all-outcome percentile is not reply latency. These durations include native invocation pipeline overhead and are neither UI-stable latency nor backend TTFA.", "fine"));
+      paragraph("Successful replies, failed invocations and all settled invocation outcomes are separate populations. Pending invocations have no completed duration and are excluded. The all-outcome percentile is not reply latency. These durations include native invocation pipeline overhead and are neither UI-stable latency nor backend TTFA.", "fine"));
     const tableContainer = node("div");
-    table(tableContainer, `Native completion duration / ${label(run.surface)}`, ["Outcome population", "n", "Minimum", "p50", "p95", "Maximum"],
+    table(tableContainer, `${run.runKey} / Native completion duration / ${label(run.surface)}`, ["Outcome population", "n", "Minimum", "p50", "p95", "Maximum"],
       [["Successful greeting replies", invocation.success], ["Failed invocations", invocation.failure], ["All invocation outcomes", invocation.allOutcomes]]
         .map(([name, timing]) => [name, timing ? number(timing.sampleCount) : "No samples", ...["minMs", "p50Ms", "p95Ms", "maxMs"].map((field) => timing?.[field] == null ? "Not reported" : seconds(timing[field]))]));
     article.append(tableContainer, paragraph(`Percentiles: ${words(invocation.percentileMethod)} within each population, never averaged or pooled with Teams timing. Display rounded to milliseconds; reviewed raw milliseconds remain in the public JSON.`, "fine"));
-    const calibration = invocation.calibration;
-    article.append(paragraph(`Completion timing was independently calibrated: ${number(calibration.shortRequestedMs)} ms and ${number(calibration.longRequestedMs)} ms local native RPC operations returned in ${seconds(calibration.shortObservedMs)} and ${seconds(calibration.longObservedMs)}. Ordinary CLI event/hook timestamps were coalesced and excluded; calibration demonstrates distinct completion measurements, not backend timing or eliminated client overhead.`, "fine"));
+    if (run.pacedMeasurement) article.append(paragraph(`${pacedPhase(invocation)} only, using calibrated native RPC completion timing. Do not pool this cohort's percentiles with calibration stages, another hourly cohort or the earlier burst. Arrival window excludes the separately recorded drain.`, "fine"));
+    else {
+      const calibration = invocation.calibration;
+      article.append(paragraph(`Completion timing was independently calibrated: ${number(calibration.shortRequestedMs)} ms and ${number(calibration.longRequestedMs)} ms local native RPC operations returned in ${seconds(calibration.shortObservedMs)} and ${seconds(calibration.longObservedMs)}. Ordinary CLI event/hook timestamps were coalesced and excluded; calibration demonstrates distinct completion measurements, not backend timing or eliminated client overhead.`, "fine"));
+    }
     nativeContent.append(article);
   }
-  const visibleRuns = runs.filter((run) => !run.nativeInvocation);
-  if (runs.some((run) => run.nativeInvocation)) nativeContent.append(paragraph("First visible activity, first answer and UI-settled latency were not measured for native invocations. The separate visible endpoints below belong only to the earlier channel observations.", "fine"));
+  const visibleRuns = runs.filter((run) => !nativeMeasurement(run));
+  if (runs.some((run) => nativeMeasurement(run))) nativeContent.append(paragraph("First visible activity, first answer and UI-settled latency were not measured for native invocations. The separate visible endpoints below belong only to the earlier channel observations.", "fine"));
   if (!visibleRuns.length) {
     empty("response-content", "Visible latency is not measured.", "First activity, first actual answer and UI-settled timings remain separate until reviewed samples are available. A loading or tool-invocation status is not an answer.");
     return;
@@ -195,15 +214,29 @@ function renderThroughput(report) {
   else table("throughput-content", "Observed windows, not platform capacity", ["Run / surface", "Observation window / outcomes", "Launch or arrival observation", "Maximum outstanding"],
     nativeFirst(report.runs).map((run) => [
       `${run.runKey} / ${label(run.surface)}`,
+      run.pacedMeasurement ? `${pacedPhase(run.pacedMeasurement)}: ${number(run.pacedMeasurement.arrivalSeconds)} s arrivals + ${number(run.pacedMeasurement.drainSeconds)} s drain; ${label(run.pacedMeasurement.arrivalStatus)} / ${label(run.pacedMeasurement.drainStatus)}` :
       run.nativeInvocation ? `${number(run.counts.completed)} replies / ${number(run.counts.attempted)} invocation outcomes in ${number(run.windowSeconds)} s; not a sustained capacity result` :
       run.windowSeconds === null ? "Not measured" : run.counts.attempted === 1
         ? `${number(run.windowSeconds)} s; one sent message, not a throughput trial`
         : `${number(run.counts.completed / run.windowSeconds * 60)} completed/min over ${number(run.windowSeconds)} s`,
+      run.pacedMeasurement ? `${number(run.pacedMeasurement.targetRpm)} intended / ${achievedRpm(run)} achieved client dispatches/min; no network/server arrival claim` :
       run.nativeInvocation ? `${run.nativeInvocation.dispatchWindowMs} ms client RPC launch spread only; network/server arrival spread unmeasured` :
       run.arrival === null ? "Not measured" : `${number(run.arrival.attempts / run.arrival.windowSeconds * 60)} attempts/min (${number(run.arrival.attempts)} over ${number(run.arrival.windowSeconds)} s)`,
-      run.nativeInvocation ? `${number(run.nativeInvocation.peakOutstanding)} client invocations; backend/model execution overlap unmeasured` :
+      nativeMeasurement(run) ? `${nativeMeasurement(run).peakOutstanding === null ? "Not measured" : number(nativeMeasurement(run).peakOutstanding)} client invocations; backend/model execution overlap unmeasured` :
       run.concurrency === null ? "Not measured" : `${number(run.concurrency.maxInFlight)} messages; observed overlap`
     ]));
+  for (const run of report.runs.filter((item) => item.pacedMeasurement)) {
+    const paced = run.pacedMeasurement;
+    const section = node("article", undefined, "stack");
+    section.append(node("h3", `${run.runKey} / per-minute dispatch cohorts`),
+      paragraph("Buckets are elapsed client-dispatch minutes, not clock-hour or rolling-hour maxima. Replies/errors are the later outcomes of requests dispatched in each bucket, recorded at the run cutoff; they are not completions occurring within that minute. Do not equate achieved dispatch rate with successful reply throughput.", "fine"),
+      paragraph(`${number(paced.skippedSlots)} skipped + ${number(paced.unofferedSlots)} unoffered slots remain outside the attempt/error denominator. No replay of missed slots; no runner retries. Managed-service retries unknown.`, "fine"));
+    const container = node("div");
+    table(container, `${run.runKey} / ${pacedPhase(paced)} / outcomes by dispatch minute`, ["Start offset (s)", "Bucket duration (s)", "Attempts", "Greeting replies", "Errors", "Pending"],
+      paced.minutes.map((minute) => ["offsetSeconds", "durationSeconds", "attempted", "completed", "failed", "pending"].map((key) => number(minute[key]))));
+    section.append(container);
+    byId("throughput-content").append(section);
+  }
   if (!report.documentedLimits.length) {
     const note = node("article", undefined, "note");
     note.append(node("h3", "No numerical entries in this dataset"), paragraph("This does not mean unlimited capacity. Separately cited documentation below is not an observed capacity result."));
@@ -225,9 +258,16 @@ function renderObservations(runs) {
   for (const run of nativeFirst(runs)) {
     const card = node("article", undefined, "card");
     card.append(node("h3", `${run.runKey} / ${label(run.surface)}`, "run-title"));
-    card.append(paragraph(`${number(run.counts.attempted)} ${run.nativeInvocation ? "native invocations attempted" : "sent"}; ${number(run.counts.completed)} successful requested outcomes, ${number(run.counts.failed)} failed, ${number(run.counts.pending)} pending ${run.followUp ? "after the reviewed follow-up" : "at cutoff"}.`));
+    card.append(paragraph(`${number(run.counts.attempted)} ${nativeMeasurement(run) ? "native invocations attempted" : "sent"}; ${number(run.counts.completed)} successful requested outcomes, ${number(run.counts.failed)} failed, ${number(run.counts.pending)} pending ${run.followUp ? "after the reviewed follow-up" : "at cutoff"}.`));
     if (!run.errors.length) card.append(paragraph("No failed messages recorded in this reviewed window. This is not a claim that throttling cannot occur.", "fine"));
     for (const error of run.errors) card.append(paragraph(`${label(error.category)}: ${number(error.count)} / evidence: ${label(error.evidence)}`));
+    if (run.pacedMeasurement) {
+      const paced = run.pacedMeasurement;
+      card.append(paragraph(`${pacedPhase(paced)}; qualification ${label(paced.qualification)}. Arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}.${paced.stopReason ? ` Stop reason: ${label(paced.stopReason)}.` : ""} A full arrival window does not mean every slot was dispatched or every operation succeeded.`),
+        paragraph(`Absolute ${number(paced.pacing.intervalMs)} ms client slots; 5% minimum-gap allowance. Observed minimum gap: ${paced.pacing.observedMinIntervalMs === null ? "not measured" : `${number(paced.pacing.observedMinIntervalMs)} ms`}; violating intervals: ${paced.pacing.violatingIntervals === null ? "not measured" : number(paced.pacing.violatingIntervals)}. Skipped slots are not replayed.`),
+        paragraph(`Fresh conversation per request is the configured policy, not proof of conversation/session counts. Verified distinct returned conversations: ${run.units.conversations ?? "unknown"}; from failed outcomes: ${paced.failedConversations ?? "unknown"}. No identifiers are public.`, "fine"),
+        paragraph("Greeting-only requests; no workflow, approval or email workload. Native completion includes client/pipeline overhead. Unclassified invocation failures do not establish throttling or a harness-wide ceiling. No burst history or Monitor evidence is assumed to cover this cohort.", "fine"));
+    }
     if (run.nativeInvocation) {
       const invocation = run.nativeInvocation;
       const history = invocation.history;
@@ -264,7 +304,7 @@ function renderObservations(runs) {
       card.append(paragraph("The workflow reached a waiting review action. An agent-call timeout does not establish workflow cancellation or absence of a review. Notification delivery and a human decision remain unconfirmed.", "fine"));
     }
     for (const observation of run.observations) card.append(paragraph(label(observation), "fine"));
-    if (!run.observations.length && !run.nativeInvocation) card.append(paragraph("No additional structured observations recorded.", "fine"));
+    if (!run.observations.length && !nativeMeasurement(run)) card.append(paragraph("No additional structured observations recorded.", "fine"));
     stack.append(card);
   }
   byId("observations-content").replaceChildren(stack);

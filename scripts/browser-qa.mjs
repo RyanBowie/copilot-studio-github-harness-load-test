@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build, renderHtml } from "./build.mjs";
+import { syntheticPacedReport } from "../tests/fixtures/synthetic-paced-report.mjs";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
@@ -24,10 +25,11 @@ Object.assign(synthetic.runs[1], {
   cost: { status: "settled", currency: "USD", amount: 0.000001, source: "billing_export", scope: "shared_window", recordedOn: "2026-09-20" }
 });
 const syntheticHtml = (await renderHtml(synthetic, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC QA FIXTURE - NOT OBSERVED RESULTS</aside>');
+const pacedHtml = (await renderHtml(syntheticPacedReport("stopped"), schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC PACED FIXTURE - NOT OBSERVED RESULTS</aside>');
 const rejectedHtml = html.replace('"schemaVersion":1', '"schemaVersion":999');
 const server = createServer((request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
-  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/rejected" ? rejectedHtml : null;
+  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/paced" ? pacedHtml : path === "/rejected" ? rejectedHtml : null;
   if (content === null) { response.writeHead(404); response.end(); return; }
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(content);
@@ -178,6 +180,21 @@ try {
   assert.match(await page.locator("#response-content").textContent(), /feedback controls \+ 0\.5 s stable text/);
   await page.locator('.section-nav a[href="#observations"]').click();
   assert.match(await page.locator("#observations-content").textContent(), /Excluded client setup issue/);
+  await page.goto(`${origin}/paced#overview`);
+  await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "REVIEWED AGGREGATES");
+  assert.equal(await page.locator(".paced-summary").count(), 2);
+  assert.equal(await page.locator(".burst-summary").count(), 0);
+  assert.match(await page.locator("#overview-summary").textContent(), /585 unoffered client slots/);
+  assert.match(await page.locator("#overview-summary").textContent(), /9\.333 achieved client dispatches\/min/);
+  for (const id of ["overview", "response-time", "throughput", "observations", "costs"]) {
+    await page.locator(`.section-nav a[href="#${id}"]`).click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await page.addScriptTag({ path: axePath });
+    assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
+  }
+  assert.match(await page.locator("#native-response-content").textContent(), /Pending invocations.*excluded/);
+  assert.match(await page.locator("#throughput-content").textContent(), /not completions occurring within that minute/);
+  assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 2);
   await page.goto(`${origin}/rejected#overview`);
   await page.locator("#data-error").waitFor({ state: "visible" });
   assert.equal(await page.locator("#publication-status").textContent(), "DATA REJECTED");

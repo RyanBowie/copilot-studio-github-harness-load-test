@@ -146,6 +146,83 @@
         }
       }
     },
+    "pacedMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campaignKey", "phase", "path", "endpoint", "requestKind", "timingBasis",
+        "startedAt", "arrivalEndedAt", "observedThroughAt", "targetRpm", "plannedArrivalSeconds",
+        "arrivalSeconds", "plannedSlots", "skippedSlots", "unofferedSlots", "arrivalStatus",
+        "stopReason", "drainStatus", "drainSeconds", "qualification", "qualifyingRunKey",
+        "pacing", "peakOutstanding", "concurrencyBasis", "concurrencyVerification",
+        "conversationPolicy", "conversationEvidence", "failedConversations", "runnerRetries",
+        "managedServiceRetries", "percentileMethod", "success", "failure", "allOutcomes",
+        "minuteBasis", "minutes"
+      ],
+      "properties": {
+        "campaignKey": { "$ref": "#/$defs/key" },
+        "phase": { "enum": ["calibration", "hour"] },
+        "path": { "const": "workiq_ask_via_native_tool_rpc" },
+        "endpoint": { "const": "invocation_completion" },
+        "requestKind": { "const": "greeting_only" },
+        "timingBasis": { "const": "calibrated_native_rpc_completion" },
+        "startedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "arrivalEndedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "observedThroughAt": { "$ref": "#/$defs/millisecondInstant" },
+        "targetRpm": { "enum": [10, 25, 50, 100, 150] },
+        "plannedArrivalSeconds": { "enum": [120, 3600] },
+        "arrivalSeconds": { "$ref": "#/$defs/duration" },
+        "plannedSlots": { "type": "integer", "minimum": 1, "maximum": 9000 },
+        "skippedSlots": { "$ref": "#/$defs/count" },
+        "unofferedSlots": { "$ref": "#/$defs/count" },
+        "arrivalStatus": { "enum": ["full_window", "stopped", "partial"] },
+        "stopReason": { "enum": [null, "native_error", "explicit_throttle", "authentication", "account_guard", "client_pacing", "client_outstanding_bound", "safety", "request_budget", "manual_stop", "observation_cutoff"] },
+        "drainStatus": { "enum": ["complete", "bounded_cutoff"] },
+        "drainSeconds": { "type": "number", "minimum": 0, "maximum": 31536000 },
+        "qualification": { "enum": ["qualified", "not_qualified", "not_evaluated"] },
+        "qualifyingRunKey": { "anyOf": [{ "$ref": "#/$defs/key" }, { "type": "null" }] },
+        "pacing": {
+          "type": "object", "additionalProperties": false,
+          "required": ["schedule", "missedSlotPolicy", "intervalMs", "jitterAllowance", "observedMinIntervalMs", "violatingIntervals"],
+          "properties": {
+            "schedule": { "const": "absolute_slots" },
+            "missedSlotPolicy": { "const": "skip_without_replay" },
+            "intervalMs": { "$ref": "#/$defs/duration" },
+            "jitterAllowance": { "const": 0.05 },
+            "observedMinIntervalMs": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 31536000 }, { "type": "null" }] },
+            "violatingIntervals": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] }
+          }
+        },
+        "peakOutstanding": { "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 100 }, { "type": "null" }] },
+        "concurrencyBasis": { "const": "outstanding_client_invocations" },
+        "concurrencyVerification": { "enum": ["start_end_interval_sweep", null] },
+        "conversationPolicy": { "const": "fresh_per_request" },
+        "conversationEvidence": { "enum": ["returned_ids_checked_unique", null] },
+        "failedConversations": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+        "runnerRetries": { "const": 0 },
+        "managedServiceRetries": { "const": "unknown" },
+        "percentileMethod": { "const": "nearest_rank" },
+        "success": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "failure": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "allOutcomes": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "minuteBasis": { "const": "client_dispatch_cohort_outcomes_at_cutoff" },
+        "minutes": {
+          "type": "array", "minItems": 1, "maxItems": 60,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["offsetSeconds", "durationSeconds", "attempted", "completed", "failed", "pending"],
+            "properties": {
+              "offsetSeconds": { "type": "integer", "minimum": 0, "maximum": 3540 },
+              "durationSeconds": { "type": "number", "minimum": 0.001, "maximum": 60 },
+              "attempted": { "$ref": "#/$defs/count" },
+              "completed": { "$ref": "#/$defs/count" },
+              "failed": { "$ref": "#/$defs/count" },
+              "pending": { "$ref": "#/$defs/count" }
+            }
+          }
+        }
+      }
+    },
     "run": {
       "type": "object",
       "additionalProperties": false,
@@ -189,6 +266,7 @@
         },
         "windowSeconds": { "anyOf": [{ "$ref": "#/$defs/duration" }, { "type": "null" }] },
         "nativeInvocation": { "anyOf": [{ "$ref": "#/$defs/nativeInvocation" }, { "type": "null" }] },
+        "pacedMeasurement": { "$ref": "#/$defs/pacedMeasurement" },
         "firstVisibleActivity": {
           "anyOf": [
             { "type": "null" },
