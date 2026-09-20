@@ -245,7 +245,7 @@
         "percentileMethod": "nearest_rank",
         "success": { "sampleCount": 33, "minMs": 8866.5169, "p50Ms": 17299.0789, "p95Ms": 33442.3959, "maxMs": 34378.6106 },
         "failure": { "sampleCount": 67, "minMs": 8235.0156, "p50Ms": 24965.3921, "p95Ms": 37946.5726, "maxMs": 39024.4086 },
-        "allOutcomes": { "sampleCount": 100, "minMs": null, "p50Ms": 24526.3908, "p95Ms": 37266.7486, "maxMs": 39024.4086 },
+        "allOutcomes": { "sampleCount": 100, "minMs": 8235.0156, "p50Ms": 24526.3908, "p95Ms": 37266.7486, "maxMs": 39024.4086 },
         "errorEnvelope": "workiq_m365_server_error",
         "failureResultType": "native_failure",
         "throttleEvidence": "none_explicit",

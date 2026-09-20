@@ -95,7 +95,7 @@ try {
           assert.deepEqual(nativeRows, [
             ["Successful greeting replies", "33", "8.867 s", "17.299 s", "33.442 s", "34.379 s"],
             ["Failed invocations", "67", "8.235 s", "24.965 s", "37.947 s", "39.024 s"],
-            ["All invocation outcomes", "100", "Not reported", "24.526 s", "37.267 s", "39.024 s"]
+            ["All invocation outcomes", "100", "8.235 s", "24.526 s", "37.267 s", "39.024 s"]
           ]);
           assert.doesNotMatch(await page.locator("#response-content").textContent(), /m365-native-burst-100|17\.299/);
           assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 4);

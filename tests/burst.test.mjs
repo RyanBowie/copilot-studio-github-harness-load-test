@@ -41,7 +41,7 @@ test("burst native duration summaries preserve success, failure and all-outcome 
   assert.equal(invocation.percentileMethod, "nearest_rank");
   assert.deepEqual(invocation.success, { sampleCount: 33, minMs: 8866.5169, p50Ms: 17299.0789, p95Ms: 33442.3959, maxMs: 34378.6106 });
   assert.deepEqual(invocation.failure, { sampleCount: 67, minMs: 8235.0156, p50Ms: 24965.3921, p95Ms: 37946.5726, maxMs: 39024.4086 });
-  assert.deepEqual(invocation.allOutcomes, { sampleCount: 100, minMs: null, p50Ms: 24526.3908, p95Ms: 37266.7486, maxMs: 39024.4086 });
+  assert.deepEqual(invocation.allOutcomes, { sampleCount: 100, minMs: 8235.0156, p50Ms: 24526.3908, p95Ms: 37266.7486, maxMs: 39024.4086 });
   for (const field of ["firstVisibleActivity", "firstVisibleLatency", "latency", "arrival", "concurrency", "followUp", "workflowState"]) assert.equal(burst[field], null);
   assert.equal(burst.windowSeconds, 39.0336098);
   assert.equal(invocation.startedAt, "2026-09-20T16:54:21.563Z");

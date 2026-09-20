@@ -27,7 +27,7 @@ One actual 100-request burst was executed by the testing owner through **native 
 | --- | --- | --- | --- | --- | --- |
 | Successful greeting replies | 33 | 8866.5169 | 17299.0789 | 33442.3959 | 34378.6106 |
 | Failed invocations | 67 | 8235.0156 | 24965.3921 | 37946.5726 | 39024.4086 |
-| All invocation outcomes | 100 | Not separately reported | 24526.3908 | 37266.7486 | 39024.4086 |
+| All invocation outcomes | 100 | 8235.0156 | 24526.3908 | 37266.7486 | 39024.4086 |
 
 Percentiles are **nearest-rank**, one-based `ceil(p*n)` over sorted raw monotonic durations within each population. The all-outcomes p95 is not reply latency. No average of percentiles, pooling across surfaces, or backend concurrency claim is made. The HTML rounds native duration display to three decimal seconds; public JSON preserves reviewed raw precision.
 
