@@ -23,12 +23,27 @@ test("optional paced support preserves the four actual runs without new observat
 });
 
 test("synthetic calibration, full hour, stopped and partial cohorts validate independently", async () => {
-  for (const scenario of ["calibration", "full", "stopped", "partial"]) {
+  for (const scenario of ["calibration", "full", "stopped", "partial", "transport-stop"]) {
     const report = syntheticPacedReport(scenario);
     assert.deepEqual(validateReport(report, schema), [], scenario);
     const html = await renderHtml(report, schema);
     assert.match(html, /offline-paced-calibration/);
   }
+});
+
+test("WorkIQ HTTP 429 is a scoped transport throttle, not a harness quota attribution", () => {
+  const report = syntheticPacedReport("transport-stop");
+  assert.deepEqual(validateReport(report, schema), []);
+  const run = report.runs.at(-1);
+  assert.equal(run.counts.attempted, 14);
+  assert.equal(run.units.conversations, 13);
+  assert.equal(run.pacedMeasurement.failedConversations, 0);
+  reject((_, run) => { run.errors[0].evidence = "confirmed_throttle"; }, undefined, "transport-stop");
+  reject((_, run) => { run.errors[0].category = "agent"; }, /transport-throttling evidence/, "transport-stop");
+  reject((_, run) => { run.errors[0].harnessAttribution = "confirmed"; }, undefined, "transport-stop");
+  reject((_, run) => { run.errors[0].rawTransportStack = "private"; }, undefined, "transport-stop");
+  reject((_, run) => { run.units.conversations = run.counts.attempted; }, /no returned conversation identifier/, "transport-stop");
+  reject((paced) => { paced.failedConversations = 1; }, /no returned conversation identifier/, "transport-stop");
 });
 
 test("paced surface and endpoint cannot be relabelled as a burst, UI timing or backend overlap", () => {

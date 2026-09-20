@@ -47,15 +47,15 @@ export function syntheticPacedReport(scenario = "full") {
     success: syntheticTiming(600), allOutcomes: syntheticTiming(600),
     minutes: Array.from({ length: 60 }, (_, index) => ({ offsetSeconds: index * 60, durationSeconds: 60, attempted: 10, completed: 10, failed: 0, pending: 0 }))
   });
-  if (scenario === "stopped" || scenario === "partial") {
+  if (["stopped", "partial", "transport-stop"].includes(scenario)) {
     hour.windowSeconds = 91;
     hour.counts = { attempted: 14, completed: 12, failed: 1, pending: 1 };
     hour.units.conversations = 13;
     hour.errors = [{ category: "unknown", count: 1, evidence: "unclassified_invocation_failure" }];
     Object.assign(hour.pacedMeasurement, {
       arrivalEndedAt: "2026-01-10T00:04:31.000Z", observedThroughAt: "2026-01-10T00:04:32.000Z",
-      arrivalSeconds: 90, skippedSlots: 1, unofferedSlots: 585, arrivalStatus: scenario,
-      stopReason: scenario === "stopped" ? "native_error" : "observation_cutoff",
+      arrivalSeconds: 90, skippedSlots: 1, unofferedSlots: 585, arrivalStatus: scenario === "partial" ? "partial" : "stopped",
+      stopReason: scenario === "partial" ? "observation_cutoff" : "native_error",
       drainStatus: "bounded_cutoff", peakOutstanding: 2, failedConversations: 1,
       success: syntheticTiming(12), failure: syntheticTiming(1), allOutcomes: syntheticTiming(13),
       minutes: [
@@ -63,6 +63,18 @@ export function syntheticPacedReport(scenario = "full") {
         { offsetSeconds: 60, durationSeconds: 30, attempted: 4, completed: 3, failed: 0, pending: 1 }
       ]
     });
+    if (scenario === "transport-stop") {
+      hour.counts = { attempted: 14, completed: 13, failed: 1, pending: 0 };
+      hour.errors = [{ category: "throttling", count: 1, evidence: "workiq_mcp_transport_429" }];
+      Object.assign(hour.pacedMeasurement, {
+        stopReason: "explicit_throttle", drainStatus: "complete", failedConversations: 0,
+        success: syntheticTiming(13), allOutcomes: syntheticTiming(14),
+        minutes: [
+          { offsetSeconds: 0, durationSeconds: 60, attempted: 10, completed: 10, failed: 0, pending: 0 },
+          { offsetSeconds: 60, durationSeconds: 30, attempted: 4, completed: 3, failed: 1, pending: 0 }
+        ]
+      });
+    }
   } else if (scenario !== "full") throw new Error("Unsupported offline paced fixture scenario.");
   report.runs.push(hour);
   return report;

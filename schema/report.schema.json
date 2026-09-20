@@ -368,7 +368,10 @@
                 "enum": ["throttling", "authentication", "timeout", "transport", "connector", "workflow", "agent", "unknown"]
               },
               "count": { "$ref": "#/$defs/positiveCount" },
-              "evidence": { "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout"] }
+              "evidence": {
+                "description": "workiq_mcp_transport_429 means an observed WorkIQ MCP HTTP transport 429 with no returned conversation identifier or exposed Retry-After; attribution to the GitHub Copilot Harness is unknown.",
+                "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout", "workiq_mcp_transport_429"]
+              }
             }
           }
         },

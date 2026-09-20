@@ -175,6 +175,11 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     || (paced.failedConversations !== null && (paced.failedConversations > failed || run.units.conversations === null || paced.failedConversations > run.units.conversations))) {
     fail(path, "returned conversation evidence must match known counts; fresh-request policy is not an observed count.");
   }
+  const transport429 = run.errors.filter((error) => error.evidence === "workiq_mcp_transport_429").reduce((sum, error) => sum + error.count, 0);
+  if ((run.units.conversations !== null && run.units.conversations > attempted - transport429)
+    || (paced.failedConversations !== null && paced.failedConversations > failed - transport429)) {
+    fail(path, "WorkIQ MCP transport 429 evidence has no returned conversation identifier; do not infer one from the attempt.");
+  }
   if (paced.stopReason === "explicit_throttle" && !run.errors.some((error) => error.category === "throttling")) {
     fail(path, "an explicit throttle stop needs classified throttle evidence, not a generic invocation error.");
   }
@@ -321,6 +326,9 @@ export function validateReport(report, schema) {
       if ((error.category === "unknown") !== ["unclassified_failure", "unclassified_invocation_failure"].includes(error.evidence)) fail(`${path}.errors`, "unclassified evidence and unknown category must be paired.");
       if (error.evidence === "unclassified_invocation_failure" && run.nativeInvocation === null && !run.pacedMeasurement) fail(`${path}.errors`, "invocation evidence requires a native invocation measurement.");
       if (error.evidence === "agent_reported_timeout" && error.category !== "workflow") fail(`${path}.errors`, "an agent-reported workflow timeout is not a wire-status or throttling observation.");
+      if (error.evidence === "workiq_mcp_transport_429" && (error.category !== "throttling" || !run.pacedMeasurement)) {
+        fail(`${path}.errors`, "WorkIQ MCP HTTP 429 requires paced transport-throttling evidence; harness attribution remains unknown.");
+      }
     });
     if ((run.surface === "published_microsoft365_copilot") !== (run.nativeInvocation !== null || Boolean(run.pacedMeasurement))) {
       fail(`${path}.nativeInvocation`, "this native invocation contract is exclusive to the published Microsoft 365 Copilot surface.");

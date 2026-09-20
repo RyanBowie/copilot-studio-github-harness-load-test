@@ -12,6 +12,7 @@ const labels = {
   standard_harness: "Standard Harness only",
   teams_bot_api: "Teams bot transport API",
   teams_connector: "Teams connector only",
+  workiq_mcp_transport_429: "WorkIQ MCP HTTP transport 429; GitHub Copilot Harness attribution unknown",
   turn_serialization_observed: "Turn serialization observed in this run; not a platform capacity finding.",
   manual_timing: "Manual visible-response timing.",
   partial_observation: "The initial timing window was partial; later outcome evidence is shown separately when available.",
@@ -38,6 +39,8 @@ const scopedContext = (report, run) => report.studyContext?.runKeys.includes(run
 const seconds = (milliseconds) => `${(milliseconds / 1000).toFixed(3)} s`;
 const pacedPhase = (measurement) => measurement.phase === "hour" ? "Hourly arrival cohort" : "Rate calibration cohort";
 const achievedRpm = (run) => number(run.counts.attempted / run.pacedMeasurement.arrivalSeconds * 60);
+const pacedStopLabel = (run) => run.pacedMeasurement.stopReason === "explicit_throttle" && run.errors.some((error) => error.evidence === "workiq_mcp_transport_429")
+  ? label("workiq_mcp_transport_429") : label(run.pacedMeasurement.stopReason);
 
 function empty(target, title, detail) {
   const article = node("article", undefined, "empty");
@@ -109,7 +112,7 @@ function renderOverview(report) {
       node("h3", `${pacedPhase(paced)} / ${number(paced.targetRpm)} intended RPM`),
       paragraph(`${number(run.counts.completed / run.counts.attempted * 100)}% greeting reply success at observation cutoff`),
       outcomeCards([run], true, "This paced dispatch cohort only"),
-      paragraph(`${achievedRpm(run)} achieved client dispatches/min over ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s arrival window. Arrival status: ${label(paced.arrivalStatus)}; drain: ${label(paced.drainStatus)} (${number(paced.drainSeconds)} s). ${paced.stopReason ? `Stop reason: ${label(paced.stopReason)}.` : "No arrival stop recorded."}`),
+      paragraph(`${achievedRpm(run)} achieved client dispatches/min over ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s arrival window. Arrival status: ${label(paced.arrivalStatus)}; drain: ${label(paced.drainStatus)} (${number(paced.drainSeconds)} s). ${paced.stopReason ? `Stop reason: ${pacedStopLabel(run)}.` : "No arrival stop recorded."}`),
       paragraph(`${number(paced.skippedSlots)} skipped and ${number(paced.unofferedSlots)} unoffered client slots are outside the ${number(run.counts.attempted)} invocation attempts, not agent failures. Qualification: ${label(paced.qualification)}.${paced.qualifyingRunKey ? ` Rate selected from ${paced.qualifyingRunKey}.` : ""}`),
       paragraph(`Peak outstanding client invocations: ${paced.peakOutstanding === null ? "not measured" : number(paced.peakOutstanding)}; not backend/model concurrency. Costs: ${run.cost.status}.`, "fine"));
     overview.append(feature);
@@ -260,10 +263,13 @@ function renderObservations(runs) {
     card.append(node("h3", `${run.runKey} / ${label(run.surface)}`, "run-title"));
     card.append(paragraph(`${number(run.counts.attempted)} ${nativeMeasurement(run) ? "native invocations attempted" : "sent"}; ${number(run.counts.completed)} successful requested outcomes, ${number(run.counts.failed)} failed, ${number(run.counts.pending)} pending ${run.followUp ? "after the reviewed follow-up" : "at cutoff"}.`));
     if (!run.errors.length) card.append(paragraph("No failed messages recorded in this reviewed window. This is not a claim that throttling cannot occur.", "fine"));
-    for (const error of run.errors) card.append(paragraph(`${label(error.category)}: ${number(error.count)} / evidence: ${label(error.evidence)}`));
+    for (const error of run.errors) {
+      card.append(paragraph(`${error.evidence === "workiq_mcp_transport_429" ? "Transport throttling" : label(error.category)}: ${number(error.count)} / evidence: ${label(error.evidence)}`));
+      if (error.evidence === "workiq_mcp_transport_429") card.append(paragraph("This is a WorkIQ MCP HTTP transport response, not evidence of a GitHub Copilot Harness quota or capacity ceiling. No conversation identifier or Retry-After was exposed for this failure. Missing an identifier does not prove absence of backend activity. No raw transport stack is published.", "fine"));
+    }
     if (run.pacedMeasurement) {
       const paced = run.pacedMeasurement;
-      card.append(paragraph(`${pacedPhase(paced)}; qualification ${label(paced.qualification)}. Arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}.${paced.stopReason ? ` Stop reason: ${label(paced.stopReason)}.` : ""} A full arrival window does not mean every slot was dispatched or every operation succeeded.`),
+      card.append(paragraph(`${pacedPhase(paced)}; qualification ${label(paced.qualification)}. Arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}.${paced.stopReason ? ` Stop reason: ${pacedStopLabel(run)}.` : ""} A full arrival window does not mean every slot was dispatched or every operation succeeded.`),
         paragraph(`Absolute ${number(paced.pacing.intervalMs)} ms client slots; 5% minimum-gap allowance. Observed minimum gap: ${paced.pacing.observedMinIntervalMs === null ? "not measured" : `${number(paced.pacing.observedMinIntervalMs)} ms`}; violating intervals: ${paced.pacing.violatingIntervals === null ? "not measured" : number(paced.pacing.violatingIntervals)}. Skipped slots are not replayed.`),
         paragraph(`Fresh conversation per request is the configured policy, not proof of conversation/session counts. Verified distinct returned conversations: ${run.units.conversations ?? "unknown"}; from failed outcomes: ${paced.failedConversations ?? "unknown"}. No identifiers are public.`, "fine"),
         paragraph("Greeting-only requests; no workflow, approval or email workload. Native completion includes client/pipeline overhead. Unclassified invocation failures do not establish throttling or a harness-wide ceiling. No burst history or Monitor evidence is assumed to cover this cohort.", "fine"));

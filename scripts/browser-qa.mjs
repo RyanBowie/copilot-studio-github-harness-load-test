@@ -25,7 +25,7 @@ Object.assign(synthetic.runs[1], {
   cost: { status: "settled", currency: "USD", amount: 0.000001, source: "billing_export", scope: "shared_window", recordedOn: "2026-09-20" }
 });
 const syntheticHtml = (await renderHtml(synthetic, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC QA FIXTURE - NOT OBSERVED RESULTS</aside>');
-const pacedHtml = (await renderHtml(syntheticPacedReport("stopped"), schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC PACED FIXTURE - NOT OBSERVED RESULTS</aside>');
+const pacedHtml = (await renderHtml(syntheticPacedReport("transport-stop"), schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC PACED FIXTURE - NOT OBSERVED RESULTS</aside>');
 const rejectedHtml = html.replace('"schemaVersion":1', '"schemaVersion":999');
 const server = createServer((request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
@@ -186,6 +186,7 @@ try {
   assert.equal(await page.locator(".burst-summary").count(), 0);
   assert.match(await page.locator("#overview-summary").textContent(), /585 unoffered client slots/);
   assert.match(await page.locator("#overview-summary").textContent(), /9\.333 achieved client dispatches\/min/);
+  assert.match(await page.locator("#overview-summary").textContent(), /WorkIQ MCP HTTP transport 429; GitHub Copilot Harness attribution unknown/);
   for (const id of ["overview", "response-time", "throughput", "observations", "costs"]) {
     await page.locator(`.section-nav a[href="#${id}"]`).click();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
@@ -194,6 +195,8 @@ try {
   }
   assert.match(await page.locator("#native-response-content").textContent(), /Pending invocations.*excluded/);
   assert.match(await page.locator("#throughput-content").textContent(), /not completions occurring within that minute/);
+  assert.match(await page.locator("#observations-content").textContent(), /Transport throttling: 1/);
+  assert.match(await page.locator("#observations-content").textContent(), /No conversation identifier or Retry-After was exposed/);
   assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 2);
   await page.goto(`${origin}/rejected#overview`);
   await page.locator("#data-error").waitFor({ state: "visible" });
