@@ -18,10 +18,20 @@
       "counts": { "attempted": 8, "completed": 5, "failed": 2, "pending": 1 },
       "units": { "conversations": 1, "sessions": null },
       "windowSeconds": 120,
+      "firstVisibleActivity": {
+        "kind": "visible_activity",
+        "start": "message_send",
+        "end": "first_status_or_answer",
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 8,
+        "p50Ms": 200,
+        "p95Ms": 400,
+        "maxMs": 400
+      },
       "firstVisibleLatency": {
         "kind": "visible_response",
         "start": "message_send",
-        "end": "first_visible_response",
+        "end": "first_visible_answer",
         "percentileMethod": "nearest_rank",
         "sampleCount": 5,
         "p50Ms": 500,

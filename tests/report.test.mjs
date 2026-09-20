@@ -96,13 +96,41 @@ test("visible latency requires coherent observed samples", () => {
   assert.deepEqual(validateReport(data, schema), []);
 });
 
-test("first-visible and UI-settled timing rules cannot be conflated", () => {
+test("first-answer and UI-settled timing rules cannot be conflated", () => {
   reject((_, run) => { run.latency.end = "backend_complete"; });
   reject((_, run) => { run.firstVisibleLatency.end = "feedback_controls_and_text_stable"; });
   reject((_, run) => { run.latency.stabilitySeconds = 2; }, /stability interval/);
   reject((_, run) => { run.latency.stabilitySeconds = 0; });
   reject((_, run) => { run.firstVisibleLatency.p95Ms = 1100; }, /nearest-rank p95/);
-  reject((_, run) => { run.firstVisibleLatency.p50Ms = 1100; }, /cannot precede first visibility/);
+  reject((_, run) => { run.firstVisibleLatency.p50Ms = 1100; }, /cannot precede first answer/);
+  reject((_, run) => { run.firstVisibleLatency.end = "first_status_or_answer"; });
+  reject((_, run) => { run.firstVisibleLatency.end = "first_visible_response"; });
+});
+
+test("first activity is not an answer and may precede a still-pending turn", () => {
+  const data = sample();
+  const run = data.runs[0];
+  run.counts = { attempted: 8, completed: 0, failed: 0, pending: 8 };
+  run.errors = [];
+  run.firstVisibleLatency = null;
+  run.latency = null;
+  assert.deepEqual(validateReport(data, schema), [], "activity alone must not force a success or failure");
+  run.firstVisibleActivity.sampleCount = 9;
+  assert.match(validateReport(data, schema).join("\n"), /samples cannot exceed sent/);
+  reject((_, item) => { item.firstVisibleActivity.kind = "visible_response"; });
+  reject((_, item) => { item.firstVisibleActivity.end = "first_visible_answer"; });
+});
+
+test("first activity cannot follow an actual answer when full sample sets match", () => {
+  reject((_, run) => {
+    run.counts = { attempted: 5, completed: 5, failed: 0, pending: 0 };
+    run.errors = [];
+    run.arrival = null;
+    run.firstVisibleActivity.sampleCount = 5;
+    run.firstVisibleActivity.p50Ms = 1300;
+    run.firstVisibleActivity.p95Ms = 1300;
+    run.firstVisibleActivity.maxMs = 1300;
+  }, /first activity cannot follow first answer/);
 });
 
 test("unsent drafts stay outside agent outcomes and configuration observations are not tool success", () => {

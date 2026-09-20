@@ -271,11 +271,11 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       </section>
       <section id="response-time" aria-labelledby="response-heading" hidden>
         <h2 id="response-heading">Response time</h2>
-        <p class="section-intro">Elapsed time from message send to first visible response and, separately, UI settlement. Settled means feedback controls are present and text remains unchanged for the recorded stability interval. Neither endpoint is backend completion, time to first answer (TTFA) or first token.</p>
+        <p class="section-intro">Three distinct endpoints: first visible activity, first actual answer and UI settlement. Loading or tool-invocation statuses count only as activity, never an answer. Settled means feedback controls are present and text remains unchanged for the recorded stability interval. None of these is backend completion, backend time to first answer (TTFA) or first token.</p>
         <div id="response-content"></div>
         <div class="note">
           <h3>Read the sample, not just the percentile</h3>
-          <p>Latency samples cover successful, completed messages only. Failed, pending and untimed messages are excluded and remain visible in the run counts. Percentiles are never pooled across runs; small samples do not establish stable tail behavior.</p>
+          <p>First-answer and settled-latency samples cover successful, completed messages only. Activity samples can also describe failed or still-pending sent messages; activity does not imply success. Each row states its eligible message count. Percentiles are never pooled across endpoints or runs; small samples do not establish stable tail behavior.</p>
         </div>
       </section>
       <section id="throughput" aria-labelledby="throughput-heading" hidden>
@@ -310,7 +310,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           </article>
           <article class="note">
             <h3>03 / Measure only what is observable</h3>
-            <p>The observation window starts at the first send and ends at the cutoff, including all measured completions. First-visible and UI-settled latencies use separate elapsed-millisecond samples and nearest-rank p50/p95 over timed completions. UI settlement requires feedback controls plus the stated stable-text interval; it is an observation rule, not backend telemetry. Completion pace is completed messages divided by the full observation window; arrival rate uses its separately observed arrival window. Neither is a steady-state capacity estimate.</p>
+            <p>The observation window starts at the first send and ends at the cutoff, including all measured completions. First activity can be a status or an answer; first-answer timing excludes status text. Answer and UI-settled latencies use separate elapsed-millisecond samples and nearest-rank p50/p95 over timed completions. Activity timing may include pending turns without counting them as answered. UI settlement requires feedback controls plus the stated stable-text interval; it is an observation rule, not backend telemetry. Completion pace is completed messages divided by the full observation window; arrival rate uses its separately observed arrival window. Neither is a steady-state capacity estimate.</p>
             <p>In-flight concurrency requires observed overlap between message send and terminal outcome. It does not establish simultaneous model execution. Report manual timing and partial windows explicitly.</p>
           </article>
           <article class="note boundary">

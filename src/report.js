@@ -99,16 +99,19 @@ function renderOverview(report) {
 
 function renderResponses(runs) {
   if (!runs.length) {
-    empty("response-content", "Visible latency is not measured.", "First-visible and UI-settled summaries appear only after reviewed response samples are available. No empty chart implies a latency distribution.");
+    empty("response-content", "Visible latency is not measured.", "First activity, first actual answer and UI-settled timings remain separate until reviewed samples are available. A loading or tool-invocation status is not an answer.");
     return;
   }
-  table("response-content", "Visible-response endpoints by run (milliseconds)", ["Run / surface / endpoint", "Timed / completed", "p50", "p95", "Maximum"],
-    runs.flatMap((run) => ["firstVisibleLatency", "latency"].map((field) => {
+  table("response-content", "Visible endpoints by run (milliseconds)", ["Run / surface / endpoint", "Timed / eligible messages", "p50", "p95", "Maximum"],
+    runs.flatMap((run) => ["firstVisibleActivity", "firstVisibleLatency", "latency"].map((field) => {
       const timing = run[field];
-      const endpoint = field === "firstVisibleLatency" ? "First visible" : `UI settled${timing ? `; feedback controls + ${number(timing.stabilitySeconds)} s stable text` : ""}`;
+      const activity = field === "firstVisibleActivity";
+      const endpoint = activity ? "First activity (status or answer; not answer latency)"
+        : field === "firstVisibleLatency" ? "First actual answer (status excluded)"
+          : `UI settled${timing ? `; feedback controls + ${number(timing.stabilitySeconds)} s stable text` : ""}`;
       return [
         `${run.runKey} / ${label(run.surface)} / ${endpoint}`,
-        `${timing ? number(timing.sampleCount) : "Not measured"} / ${number(run.counts.completed)}`,
+        `${timing ? number(timing.sampleCount) : "Not measured"} / ${number(activity ? run.counts.attempted : run.counts.completed)} ${activity ? "sent" : "completed"}`,
         ...["p50Ms", "p95Ms", "maxMs"].map((key) => timing ? `${number(timing[key])} ms` : "Not measured")
       ];
     })));

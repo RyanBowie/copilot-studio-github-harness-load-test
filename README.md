@@ -59,7 +59,7 @@ Every field in the table is required; only explicitly nullable fields accept `nu
 | `counts` | Nonnegative integer `completed`, `failed`, `pending`; positive integer `attempted` must equal their sum |
 | `units` | `conversations` and `sessions`, each observed positive integers or `null`; each cannot exceed attempts |
 | `windowSeconds` | Positive observed full-window duration, or `null`; first send through cutoff, including measured completions |
-| `firstVisibleLatency`, `latency` | Each `null` or an independent first-visible / UI-settled timing summary described below |
+| `firstVisibleActivity`, `firstVisibleLatency`, `latency` | Each `null` or an independent activity / first actual answer / UI-settled timing summary described below |
 | `concurrency` | `null` or `{ "maxInFlight": positive integer, "basis": "observed_message_overlap" }`; never a configured worker count |
 | `arrival` | `null` or observed positive `attempts` and `windowSeconds`; no inferred arrival schedule |
 | `errors` | Array of structured failure categories; counts exactly cover failed messages |
@@ -75,7 +75,7 @@ A **run** is one bounded observation window. Each record owns non-overlapping at
 
 ### Latency, rates and errors
 
-`firstVisibleLatency` and `latency` both require:
+`firstVisibleLatency` (first **actual answer**, not status activity) and `latency` both require:
 
 ```text
 kind: visible_response
@@ -85,11 +85,13 @@ sampleCount: observed positive count, no greater than completed
 p50Ms, p95Ms, maxMs: positive milliseconds; p50 <= p95 <= max
 ```
 
-`firstVisibleLatency.end` is `first_visible_response`. `latency.end` is `feedback_controls_and_text_stable` and additionally requires positive `stabilitySeconds`. This operational UI-settled rule requires feedback controls to be present and response text unchanged for that recorded interval; the interval is included in elapsed latency. Do not substitute backend completion for this rule.
+`firstVisibleLatency.end` is `first_visible_answer`. Loading, search, skill and tool-invocation status messages are explicitly excluded. `latency.end` is `feedback_controls_and_text_stable` and additionally requires positive `stabilitySeconds`. This operational UI-settled rule requires feedback controls to be present and response text unchanged for that recorded interval; the interval is included in elapsed latency. Do not substitute backend completion for this rule.
 
-Compute nearest-rank percentiles by sorting the private elapsed-time samples ascending and taking the one-based rank `ceil(p * n)` for p50 and p95. A one-sample summary must have equal p50, p95 and max; for fewer than 20 samples p95 must equal max. Maximum latency cannot exceed the full known observation window. When both endpoints cover every completion, settled percentiles cannot precede first-visible percentiles plus the stability interval. Summaries with smaller sample sets are not assumed to be paired. Failed, pending and untimed completions are excluded; show their counts elsewhere. Keep source samples outside git.
+`firstVisibleActivity` is separate: `kind: "visible_activity"`, `start: "message_send"`, `end: "first_status_or_answer"`, `percentileMethod: "nearest_rank"` and the same `sampleCount`, `p50Ms`, `p95Ms`, `maxMs` fields. Its eligible sample count is **sent attempts**, including failed or still-pending turns, not just completed messages. A status-only turn stays pending, not answered, unless a terminal failure is actually observed. Do not substitute a later workflow invocation for the first activity when earlier activity occurred.
 
-These are **two distinct visible response endpoints**, including channel/rendering delay, **not backend TTFA, first-token time or backend completion**. The report never combines endpoints or per-run percentiles.
+Compute nearest-rank percentiles by sorting the private elapsed-time samples ascending and taking the one-based rank `ceil(p * n)` for p50 and p95. A one-sample summary must have equal p50, p95 and max; for fewer than 20 samples p95 must equal max. Maximum latency cannot exceed the full known observation window. When answer and settled endpoints cover every completion, settled percentiles cannot precede first-answer percentiles plus the stability interval. First-activity versus first-answer ordering is checked only when both cover the entire same fully completed run. Smaller or differently eligible sample sets are not assumed to be paired. Failed, pending and untimed completions are excluded from answer/settled latency, but can contribute to activity timing. Keep source samples outside git.
+
+These are **three distinct visible endpoints**, including channel/rendering delay, **not backend TTFA, first-token time or backend completion**. The report never combines endpoints or per-run percentiles.
 
 Observed completion pace is `completed / windowSeconds * 60`; arrival rate is `arrival.attempts / arrival.windowSeconds * 60`. The arrival window may differ from the full window but cannot exceed it when both are known; arrivals and maximum in-flight messages cannot exceed attempted messages. These are descriptive window rates, not steady-state platform capacity.
 

@@ -41,7 +41,7 @@
       "required": [
         "runKey", "observedOn", "surface", "agentVersion", "environmentType", "model",
         "authenticatedAccounts", "memory", "workload", "workflow", "connectors", "counts",
-        "units", "windowSeconds", "firstVisibleLatency", "latency", "concurrency", "arrival", "errors", "clientIssues",
+        "units", "windowSeconds", "firstVisibleActivity", "firstVisibleLatency", "latency", "concurrency", "arrival", "errors", "clientIssues",
         "observations", "cost"
       ],
       "properties": {
@@ -77,6 +77,26 @@
           }
         },
         "windowSeconds": { "anyOf": [{ "$ref": "#/$defs/duration" }, { "type": "null" }] },
+        "firstVisibleActivity": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "start", "end", "percentileMethod", "sampleCount", "p50Ms", "p95Ms", "maxMs"],
+              "properties": {
+                "kind": { "const": "visible_activity" },
+                "start": { "const": "message_send" },
+                "end": { "const": "first_status_or_answer" },
+                "percentileMethod": { "const": "nearest_rank" },
+                "sampleCount": { "$ref": "#/$defs/positiveCount" },
+                "p50Ms": { "$ref": "#/$defs/duration" },
+                "p95Ms": { "$ref": "#/$defs/duration" },
+                "maxMs": { "$ref": "#/$defs/duration" }
+              }
+            }
+          ]
+        },
         "firstVisibleLatency": {
           "anyOf": [
             { "type": "null" },
@@ -87,7 +107,7 @@
               "properties": {
                 "kind": { "const": "visible_response" },
                 "start": { "const": "message_send" },
-                "end": { "const": "first_visible_response" },
+                "end": { "const": "first_visible_answer" },
                 "percentileMethod": { "const": "nearest_rank" },
                 "sampleCount": { "$ref": "#/$defs/positiveCount" },
                 "p50Ms": { "$ref": "#/$defs/duration" },

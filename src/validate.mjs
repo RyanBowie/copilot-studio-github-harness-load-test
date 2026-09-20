@@ -125,10 +125,11 @@ export function validateReport(report, schema) {
     for (const [unit, count] of Object.entries(run.units)) {
       if (count !== null && count > attempted) fail(`${path}.units.${unit}`, "cannot exceed attempted messages.");
     }
-    for (const field of ["firstVisibleLatency", "latency"]) {
+    for (const field of ["firstVisibleActivity", "firstVisibleLatency", "latency"]) {
       if (run[field] === null) continue;
       const { sampleCount, p50Ms, p95Ms, maxMs } = run[field];
-      if (sampleCount > completed) fail(`${path}.${field}`, "samples cannot exceed completed messages.");
+      const eligibleCount = field === "firstVisibleActivity" ? attempted : completed;
+      if (sampleCount > eligibleCount) fail(`${path}.${field}`, `samples cannot exceed ${field === "firstVisibleActivity" ? "sent" : "completed"} messages.`);
       if (p50Ms > p95Ms || p95Ms > maxMs) fail(`${path}.${field}`, "must satisfy p50 <= p95 <= max.");
       if (sampleCount === 1 && (p50Ms !== p95Ms || p95Ms !== maxMs)) fail(`${path}.${field}`, "one sample requires equal p50, p95 and max.");
       if (Math.ceil(sampleCount * 0.95) === sampleCount && p95Ms !== maxMs) fail(`${path}.${field}`, "nearest-rank p95 must equal max for fewer than 20 samples.");
@@ -141,7 +142,14 @@ export function validateReport(report, schema) {
     if (run.firstVisibleLatency?.sampleCount === completed && run.latency?.sampleCount === completed) {
       for (const key of ["p50Ms", "p95Ms", "maxMs"]) {
         if (run.firstVisibleLatency[key] + run.latency.stabilitySeconds * 1000 > run.latency[key]) {
-          fail(`${path}.latency`, "settled endpoint cannot precede first visibility plus the stability interval.");
+          fail(`${path}.latency`, "settled endpoint cannot precede first answer plus the stability interval.");
+        }
+      }
+      if (completed === attempted && run.firstVisibleActivity?.sampleCount === attempted && run.firstVisibleLatency?.sampleCount === completed) {
+        for (const key of ["p50Ms", "p95Ms", "maxMs"]) {
+          if (run.firstVisibleActivity[key] > run.firstVisibleLatency[key]) {
+            fail(`${path}.firstVisibleActivity`, "first activity cannot follow first answer for the same full sample set.");
+          }
         }
       }
     }

@@ -20,7 +20,7 @@ const emptyHtml = await renderHtml({
 const synthetic = JSON.parse(await readFile(new URL("../tests/fixtures/synthetic-report.json", import.meta.url), "utf8"));
 synthetic.runs.push(structuredClone(synthetic.runs[0]));
 Object.assign(synthetic.runs[1], {
-  runKey: "offline-preview-fixture", surface: "studio_preview", firstVisibleLatency: null, latency: null, arrival: null, concurrency: null, windowSeconds: null,
+  runKey: "offline-preview-fixture", surface: "studio_preview", firstVisibleActivity: null, firstVisibleLatency: null, latency: null, arrival: null, concurrency: null, windowSeconds: null,
   cost: { status: "settled", currency: "USD", amount: 0.000001, source: "billing_export", scope: "shared_window", recordedOn: "2026-09-20" }
 });
 const syntheticHtml = (await renderHtml(synthetic, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC QA FIXTURE - NOT OBSERVED RESULTS</aside>');
@@ -131,7 +131,10 @@ try {
   assert.match(await page.locator("#costs-content").textContent(), /PENDING/);
   assert.match(await page.locator("#costs-content").textContent(), /shared window/);
   await page.locator('.section-nav a[href="#response-time"]').click();
-  assert.match(await page.locator("#response-content").textContent(), /First visible/);
+  assert.match(await page.locator("#response-content").textContent(), /First activity \(status or answer; not answer latency\)/);
+  assert.match(await page.locator("#response-content").textContent(), /First actual answer \(status excluded\)/);
+  assert.match(await page.locator("#response-content").textContent(), /8 \/ 8 sent/);
+  assert.match(await page.locator("#response-content").textContent(), /5 \/ 5 completed/);
   assert.match(await page.locator("#response-content").textContent(), /feedback controls \+ 0\.5 s stable text/);
   await page.locator('.section-nav a[href="#observations"]').click();
   assert.match(await page.locator("#observations-content").textContent(), /Excluded client setup issue/);
