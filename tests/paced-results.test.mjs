@@ -5,7 +5,7 @@ import { validateReport } from "../src/validate.mjs";
 
 const report = JSON.parse(await readFile(new URL("../data/report.json", import.meta.url), "utf8"));
 const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
-const cohorts = report.runs.filter((run) => run.pacedMeasurement);
+const cohorts = report.runs.filter((run) => run.pacedMeasurement?.campaignKey === "m365-paced-campaign");
 const reject = (edit, expected) => {
   const data = structuredClone(report);
   edit(data.pacedCampaigns[0], data);
@@ -14,9 +14,9 @@ const reject = (edit, expected) => {
   if (expected) assert.match(errors.join("\n"), expected);
 };
 
-test("eight reviewed runs preserve a separate four-cohort 384-request stopped campaign", () => {
+test("the original four-cohort 384-request campaign stays separate from other reviewed runs", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 8);
+  assert.equal(report.runs.filter((run) => !run.pacedMeasurement).length, 4);
   assert.deepEqual(cohorts.map((run) => run.runKey), ["paced-calibration-10", "paced-calibration-25", "paced-calibration-50", "paced-hour-25-stopped"]);
   assert.deepEqual(cohorts.map((run) => run.counts), [
     { attempted: 20, completed: 20, failed: 0, pending: 0 },

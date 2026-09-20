@@ -186,6 +186,11 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
   if (paced.stopReason === "authentication" && !run.errors.some((error) => error.category === "authentication")) {
     fail(path, "an authentication stop needs classified authentication evidence.");
   }
+  if (paced.stopReason === "generic_error_threshold" && (paced.arrivalStatus !== "stopped"
+    || !run.errors.some((error) => error.evidence === "unclassified_invocation_failure")
+    || run.errors.some((error) => ["authentication", "throttling"].includes(error.category)))) {
+    fail(path, "a generic-error safety stop requires unclassified invocation failures, not an authentication or throttle claim.");
+  }
   const canQualify = paced.arrivalStatus === "full_window" && paced.drainStatus === "complete"
     && attempted === paced.plannedSlots && completed * 100 >= attempted * 99
     && pacing.observedMinIntervalMs !== null && pacing.violatingIntervals === 0
@@ -232,7 +237,7 @@ function checkPacedCampaigns(runs, fail) {
     for (const run of ordered.slice(0, -1)) {
       const paced = run.pacedMeasurement;
       if (paced.phase === "hour" || paced.arrivalStatus === "partial" || paced.drainStatus !== "complete"
-        || ["explicit_throttle", "authentication", "account_guard", "client_pacing", "client_outstanding_bound", "safety", "request_budget", "manual_stop"].includes(paced.stopReason)
+        || ["generic_error_threshold", "explicit_throttle", "authentication", "account_guard", "client_pacing", "client_outstanding_bound", "safety", "request_budget", "manual_stop"].includes(paced.stopReason)
         || paced.pacing.violatingIntervals > 0 || run.errors.some((error) => ["authentication", "throttling"].includes(error.category))) {
         fail("report.runs", "no further cohort may follow a terminal campaign guard, pacing violation, unresolved cutoff or hourly cohort.");
       }
@@ -442,8 +447,11 @@ export function validateReport(report, schema) {
     const measuredRates = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration").map((run) => run.pacedMeasurement.targetRpm);
     if (campaign.notAttemptedCalibrationRpm.some((rate) => measuredRates.includes(rate))) fail(path, "unattempted calibration rates cannot have observed cohorts.");
     const last = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
-    if (!last || last.pacedMeasurement.arrivalStatus !== "stopped" || last.pacedMeasurement.stopReason !== "explicit_throttle"
-      || !last.errors.some((error) => error.evidence === "workiq_mcp_transport_429")) fail(path, "campaign transport-stop context requires the corresponding terminal cohort evidence.");
+    const transportStop = campaign.status === "stopped_on_workiq_mcp_transport_429";
+    const stopReason = transportStop ? "explicit_throttle" : "generic_error_threshold";
+    const evidence = transportStop ? "workiq_mcp_transport_429" : "unclassified_invocation_failure";
+    if (!last || last.pacedMeasurement.arrivalStatus !== "stopped" || last.pacedMeasurement.stopReason !== stopReason
+      || !last.errors.some((error) => error.evidence === evidence)) fail(path, "campaign stop context requires the corresponding terminal cohort evidence.");
     const monitor = campaign.postCampaignMonitor;
     const checked = new Date(monitor.checkedAt);
     if (Number.isNaN(checked.valueOf()) || checked.toISOString().replace(".000Z", "Z") !== monitor.checkedAt

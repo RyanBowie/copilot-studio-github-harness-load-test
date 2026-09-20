@@ -11,6 +11,7 @@ import { build, renderHtml } from "./build.mjs";
 import { syntheticPacedReport } from "../tests/fixtures/synthetic-paced-report.mjs";
 
 const require = createRequire(import.meta.url);
+const focused = process.argv.includes("--focused");
 const axePath = require.resolve("axe-core/axe.min.js");
 const { html, report } = await build();
 const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
@@ -50,8 +51,9 @@ try {
   assert.equal((await fetch(origin)).status, 200, "owned local server must be responsive");
   browser = await chromium.launch(process.env.QA_BROWSER_CHANNEL ? { channel: process.env.QA_BROWSER_CHANNEL } : {});
   let snapshots = 0;
-  for (const width of [320, 390, 1440]) {
+  for (const width of (focused ? [390, 1440] : [320, 390, 1440])) {
     for (const theme of ["light", "dark"]) {
+      if (focused && theme !== (width === 390 ? "dark" : "light")) continue;
       const context = await browser.newContext({ viewport: { width, height: 1000 }, colorScheme: theme === "light" ? "dark" : "light" });
       await context.route("**/*", (route) => {
         if (route.request().url().startsWith(origin)) return route.continue();
@@ -61,13 +63,13 @@ try {
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
-      for (const view of ["empty", "report"]) {
+      for (const view of (focused ? ["report"] : ["empty", "report"])) {
         await page.goto(`${origin}/${view === "empty" ? "empty" : ""}?scoutTheme=${theme}&keep=qa#overview`);
         const expectedStatus = view === "empty" ? "NOT MEASURED" : "REVIEWED AGGREGATES";
         await page.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
         assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
         const metrics = await page.locator(".metric-value").allTextContents();
-        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
+        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "21", "12", "9", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
         const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
         assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
         for (const id of ["overview", "response-time", "throughput", "observations", "methodology", "costs"]) {
@@ -81,17 +83,35 @@ try {
           assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
         }
         if (view === "report") {
-          assert.equal(await page.locator(".paced-summary").count(), 4);
-          const campaign = await page.locator(".campaign-summary").textContent();
+          assert.equal(await page.locator(".paced-summary").count(), 5);
+          assert.equal(await page.locator("#run-ledger .card").count(), 9);
+          const campaign = await page.locator('.campaign-summary[data-campaign-key="m365-paced-campaign"]').textContent();
           assert.match(campaign, /No full hourly result/);
           assert.match(campaign, /384 attempts \/ 381 greeting replies \/ 3 failures \/ 0 pending/);
-          assert.match(campaign, /100 \/ 150 RPM calibration stages were not attempted/);
+          assert.match(campaign, /100 \/ 150 RPM calibration stages were not attempted in this campaign \(m365-paced-campaign\)/);
           assert.match(campaign, /383 distinct returned conversations/);
           assert.match(campaign, /1286|1,286/);
           assert.match(campaign, /213 eventual replies are counted through the following 6\.062 s drain/);
           assert.match(await page.locator("#methodology").textContent(), /150 metadata records.*partial corroboration/);
           assert.match(await page.locator("#methodology").textContent(), /150 of that cohort's 213 successes/);
           assert.match(await page.locator("#methodology").textContent(), /211 completed before the observed arrival-end boundary and two during drain/);
+          assert.match(await page.locator("#methodology").textContent(), /100\/150 RPM was not attempted within that original campaign/);
+          assert.match(await page.locator("#methodology").textContent(), /third consecutive generic failure stopped dispatch at nine settled outcomes/);
+          assert.match(await page.locator("#methodology").textContent(), /all twelve successful conversations.*150-row snapshot.*partial coverage is not proof/);
+          const standalone = await page.locator('.campaign-summary[data-campaign-key="m365-standalone-100"]').textContent();
+          assert.match(standalone, /Standalone 100 RPM \/ safety stop/);
+          assert.match(standalone, /21 attempts \/ 12 greeting replies \/ 9 failures \/ 0 pending/);
+          assert.match(standalone, /generic invocation-error safety threshold, not HTTP 429/);
+          assert.match(standalone, /57\.143% eventual greeting success through drain/);
+          assert.match(standalone, /179 were not offered and 0 were skipped/);
+          assert.match(standalone, /Not even one full minute completed/);
+          assert.match(standalone, /21 distinct returned conversations/);
+          assert.match(standalone, /Peak client outstanding: 18, not backend\/model concurrency/);
+          assert.doesNotMatch(standalone, /Stopped on WorkIQ MCP HTTP transport 429|attempt returned no identifier|381 greeting|predeclared 99%/);
+          const standaloneCohort = await page.locator('.paced-summary[data-run-key="paced-standalone-100-stopped"]').textContent();
+          assert.match(standaloneCohort, /Campaign: m365-standalone-100/);
+          assert.match(standaloneCohort, /12\.613 s of a planned 120 s/);
+          assert.match(standaloneCohort, /Generic invocation-error safety threshold; not confirmed throttling/);
           const hour = page.locator('.paced-summary[data-run-key="paced-hour-25-stopped"]');
           assert.match(await hour.textContent(), /WorkIQ MCP HTTP transport 429; GitHub Copilot Harness attribution unknown/);
           assert.match(await hour.textContent(), /512\.233 s of a planned 3,600 s/);
@@ -115,7 +135,12 @@ try {
           assert.match(await page.locator("#throughput-content").textContent(), /100 client invocations; backend\/model execution overlap unmeasured/);
           assert.match(await page.locator("#response-content").textContent(), /26,234 ms/);
           const nativeRows = await page.locator("#native-response-content tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
-          assert.equal(nativeRows.length, 15);
+          assert.equal(nativeRows.length, 18);
+          assert.deepEqual(nativeRows.slice(12, 15), [
+            ["Successful greeting replies", "12", "7.863 s", "9.188 s", "11.334 s", "11.334 s"],
+            ["Failed invocations", "9", "3.247 s", "4.054 s", "4.566 s", "4.566 s"],
+            ["All invocation outcomes", "21", "3.247 s", "8.285 s", "10.841 s", "11.334 s"]
+          ]);
           assert.deepEqual(nativeRows.slice(-3), [
             ["Successful greeting replies", "33", "8.867 s", "17.299 s", "33.442 s", "34.379 s"],
             ["Failed invocations", "67", "8.235 s", "24.965 s", "37.947 s", "39.024 s"],
@@ -126,11 +151,12 @@ try {
           ]);
           assert.deepEqual(nativeRows[10], ["Failed invocations", "1", "0.065 s", "0.065 s", "0.065 s", "0.065 s"]);
           assert.doesNotMatch(await page.locator("#response-content").textContent(), /m365-native-burst-100|17\.299/);
-          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 8);
+          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 9);
           assert.match(await page.locator("#costs-content").textContent(), /updated 44 minutes earlier/);
           assert.match(await page.locator("#costs-content").textContent(), /stale preburst analytics, not this burst/);
           assert.match(await page.locator("#costs-content").textContent(), /36 old sessions/);
           assert.match(await page.locator("#costs-content").textContent(), /refresh 120 minutes earlier/);
+          assert.match(await page.locator("#costs-content").textContent(), /417 old sessions.*refresh 60 minutes earlier/);
           assert.match(await page.locator("#observations-content").textContent(), /Transport throttling: 1/);
           assert.doesNotMatch(await page.locator("#costs-content").textContent(), /USD|GBP|EUR/);
           assert.deepEqual(await page.locator("#report-data").evaluate((element) => JSON.parse(element.textContent)), report);
@@ -251,7 +277,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: six viewport/theme combinations, all sections, eight-record integrity, JSON/schema downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, all sections, nine-record integrity, standalone safety stop and scoped prior campaign, JSON/schema downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));
