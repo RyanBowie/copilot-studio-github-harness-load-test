@@ -24,8 +24,8 @@ test("public input conforms to the schema and excludes offline fixtures", () => 
 
 test("awaiting-pilot shape contains no observations or review date", () => {
   const empty = {
-    schemaVersion: 1, harness: "GitHub Copilot Harness",
-    publication: { status: "awaiting_pilot", reviewedOn: null }, runs: [], documentedLimits: []
+    schemaVersion: 1, harness: "GitHub Copilot Harness", outcomeBasis: "requested_operation",
+    publication: { status: "awaiting_pilot", reviewedOn: null }, studyContext: null, runs: [], documentedLimits: []
   };
   assert.deepEqual(validateReport(empty, schema), []);
   empty.publication.reviewedOn = "2026-09-20";
@@ -212,7 +212,7 @@ test("unknown keys and invalid values never get echoed into validator diagnostic
 test("documentation limits remain separate and allow only reviewed public documentation links", () => {
   const data = sample();
   data.documentedLimits = [{
-    limitKey: "offline-documentation-fixture", scope: "per_agent", metric: "requests_per_minute",
+    limitKey: "offline-documentation-fixture", harnessScope: "standard_harness", scope: "per_agent", metric: "requests_per_minute",
     value: 12, sourceUrl: "https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-quotas",
     retrievedOn: "2026-09-19", applicability: "unverified"
   }];

@@ -11,8 +11,8 @@ const exec = promisify(execFile);
 const root = fileURLToPath(new URL("../", import.meta.url));
 const fixture = JSON.parse(await readFile(new URL("./fixtures/synthetic-report.json", import.meta.url), "utf8"));
 const empty = {
-  schemaVersion: 1, harness: "GitHub Copilot Harness",
-  publication: { status: "awaiting_pilot", reviewedOn: null }, runs: [], documentedLimits: []
+  schemaVersion: 1, harness: "GitHub Copilot Harness", outcomeBasis: "requested_operation",
+  publication: { status: "awaiting_pilot", reviewedOn: null }, studyContext: null, runs: [], documentedLimits: []
 };
 
 test("real CLI refuses fixtures, alternate inputs, invalid JSON and artifact contamination", async (t) => {

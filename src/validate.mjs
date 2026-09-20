@@ -108,7 +108,7 @@ export function validateReport(report, schema) {
   };
   checkDate(report.publication.reviewedOn, "report.publication.reviewedOn");
   if (report.publication.status === "awaiting_pilot") {
-    if (report.runs.length || report.documentedLimits.length || report.publication.reviewedOn !== null) {
+    if (report.runs.length || report.documentedLimits.length || report.publication.reviewedOn !== null || report.studyContext !== null) {
       fail("report.publication", "awaiting_pilot must contain no facts and no review date.");
     }
   } else if (report.publication.reviewedOn === null || (!report.runs.length && !report.documentedLimits.length)) {
@@ -122,6 +122,9 @@ export function validateReport(report, schema) {
     checkDate(run.observedOn, `${path}.observedOn`);
     const { attempted, completed, failed, pending } = run.counts;
     if (attempted !== completed + failed + pending) fail(`${path}.counts`, "attempted must equal completed + failed + pending.");
+    if (report.studyContext?.conversationUse === "one_existing_reused" && run.units.conversations !== 1) {
+      fail(`${path}.units.conversations`, "a shared single-conversation study requires one reused conversation per run.");
+    }
     for (const [unit, count] of Object.entries(run.units)) {
       if (count !== null && count > attempted) fail(`${path}.units.${unit}`, "cannot exceed attempted messages.");
     }
@@ -162,7 +165,33 @@ export function validateReport(report, schema) {
     if (new Set(run.errors.map((error) => error.category)).size !== run.errors.length) fail(`${path}.errors`, "error categories must be unique.");
     run.errors.forEach((error) => {
       if ((error.category === "unknown") !== (error.evidence === "unclassified_failure")) fail(`${path}.errors`, "unclassified evidence and unknown category must be paired.");
+      if (error.evidence === "agent_reported_timeout" && error.category !== "workflow") fail(`${path}.errors`, "an agent-reported workflow timeout is not a wire-status or throttling observation.");
     });
+    if (run.workflowState) {
+      if (run.workflow !== "involved") fail(`${path}.workflowState`, "requires an involved workflow; its running state is independent of the agent-call outcome.");
+      if (run.windowSeconds !== null && run.workflowState.invocationStatusFirstSeenMs > run.windowSeconds * 1000) {
+        fail(`${path}.workflowState`, "the visible invocation status must fall within the message observation window.");
+      }
+    }
+    if (run.followUp) {
+      const followUp = run.followUp;
+      const { atCutoff } = followUp;
+      const instant = new Date(followUp.observedAt);
+      if (Number.isNaN(instant.valueOf()) || instant.toISOString().replace(".000Z", "Z") !== followUp.observedAt) {
+        fail(`${path}.followUp.observedAt`, "must be a real UTC instant.");
+      }
+      checkDate(followUp.observedAt.slice(0, 10), `${path}.followUp.observedAt`);
+      if (followUp.observedAt.slice(0, 10) < run.observedOn) fail(`${path}.followUp`, "cannot precede the run date.");
+      if (atCutoff.attempted !== atCutoff.completed + atCutoff.failed + atCutoff.pending || attempted !== atCutoff.attempted) {
+        fail(`${path}.followUp.atCutoff`, "must partition the same sent attempts as the updated outcome counts.");
+      }
+      if (failed <= atCutoff.failed || pending >= atCutoff.pending || !run.errors.some((error) => error.category === "workflow" && error.evidence === "agent_reported_timeout")) {
+        fail(`${path}.followUp`, "requires a pending-to-failed workflow timeout outcome with agent-reported evidence.");
+      }
+      if (run.firstVisibleLatency !== null || run.latency !== null) {
+        fail(`${path}.followUp`, "late answer and settlement timing are unmeasured in this follow-up shape.");
+      }
+    }
     const cost = run.cost;
     checkDate(cost.recordedOn, `${path}.cost.recordedOn`);
     if (cost.status === "settled") {

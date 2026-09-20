@@ -1,10 +1,214 @@
 {
   "schemaVersion": 1,
   "harness": "GitHub Copilot Harness",
+  "outcomeBasis": "requested_operation",
   "publication": {
-    "status": "awaiting_pilot",
-    "reviewedOn": null
+    "status": "reviewed",
+    "reviewedOn": "2026-09-20"
   },
-  "runs": [],
-  "documentedLimits": []
+  "studyContext": {
+    "conversationUse": "one_existing_reused",
+    "executionPattern": "sequential",
+    "volumeRamp": "not_performed",
+    "configurationChanges": "none_by_tester",
+    "prePilotMonitor": "no_sessions_or_credits_recorded",
+    "postPilotMonitor": "no_sessions_or_credits_recorded",
+    "harnessVerification": "github_copilot_and_published_badges"
+  },
+  "runs": [
+    {
+      "runKey": "greeting-pilot",
+      "observedOn": "2026-09-20",
+      "surface": "published_teams",
+      "agentVersion": null,
+      "environmentType": "developer",
+      "model": "GPT 5.6 Sol",
+      "authenticatedAccounts": 1,
+      "memory": "off",
+      "workload": "single_turn",
+      "workflow": "not_involved",
+      "connectors": "not_involved",
+      "counts": { "attempted": 1, "completed": 1, "failed": 0, "pending": 0 },
+      "units": { "conversations": 1, "sessions": null },
+      "windowSeconds": 13.573,
+      "firstVisibleActivity": {
+        "kind": "visible_activity",
+        "start": "message_send",
+        "end": "first_status_or_answer",
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 1,
+        "p50Ms": 9447,
+        "p95Ms": 9447,
+        "maxMs": 9447
+      },
+      "firstVisibleLatency": {
+        "kind": "visible_response",
+        "start": "message_send",
+        "end": "first_visible_answer",
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 1,
+        "p50Ms": 9447,
+        "p95Ms": 9447,
+        "maxMs": 9447
+      },
+      "latency": {
+        "kind": "visible_response",
+        "start": "message_send",
+        "end": "feedback_controls_and_text_stable",
+        "stabilitySeconds": 3,
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 1,
+        "p50Ms": 13573,
+        "p95Ms": 13573,
+        "maxMs": 13573
+      },
+      "concurrency": null,
+      "arrival": null,
+      "errors": [],
+      "clientIssues": [{ "category": "unsent_draft", "count": 1, "observedWaitSeconds": 120.096 }],
+      "workflowState": null,
+      "followUp": null,
+      "observations": [
+        "standalone_teams_send_tool_missing",
+        "public_knowledge_all_websites_enabled",
+        "unsent_draft_recovered_once_without_auto_retry"
+      ],
+      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+    },
+    {
+      "runKey": "public-knowledge-pilot",
+      "observedOn": "2026-09-20",
+      "surface": "published_teams",
+      "agentVersion": null,
+      "environmentType": "developer",
+      "model": "GPT 5.6 Sol",
+      "authenticatedAccounts": 1,
+      "memory": "off",
+      "workload": "single_turn",
+      "workflow": "not_involved",
+      "connectors": "not_involved",
+      "counts": { "attempted": 1, "completed": 1, "failed": 0, "pending": 0 },
+      "units": { "conversations": 1, "sessions": null },
+      "windowSeconds": 30.031,
+      "firstVisibleActivity": {
+        "kind": "visible_activity",
+        "start": "message_send",
+        "end": "first_status_or_answer",
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 1,
+        "p50Ms": 7726,
+        "p95Ms": 7726,
+        "maxMs": 7726
+      },
+      "firstVisibleLatency": {
+        "kind": "visible_response",
+        "start": "message_send",
+        "end": "first_visible_answer",
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 1,
+        "p50Ms": 26234,
+        "p95Ms": 26234,
+        "maxMs": 26234
+      },
+      "latency": {
+        "kind": "visible_response",
+        "start": "message_send",
+        "end": "feedback_controls_and_text_stable",
+        "stabilitySeconds": 3,
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 1,
+        "p50Ms": 30031,
+        "p95Ms": 30031,
+        "maxMs": 30031
+      },
+      "concurrency": null,
+      "arrival": null,
+      "errors": [],
+      "clientIssues": [],
+      "workflowState": null,
+      "followUp": null,
+      "observations": [
+        "standalone_teams_send_tool_missing",
+        "public_knowledge_all_websites_enabled",
+        "built_in_web_search_observed",
+        "requested_answer_format_and_public_citation_observed"
+      ],
+      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+    },
+    {
+      "runKey": "compliance-review-pilot",
+      "observedOn": "2026-09-20",
+      "surface": "published_teams",
+      "agentVersion": null,
+      "environmentType": "developer",
+      "model": "GPT 5.6 Sol",
+      "authenticatedAccounts": 1,
+      "memory": "off",
+      "workload": "single_turn",
+      "workflow": "involved",
+      "connectors": "involved",
+      "counts": { "attempted": 1, "completed": 0, "failed": 1, "pending": 0 },
+      "units": { "conversations": 1, "sessions": null },
+      "windowSeconds": 120.167,
+      "firstVisibleActivity": {
+        "kind": "visible_activity",
+        "start": "message_send",
+        "end": "first_status_or_answer",
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 1,
+        "p50Ms": 8965,
+        "p95Ms": 8965,
+        "maxMs": 8965
+      },
+      "firstVisibleLatency": null,
+      "latency": null,
+      "concurrency": null,
+      "arrival": null,
+      "errors": [{ "category": "workflow", "count": 1, "evidence": "agent_reported_timeout" }],
+      "clientIssues": [],
+      "workflowState": {
+        "invocationStatusFirstSeenMs": 66917,
+        "historyCheck": "after_message_cutoff",
+        "runningRuns": 1,
+        "triggerStatus": "succeeded",
+        "humanReviewStatus": "waiting",
+        "emailStatus": "waiting",
+        "finalOutputs": "not_available",
+        "reviewNotificationDelivery": "unconfirmed",
+        "humanDecision": "unconfirmed",
+        "testerApprovalOrEmail": "none"
+      },
+      "followUp": {
+        "observedAt": "2026-09-20T16:16:39Z",
+        "atCutoff": { "attempted": 1, "completed": 0, "failed": 0, "pending": 1 },
+        "outcome": "agent_reported_workflow_timeout",
+        "reportedHttpStatus": 504,
+        "wireStatus": "not_independently_verified",
+        "earlierResponseStatus": "stopped",
+        "draftVisible": true,
+        "submissionConfirmed": false,
+        "retried": false
+      },
+      "observations": [
+        "partial_observation",
+        "standalone_teams_send_tool_missing",
+        "public_knowledge_all_websites_enabled",
+        "sharepoint_search_and_snippets_observed",
+        "human_review_workflow_attached"
+      ],
+      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+    }
+  ],
+  "documentedLimits": [
+    {
+      "limitKey": "ghcp-turn-per-conversation",
+      "harnessScope": "github_copilot_harness",
+      "scope": "per_conversation",
+      "metric": "active_turns",
+      "value": 1,
+      "sourceUrl": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/troubleshooting-error-codes",
+      "retrievedOn": "2026-09-20",
+      "applicability": "confirmed_for_configuration"
+    }
+  ]
 }

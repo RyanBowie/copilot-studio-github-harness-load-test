@@ -1,7 +1,9 @@
 {
   "schemaVersion": 1,
   "harness": "GitHub Copilot Harness",
+  "outcomeBasis": "requested_operation",
   "publication": { "status": "reviewed", "reviewedOn": "2026-09-20" },
+  "studyContext": null,
   "runs": [
     {
       "runKey": "offline-fixture-only",
@@ -56,6 +58,8 @@
         { "category": "unknown", "count": 1, "evidence": "unclassified_failure" }
       ],
       "clientIssues": [{ "category": "unsent_draft", "count": 1, "observedWaitSeconds": 20 }],
+      "workflowState": null,
+      "followUp": null,
       "observations": ["manual_timing", "partial_observation"],
       "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
     }

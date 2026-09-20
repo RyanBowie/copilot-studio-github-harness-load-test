@@ -14,8 +14,8 @@ const axePath = require.resolve("axe-core/axe.min.js");
 const { html, report } = await build();
 const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
 const emptyHtml = await renderHtml({
-  schemaVersion: 1, harness: "GitHub Copilot Harness",
-  publication: { status: "awaiting_pilot", reviewedOn: null }, runs: [], documentedLimits: []
+  schemaVersion: 1, harness: "GitHub Copilot Harness", outcomeBasis: "requested_operation",
+  publication: { status: "awaiting_pilot", reviewedOn: null }, studyContext: null, runs: [], documentedLimits: []
 }, schema);
 const synthetic = JSON.parse(await readFile(new URL("../tests/fixtures/synthetic-report.json", import.meta.url), "utf8"));
 synthetic.runs.push(structuredClone(synthetic.runs[0]));
@@ -53,34 +53,50 @@ try {
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
-      await page.goto(`${origin}/empty?scoutTheme=${theme}&keep=qa#overview`);
-      await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "NOT MEASURED");
-      assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
-      assert.equal(await page.locator(".metric-value").allTextContents().then((texts) => texts.every((text) => text === "NOT MEASURED")), true);
-      const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
-      assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
-      for (const id of ["overview", "response-time", "throughput", "observations", "methodology", "costs"]) {
-        await page.locator(`.section-nav a[href="#${id}"]`).click();
-        await page.locator(`#${id}`).waitFor({ state: "visible" });
-        assert.equal(await page.locator("main > section:visible").count(), 1);
-        assert.equal(await page.locator(`.section-nav a[href="#${id}"]`).getAttribute("aria-current"), "page");
-        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${width}/${theme}/${id}: no page overflow`);
-        await page.addScriptTag({ path: axePath });
-        const violations = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map(({ id, impact, nodes }) => ({ id, impact, count: nodes.length })));
-        assert.deepEqual(violations, [], `${width}/${theme}/${id}: accessibility violations`);
+      for (const view of ["empty", "report"]) {
+        await page.goto(`${origin}/${view === "empty" ? "empty" : ""}?scoutTheme=${theme}&keep=qa#overview`);
+        const expectedStatus = view === "empty" ? "NOT MEASURED" : "REVIEWED AGGREGATES";
+        await page.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
+        assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
+        const metrics = await page.locator(".metric-value").allTextContents();
+        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["3", "2", "1", "0"]);
+        const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
+        assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
+        for (const id of ["overview", "response-time", "throughput", "observations", "methodology", "costs"]) {
+          await page.locator(`.section-nav a[href="#${id}"]`).click();
+          await page.locator(`#${id}`).waitFor({ state: "visible" });
+          assert.equal(await page.locator("main > section:visible").count(), 1);
+          assert.equal(await page.locator(`.section-nav a[href="#${id}"]`).getAttribute("aria-current"), "page");
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${view}/${width}/${theme}/${id}: no page overflow`);
+          await page.addScriptTag({ path: axePath });
+          const violations = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map(({ id, impact, nodes }) => ({ id, impact, count: nodes.length })));
+          assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
+        }
+        if (view === "report") {
+          assert.match(await page.locator("#overview-summary").textContent(), /One existing Teams conversation/);
+          assert.match(await page.locator("#overview-summary").textContent(), /No high-volume ramp/);
+          assert.match(await page.locator("#observations-content").textContent(), /agent message reported a workflow HTTP 504 timeout/);
+          assert.match(await page.locator("#observations-content").textContent(), /not independently observed wire-level HTTP status/);
+          assert.match(await page.locator("#observations-content").textContent(), /Review workflow still running/);
+          assert.match(await page.locator("#observations-content").textContent(), /120\.167 s timing cutoff: 0 successful, 0 failed, 1 pending/);
+          assert.doesNotMatch(await page.locator("#throughput-content").textContent(), /completed\/min/);
+          assert.match(await page.locator("#response-content").textContent(), /26,234 ms/);
+          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 3);
+          assert.doesNotMatch(await page.locator("#costs-content").textContent(), /USD|GBP|EUR/);
+        }
+        await page.locator("#theme-toggle").click();
+        const url = new URL(page.url());
+        assert.equal(url.searchParams.get("keep"), "qa");
+        assert.equal(url.hash, "#costs");
+        assert.equal(url.searchParams.get("scoutTheme"), theme === "light" ? "dark" : "light");
+        await page.locator("#theme-toggle").click();
+        await page.locator('.section-nav a[href="#overview"]').click();
+        await page.screenshot({ path: resolve(artifacts, `${view}-overview-${width}-${theme}.png`), fullPage: true });
+        snapshots++;
+        await page.locator('.section-nav a[href="#costs"]').click();
+        await page.screenshot({ path: resolve(artifacts, `${view}-costs-${width}-${theme}.png`), fullPage: true });
+        snapshots++;
       }
-      await page.locator("#theme-toggle").click();
-      const url = new URL(page.url());
-      assert.equal(url.searchParams.get("keep"), "qa");
-      assert.equal(url.hash, "#costs");
-      assert.equal(url.searchParams.get("scoutTheme"), theme === "light" ? "dark" : "light");
-      await page.locator("#theme-toggle").click();
-      await page.locator('.section-nav a[href="#overview"]').click();
-      await page.screenshot({ path: resolve(artifacts, `overview-${width}-${theme}.png`), fullPage: true });
-      snapshots++;
-      await page.locator('.section-nav a[href="#costs"]').click();
-      await page.screenshot({ path: resolve(artifacts, `costs-${width}-${theme}.png`), fullPage: true });
-      snapshots++;
       assert.deepEqual(errors, [], "no browser errors");
       await context.close();
     }
@@ -134,7 +150,7 @@ try {
   assert.match(await page.locator("#response-content").textContent(), /First activity \(status or answer; not answer latency\)/);
   assert.match(await page.locator("#response-content").textContent(), /First actual answer \(status excluded\)/);
   assert.match(await page.locator("#response-content").textContent(), /8 \/ 8 sent/);
-  assert.match(await page.locator("#response-content").textContent(), /5 \/ 5 completed/);
+  assert.match(await page.locator("#response-content").textContent(), /5 \/ 5 successful/);
   assert.match(await page.locator("#response-content").textContent(), /feedback controls \+ 0\.5 s stable text/);
   await page.locator('.section-nav a[href="#observations"]').click();
   assert.match(await page.locator("#observations-content").textContent(), /Excluded client setup issue/);

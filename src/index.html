@@ -171,6 +171,7 @@ dl { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); ma
 dt { color: var(--cp-text-muted); }
 dd { margin: 0; overflow-wrap: anywhere; }
 .run-title { font-family: Consolas, "Courier New", Courier, monospace; overflow-wrap: anywhere; }
+code { font-family: Consolas, "Courier New", Courier, monospace; }
 .table-wrap { overflow-x: auto; max-width: 100%; margin: 24px 0; border: 1px solid var(--cp-border); border-radius: 16px; background: var(--cp-surface); }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .875rem; }
 caption { text-align: left; padding: 16px; font-weight: 600; color: var(--cp-text); }
@@ -261,7 +262,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <div class="two-column">
           <article class="note boundary">
             <h3>What this study measures</h3>
-            <p>Single authenticated account, labelled channel surface, observed message outcomes and visible response latency. Runs, conversations and sessions remain distinct units.</p>
+            <p>Single authenticated account, labelled channel surface, requested-operation outcomes and visible response latency. A final explanatory message does not turn a failed operation into a successful one. Runs, conversations and sessions remain distinct units.</p>
           </article>
           <article class="note">
             <h3>What this study does not claim</h3>
@@ -275,7 +276,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <div id="response-content"></div>
         <div class="note">
           <h3>Read the sample, not just the percentile</h3>
-          <p>First-answer and settled-latency samples cover successful, completed messages only. Activity samples can also describe failed or still-pending sent messages; activity does not imply success. Each row states its eligible message count. Percentiles are never pooled across endpoints or runs; small samples do not establish stable tail behavior.</p>
+          <p>First-answer and settled-latency samples cover successful requested outcomes only. Activity samples can also describe failed or still-pending sent messages; activity does not imply success. A late explanatory answer outside the timing window is not assigned an invented latency. Each row states its eligible message count. Percentiles are never pooled across endpoints or runs; small samples do not establish stable tail behavior.</p>
         </div>
       </section>
       <section id="throughput" aria-labelledby="throughput-heading" hidden>
@@ -285,10 +286,25 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <h3>Documented numerical limits</h3>
         <p class="fine">Documentation is a separate evidence class, never an observed result. Applicability to the tested configuration must be reviewed explicitly.</p>
         <div id="limits-content"></div>
+        <div class="two-column">
+          <article class="note">
+            <h3>Per conversation, not per account</h3>
+            <p>The documented GitHub Copilot Harness <code>CONVERSATION_BUSY</code> constraint is one active turn per conversation. <code>RATE_LIMIT_REACHED</code> and <code>QUOTA_EXCEEDED</code> are documented error classes, but the cited source publishes no numeric GitHub Copilot Harness RPM or token ceiling. None was established by this pilot.</p>
+            <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/troubleshooting-error-codes">GitHub Copilot Harness error-code documentation</a>
+          </article>
+          <article class="note boundary">
+            <h3>Other layers are not this agent's ceiling</h3>
+            <p>Developer 10 RPM / 200 RPH figures are explicitly Standard Harness scope, not a proven limit for this GitHub Copilot Harness agent. Teams bot API estimates govern transport requests, while Teams connector limits govern connection/operation calls; neither is an agent-turn allowance.</p>
+            <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-quotas">Standard Harness quotas</a>
+            &middot; <a href="https://learn.microsoft.com/en-us/microsoftteams/platform/bots/how-to/rate-limit">Teams bot transport</a>
+            &middot; <a href="https://learn.microsoft.com/en-us/connectors/teams/#throttling-limits">Teams connector</a>
+          </article>
+        </div>
+        <p class="fine">Documentation scope reviewed 2026-09-20. Documented constraints are not observed throttle events or a measured capacity result.</p>
       </section>
       <section id="observations" aria-labelledby="observations-heading" hidden>
         <h2 id="observations-heading">Stages &amp; observations</h2>
-        <p class="section-intro">Sent message attempts are classified as completed, failed or still pending at the observation cutoff. Unsent drafts are separate client setup issues, excluded from message outcomes. There is no inferred backend stage timeline.</p>
+        <p class="section-intro">Sent attempts are classified by requested-operation success, failure or pending outcome, not simply by the presence of a final message. Later follow-up updates are labelled separately from the timing cutoff. Unsent drafts are excluded client setup issues. Agent-call outcomes and the underlying workflow state remain distinct.</p>
         <div id="observations-content"></div>
         <div class="note boundary">
           <h3>A failure category is not a root-cause claim</h3>
@@ -297,7 +313,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       </section>
       <section id="methodology" aria-labelledby="methodology-heading" hidden>
         <h2 id="methodology-heading">Methodology &amp; boundaries</h2>
-        <p class="section-intro">A reproducible public summary, not a transcript archive. Raw evidence stays outside this repository; every published measurement requires human review.</p>
+        <p class="section-intro">A reproducible public summary, not a transcript archive. Raw evidence stays outside this repository; every published measurement requires evidence and privacy review by the report preparer.</p>
         <div class="stack">
           <article class="note">
             <h3>01 / Identify the configuration without identifying people</h3>
@@ -305,7 +321,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           </article>
           <article class="note">
             <h3>02 / Keep counting units separate</h3>
-            <p>A run is one bounded observation window, not one session. An attempt is one sent user message; retries are new attempts. Unsent drafts do not enter the agent denominator. Completed means a successful, visibly settled response, not verified answer correctness or backend completion. Conversations are channel threads; sessions are runtime sessions only when observed, never inferred from conversations.</p>
+            <p>A run has one bounded timing window, not one session. An attempt is one sent user message; retries are new attempts. Unsent drafts do not enter the denominator. Completed means the requested operation was reported successful with a visibly settled response, not an independent general answer-correctness evaluation or backend completion. A failed requested operation can still produce a final explanatory message. Follow-up outcome updates preserve the earlier cutoff snapshot rather than inventing missing timings. Conversations are channel threads; sessions are runtime sessions only when observed, never inferred from conversations.</p>
             <p>Each run record owns non-overlapping attempts. Update a pending run in place rather than appending another snapshot. Conversation and session counts are per-run and must not be summed as globally distinct counts.</p>
           </article>
           <article class="note">
@@ -319,11 +335,28 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           </article>
           <article class="note">
             <h3>05 / Review before publication</h3>
-            <p>The public input is closed-schema, aggregate-only JSON. Human review must exclude UPNs, tenant/environment/agent identifiers, internal URLs and citations, Teams/chat identifiers, connection details, credentials, raw transcripts and screenshots. Validation is defense in depth, not an anonymizer or proof that an observation occurred.</p>
+            <p>The public input is closed-schema, aggregate-only JSON. The report preparer's evidence and privacy review must exclude UPNs, tenant/environment/agent identifiers, internal URLs and citations, Teams/chat identifiers, connection details, credentials, raw transcripts and screenshots. Validation cannot prove review or an observation occurred. Report review does not attest to the separate workflow's human decision.</p>
           </article>
           <article class="note">
             <h3>06 / Capture cost status from the first run</h3>
             <p>Every run records costs as pending, settled or unknown. Pending and unknown amounts stay null, not zero. Settled amounts identify currency, evidence source and whether attribution covers this run or a shared window. Shared-window costs and different currencies are never summed.</p>
+          </article>
+          <article class="note">
+            <h3>Pilot workload definitions</h3>
+            <p>Greeting: <code>Hello!</code></p>
+            <p>Public knowledge: <code>Using Microsoft Learn, define a Power Platform environment in two sentences and cite the source.</code></p>
+            <p>Compliance review: a hypothetical internal app using synthetic device-request data; ask for DLP and environment-governance considerations, configured sources, and a concise human-review submission. No internal source content or identifiers are reproduced.</p>
+          </article>
+          <article class="note">
+            <h3>Published channel and programmatic-client boundaries</h3>
+            <p>Published Teams is the primary measurement surface; Studio Preview diagnostic outcomes stay separate. Documentation lists Teams, Microsoft 365, demo and iframe channels, while native DirectLine is unavailable. The existing CopilotStudioClient / Microsoft 365 Agents SDK integration documentation is Standard Harness only.</p>
+            <p>No supported programmatic published GitHub Copilot Harness user-client contract was established by these sources. Do not replay private endpoints or assume Teams APIs are a bot-invocation protocol.</p>
+            <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/publication-channels-overview">GitHub Copilot Harness channels</a>
+            &middot; <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk">Standard Harness SDK integration</a>
+          </article>
+          <article class="note boundary">
+            <h3>Future ramp is not authorized or implemented</h3>
+            <p>A future bounded conversational ramp would exclude review/email turns, wait for prior completion and use no automatic retries. Stop at the first throttle, ambiguous side effect or explicitly approved bound. No larger budget, rate or message count has been approved. Sequential turns in one chat are not independent-session concurrency.</p>
           </article>
         </div>
         <p class="fine">Future scope: email &rarr; workflow &rarr; agent. That scenario is not implemented or measured by this scaffold.</p>
@@ -335,6 +368,15 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <div class="note">
           <h3>No implied total or unit cost</h3>
           <p>This report presents settled amounts per evidence scope, without combining currencies or shared billing windows. A verified zero is allowed only with settled billing evidence; pending and unknown states never display a currency amount.</p>
+        </div>
+        <div class="stack">
+          <article class="note">
+            <h3>Billing and controls / documented, not measured</h3>
+            <p>Copilot Studio documents shared per-agent monthly credit caps and environment capacity / Stop usage controls. GitHub Copilot Harness usage is billed even with a Microsoft 365 Copilot license; usage-based billing for Developer/trial environments applies from 1 September 2026.</p>
+            <p>Billed credits update after "a few hours" in the cited activity documentation, with no exact SLA. A pre-pilot empty meter does not settle any run's cost.</p>
+            <a href="https://learn.microsoft.com/en-us/power-platform/admin/manage-usage-github-copilot-harness">Usage and billing controls</a>
+            &middot; <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-review-activity#billings">Billed-credit update timing</a>
+          </article>
         </div>
       </section>
     </main>

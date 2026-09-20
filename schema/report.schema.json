@@ -5,10 +5,11 @@
   "description": "Structural schema. src/validate.mjs additionally enforces cross-field, date, review, and privacy rules.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "harness", "publication", "runs", "documentedLimits"],
+  "required": ["schemaVersion", "harness", "outcomeBasis", "publication", "studyContext", "runs", "documentedLimits"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "harness": { "const": "GitHub Copilot Harness" },
+    "outcomeBasis": { "const": "requested_operation" },
     "publication": {
       "type": "object",
       "additionalProperties": false,
@@ -18,11 +19,31 @@
         "reviewedOn": { "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] }
       }
     },
+    "studyContext": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conversationUse", "executionPattern", "volumeRamp", "configurationChanges", "prePilotMonitor", "postPilotMonitor", "harnessVerification"],
+          "properties": {
+            "conversationUse": { "enum": ["one_existing_reused", "not_established"] },
+            "executionPattern": { "enum": ["sequential", "not_established"] },
+            "volumeRamp": { "enum": ["not_performed", "performed", "not_established"] },
+            "configurationChanges": { "enum": ["none_by_tester", "changed_by_tester", "not_established"] },
+            "prePilotMonitor": { "enum": ["no_sessions_or_credits_recorded", "not_checked", "not_established"] },
+            "postPilotMonitor": { "enum": ["no_sessions_or_credits_recorded", "not_checked", "not_established"] },
+            "harnessVerification": { "enum": ["github_copilot_and_published_badges", "not_established"] }
+          }
+        }
+      ]
+    },
     "runs": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/run" } },
     "documentedLimits": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/limit" } }
   },
   "$defs": {
     "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "instant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$" },
     "key": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
     "label": {
       "type": "string",
@@ -42,7 +63,7 @@
         "runKey", "observedOn", "surface", "agentVersion", "environmentType", "model",
         "authenticatedAccounts", "memory", "workload", "workflow", "connectors", "counts",
         "units", "windowSeconds", "firstVisibleActivity", "firstVisibleLatency", "latency", "concurrency", "arrival", "errors", "clientIssues",
-        "observations", "cost"
+        "workflowState", "followUp", "observations", "cost"
       ],
       "properties": {
         "runKey": { "$ref": "#/$defs/key" },
@@ -178,7 +199,7 @@
                 "enum": ["throttling", "authentication", "timeout", "transport", "connector", "workflow", "agent", "unknown"]
               },
               "count": { "$ref": "#/$defs/positiveCount" },
-              "evidence": { "enum": ["visible_error", "transport_status", "unclassified_failure"] }
+              "evidence": { "enum": ["visible_error", "transport_status", "unclassified_failure", "agent_reported_timeout"] }
             }
           }
         },
@@ -196,12 +217,78 @@
             }
           }
         },
+        "workflowState": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "invocationStatusFirstSeenMs", "historyCheck", "runningRuns", "triggerStatus",
+                "humanReviewStatus", "emailStatus", "finalOutputs", "reviewNotificationDelivery",
+                "humanDecision", "testerApprovalOrEmail"
+              ],
+              "properties": {
+                "invocationStatusFirstSeenMs": { "$ref": "#/$defs/duration" },
+                "historyCheck": { "const": "after_message_cutoff" },
+                "runningRuns": { "$ref": "#/$defs/positiveCount" },
+                "triggerStatus": { "const": "succeeded" },
+                "humanReviewStatus": { "const": "waiting" },
+                "emailStatus": { "const": "waiting" },
+                "finalOutputs": { "const": "not_available" },
+                "reviewNotificationDelivery": { "const": "unconfirmed" },
+                "humanDecision": { "const": "unconfirmed" },
+                "testerApprovalOrEmail": { "const": "none" }
+              }
+            }
+          ]
+        },
+        "followUp": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "observedAt", "atCutoff", "outcome", "reportedHttpStatus", "wireStatus",
+                "earlierResponseStatus", "draftVisible", "submissionConfirmed", "retried"
+              ],
+              "properties": {
+                "observedAt": { "$ref": "#/$defs/instant" },
+                "atCutoff": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["attempted", "completed", "failed", "pending"],
+                  "properties": {
+                    "attempted": { "$ref": "#/$defs/positiveCount" },
+                    "completed": { "$ref": "#/$defs/count" },
+                    "failed": { "$ref": "#/$defs/count" },
+                    "pending": { "$ref": "#/$defs/positiveCount" }
+                  }
+                },
+                "outcome": { "const": "agent_reported_workflow_timeout" },
+                "reportedHttpStatus": { "const": 504 },
+                "wireStatus": { "const": "not_independently_verified" },
+                "earlierResponseStatus": { "const": "stopped" },
+                "draftVisible": { "const": true },
+                "submissionConfirmed": { "const": false },
+                "retried": { "const": false }
+              }
+            }
+          ]
+        },
         "observations": {
           "type": "array",
-          "maxItems": 6,
+          "maxItems": 11,
           "uniqueItems": true,
           "items": {
-            "enum": ["turn_serialization_observed", "manual_timing", "partial_observation", "channel_reconnect", "standalone_teams_send_tool_missing", "human_review_workflow_attached"]
+            "enum": [
+              "turn_serialization_observed", "manual_timing", "partial_observation", "channel_reconnect",
+              "standalone_teams_send_tool_missing", "human_review_workflow_attached",
+              "public_knowledge_all_websites_enabled", "built_in_web_search_observed",
+              "requested_answer_format_and_public_citation_observed", "sharepoint_search_and_snippets_observed",
+              "unsent_draft_recovered_once_without_auto_retry"
+            ]
           }
         },
         "cost": {
@@ -222,11 +309,12 @@
     "limit": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["limitKey", "scope", "metric", "value", "sourceUrl", "retrievedOn", "applicability"],
+      "required": ["limitKey", "harnessScope", "scope", "metric", "value", "sourceUrl", "retrievedOn", "applicability"],
       "properties": {
         "limitKey": { "$ref": "#/$defs/key" },
+        "harnessScope": { "enum": ["github_copilot_harness", "standard_harness", "teams_bot_api", "teams_connector"] },
         "scope": { "enum": ["per_agent", "per_environment", "per_user", "per_conversation", "service", "model", "connector"] },
-        "metric": { "enum": ["requests_per_minute", "messages_per_minute", "concurrent_requests"] },
+        "metric": { "enum": ["requests_per_minute", "messages_per_minute", "concurrent_requests", "active_turns"] },
         "value": { "type": "number", "minimum": 0.001, "maximum": 1000000000 },
         "sourceUrl": {
           "type": "string",
