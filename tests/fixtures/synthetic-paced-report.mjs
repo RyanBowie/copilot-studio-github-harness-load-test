@@ -18,7 +18,7 @@ export function syntheticPacedReport(scenario = "full") {
       path: "workiq_ask_via_native_tool_rpc", endpoint: "invocation_completion", requestKind: "greeting_only",
       timingBasis: "calibrated_native_rpc_completion",
       startedAt: "2026-01-10T00:00:00.000Z", arrivalEndedAt: "2026-01-10T00:02:00.000Z", observedThroughAt: "2026-01-10T00:02:01.000Z",
-      targetRpm: 10, plannedArrivalSeconds: 120, arrivalSeconds: 120,
+      targetRpm: 10, plannedArrivalSeconds: 120, arrivalSeconds: 120, arrivalEndObservedSeconds: 120,
       plannedSlots: 20, skippedSlots: 0, unofferedSlots: 0, arrivalStatus: "full_window", stopReason: null,
       drainStatus: "complete", drainSeconds: 1, qualification: "qualified", qualifyingRunKey: null,
       pacing: { schedule: "absolute_slots", missedSlotPolicy: "skip_without_replay", intervalMs: 6000, jitterAllowance: 0.05, observedMinIntervalMs: 6000, violatingIntervals: 0 },
@@ -43,7 +43,7 @@ export function syntheticPacedReport(scenario = "full") {
   Object.assign(hour.pacedMeasurement, {
     phase: "hour", qualification: "not_evaluated", qualifyingRunKey: calibration.runKey,
     startedAt: "2026-01-10T00:03:01.000Z", arrivalEndedAt: "2026-01-10T01:03:01.000Z", observedThroughAt: "2026-01-10T01:03:02.000Z",
-    plannedArrivalSeconds: 3600, arrivalSeconds: 3600, plannedSlots: 600,
+    plannedArrivalSeconds: 3600, arrivalSeconds: 3600, arrivalEndObservedSeconds: 3600, plannedSlots: 600,
     success: syntheticTiming(600), allOutcomes: syntheticTiming(600),
     minutes: Array.from({ length: 60 }, (_, index) => ({ offsetSeconds: index * 60, durationSeconds: 60, attempted: 10, completed: 10, failed: 0, pending: 0 }))
   });
@@ -54,7 +54,7 @@ export function syntheticPacedReport(scenario = "full") {
     hour.errors = [{ category: "unknown", count: 1, evidence: "unclassified_invocation_failure" }];
     Object.assign(hour.pacedMeasurement, {
       arrivalEndedAt: "2026-01-10T00:04:31.000Z", observedThroughAt: "2026-01-10T00:04:32.000Z",
-      arrivalSeconds: 90, skippedSlots: 1, unofferedSlots: 585, arrivalStatus: scenario === "partial" ? "partial" : "stopped",
+      arrivalSeconds: 90, arrivalEndObservedSeconds: 90, skippedSlots: 1, unofferedSlots: 585, arrivalStatus: scenario === "partial" ? "partial" : "stopped",
       stopReason: scenario === "partial" ? "observation_cutoff" : "native_error",
       drainStatus: "bounded_cutoff", peakOutstanding: 2, failedConversations: 1,
       success: syntheticTiming(12), failure: syntheticTiming(1), allOutcomes: syntheticTiming(13),

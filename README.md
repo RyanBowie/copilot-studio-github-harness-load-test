@@ -2,9 +2,32 @@
 
 A separate, aggregate-only report for single-account observations of **Copilot Studio agents powered by the GitHub Copilot Harness**. This is not the Standard Harness study, GitHub coding agent, or Copilot SDK.
 
-**Current state: reviewed 100-request burst plus preserved Teams pilot, local only.** The native published **Microsoft 365 Copilot** burst returned **33 greeting replies / 100 attempts (33%)**, with **67 unclassified invocation failures** and zero pending. Peak **100 outstanding client invocations** is measured, not 100 simultaneous backend/model executions. The earlier three-turn Teams pilot remains separate. All costs remain **pending**, not zero; no confirmed harness-wide throttle ceiling is inferred. No Standard Harness data or images are imported. This repository is an offline report, not a cloud test runner. The separate email-to-workflow-to-agent scenario is not implemented.
+**Current state: eight reviewed runs, local only.** The later paced campaign stopped early: **384 attempts, 381 greeting replies, 3 failures, 0 pending**, including a **WorkIQ MCP HTTP transport 429**, not a confirmed GitHub Copilot Harness quota. **No full hour completed.** Its four cohorts are separate from the preserved 100-request burst (33 replies / 67 unclassified failures) and three-turn Teams pilot. All costs remain **pending**, not zero. No Standard Harness data or images are imported. This repository is an offline report, not a cloud test runner. The separate email-to-workflow-to-agent scenario is not implemented.
 
 The branch and commits remain local because the GitHub OAuth application lacks permission to push workflow files. No authentication change, workflow workaround, merge or deployment has been performed.
+
+## Reviewed paced campaign / stopped early on 2026-09-20
+
+One guarded greeting campaign used the same native published Microsoft 365 Copilot path, one verified corporate account, Developer environment, `GPT 5.6 Sol`, memory off and unknown exact published revision. Campaign markers were **19:15:38.150Z to 19:33:36.725Z**. No retries, automatic restart, review/approval/email workload or further load is authorized by this report.
+
+| Cohort | Planned arrival window / calls | Actual attempts / eventual replies / failures | Result | Successful native-completion p50 / p95 |
+| --- | --- | --- | --- | --- |
+| Calibration 10 RPM | 120 s / 20 | 20 / 20 / 0 | Qualified | 8.431 / 10.380 s (n=20) |
+| Calibration 25 RPM | 120 s / 50 | 50 / 50 / 0 | Qualified | 8.064 / 12.842 s (n=50) |
+| Calibration 50 RPM | 120 s / 100 | 100 / 98 / 2 | 98%, below the predeclared 99% rule | 7.644 / 9.676 s (n=98) |
+| Hourly attempt at 25 RPM | 3600 s / 1500 | 214 / 213 / 1 | Stopped after 512.2330114 s of arrivals | 7.858 / 9.680 s (n=213) |
+
+All four cohorts drained with zero pending. The hour attempt's **213 eventual replies** comprise **211 before its observed arrival-end boundary and two during drain**, not 213 completions inside its 512.2330114 s arrival window. Calibration **100/150 RPM was not attempted**. The two failures at 50 RPM were generic WorkIQ `server_error` invocation outcomes with no explicit throttle evidence. The selected **25 RPM is the last qualified calibration rate, not a capacity ceiling**. There is no observed full-hour total or extrapolated successful hourly result.
+
+The terminal failure was independently classified as **WorkIQ MCP HTTP transport HTTP 429**, completing in **65.2273999999743 ms**. GitHub Copilot Harness attribution is **unknown**; no conversation identifier or exposed Retry-After was returned. The safety stop left **1286 unoffered requests**, not agent failures, and there were **zero skipped client slots**. No backoff/retry or limit bypass followed.
+
+**383 distinct returned Microsoft 365 conversation identifiers** were verified across the campaign: cohort counts 20, 50, 100 (including the two generic failures) and 213. Do not infer 384 conversations from 384 attempts. Runtime sessions remain unknown. Reviewed client-outstanding peaks were **3 / 5 / 9 / 5**, campaign peak **9**; these are not backend/model execution counts. Native completion timing uses separate success/failure/all-settled nearest-rank populations, not visible answer/UI timing. The stopped-hour all-outcome p50 is **7849.779300000053 ms (n=214)**, distinct from successful-reply p50 **7857.503999999957 ms (n=213)**. Percentiles are never pooled across stages.
+
+**Timing precision:** completed calibrations use a scheduled 120 s offer window for dispatch accounting, while observed timer-end offsets are 120.01460379999992, 120.00120519999997 and 120.00015639999998 s. Drain begins at that separately observed offset. The stopped hour's arrival-duration read is 512.2330114 s; its arrival-end offset read is 512.2329960000001 s, plus 6.061770299999974 s drain, yielding **518.2947663 s** observation through drain. Preserve the distinct reads and raw precision; do not round counters or UTC markers into apparent equality. Per-minute counts are **request-dispatch cohorts with outcomes at the post-drain cutoff**, not completions that happened in that minute.
+
+Monitor at **19:34:29Z** still showed **36 old sessions**, no posted credit usage and **updated two hours ago**: stale precampaign analytics, not attributed campaign usage or zero cost. The accepted budget was request-only, not a hard monetary cap or billing evidence. All costs remain pending/null.
+
+Supplemental Studio history at **19:45:28Z** returned a bounded page of **150 metadata records**, all matching the partial hour's successful conversations and marked Completed / Microsoft 365 Copilot: **150 of that cohort's 213 successes**. With page size 150 and `hasMore=true`, this is partial corroboration: it does **not** establish that all 381 campaign successes matched history or that any other request was absent from the backend. No transcript or identifiers are reproduced.
 
 ## Measured native Microsoft 365 burst / 2026-09-20
 
@@ -100,7 +123,7 @@ The JSON Schema is the structural source of truth. All object shapes are closed 
 
 ### Root and review gate
 
-The root contains exactly `schemaVersion`, `harness`, `outcomeBasis`, `publication`, `studyContext`, `runs` and `documentedLimits`.
+The required root fields are `schemaVersion`, `harness`, `outcomeBasis`, `publication`, `studyContext`, `runs` and `documentedLimits`; `pacedCampaigns` is optional reviewed context.
 
 - `schemaVersion` is `1`; `harness` is exactly `GitHub Copilot Harness`.
 - `outcomeBasis` is exactly `requested_operation`. Outcome counts are not a count of final visible messages; a returned draft or error explanation does not make an unconfirmed requested submission successful.
@@ -109,6 +132,7 @@ The root contains exactly `schemaVersion`, `harness`, `outcomeBasis`, `publicati
 - `reviewedOn` is an attestation by the report preparer after evidence and privacy review, not an automatic validation stamp. It contains no reviewer identity. Validation cannot prove that review occurred. These pilot aggregates were reviewed by the authorized testing/reporting agent; this does not attest to a new human review or to the separate workflow's human decision.
 - Run keys and limit keys are unique public slugs, **not source IDs**. Publication rejects reserved offline/fixture/synthetic/example/fake/test keys.
 - `studyContext` is `null` when unestablished, or a closed object with explicit `runKeys` scoping reviewed conversation reuse, sequential execution, ramp/configuration-change state, pre/post-pilot Monitor observations and harness/published-badge verification. Every key must reference a reviewed run. `conversationUse: "one_existing_reused"` means only those runs' `units.conversations: 1` refer to the same existing conversation. It does not constrain a separate native run's 100 distinct conversations.
+- Optional `pacedCampaigns` contains closed reviewed campaign contexts referencing exactly their cohort `runKeys`. Each records ordered UTC campaign markers, transport-stop status, independently verified distinct returned conversations, client peak, explicit unattempted calibration rates and a stale postcampaign Monitor snapshot. Context cannot infer a global distinct count by summing per-run values, attach unattempted rates to measured stages, or relabel a stop as full-hour completion. Campaign contexts contain no monetary consent, identity or private source metadata.
 
 ### One run record
 
@@ -127,7 +151,7 @@ Every field in the table is required except `pacedMeasurement`; only explicitly 
 | `workflow`, `connectors` | Each is `involved`, `not_involved` or `unknown`; no workflow or connection details |
 | `counts` | Nonnegative integer `completed`, `failed`, `pending`; positive integer `attempted` must equal their sum |
 | `units` | `conversations` and `sessions`, each observed positive integers or `null`; each cannot exceed attempts |
-| `windowSeconds` | Positive observed full-window duration, or `null`; first send through cutoff, including measured completions |
+| `windowSeconds` | Positive observed full-window duration, or `null`; message-send through cutoff for visible runs, measured cohort-start through drain/cutoff for paced runs |
 | `firstVisibleActivity`, `firstVisibleLatency`, `latency` | Each `null` or an independent activity / first actual answer / UI-settled timing summary described below |
 | `nativeInvocation` | `null` for visible-channel runs; a closed, separately validated native completion/dispatch/evidence object for the published Microsoft 365 Copilot run |
 | `pacedMeasurement` | Optional closed paced-cohort record, described below. Omit on existing runs; mutually exclusive with non-null `nativeInvocation` |
@@ -170,7 +194,7 @@ For runs with multiple sent messages, observed completion pace is `completed / w
 
 Error categories are `throttling`, `authentication`, `timeout`, `transport`, `connector`, `workflow`, `agent`, `unknown`, once per category. Each has a positive `count` and an `evidence` class: `visible_error`, `transport_status`, `unclassified_failure`, `unclassified_invocation_failure`, `agent_reported_timeout` or `workiq_mcp_transport_429`. Agent-reported timeout is restricted to workflow category, not a proven wire status or throttle. Unknown category and unclassified evidence must be paired; invocation evidence additionally requires `nativeInvocation` or `pacedMeasurement`. Do not infer throttling from latency or generic server_error. Raw error bodies and correlation IDs are prohibited.
 
-The closed evidence value **`workiq_mcp_transport_429`** means an observed **WorkIQ MCP HTTP transport HTTP 429**, paired with category `throttling` on a paced cohort. Its fixed scope is transport; **GitHub Copilot Harness attribution is unknown**, not a confirmed harness quota or capacity ceiling. This narrow evidence shape also records that no conversation identifier or exposed Retry-After was returned, so the validator excludes those failed attempts from possible returned-ID counts. It does not prove no backend activity occurred. A runner's generic `confirmed_throttle` label is not accepted as public evidence. Use `stopReason: explicit_throttle` for the guarded stop; the UI names the transport layer, rather than declaring a harness limit. Do not publish raw stacks, internal type names, IDs or paths.
+The closed evidence value **`workiq_mcp_transport_429`** means an observed **WorkIQ MCP HTTP transport HTTP 429**, paired with category `throttling` on a paced cohort. Its fixed scope is transport; **GitHub Copilot Harness attribution is unknown**, not a confirmed harness quota or capacity ceiling. This narrow evidence shape also records that no conversation identifier or exposed Retry-After was returned, so the validator excludes those failed attempts from possible returned-ID counts. It does not prove no backend activity occurred. A runner's generic throttle classification is not accepted as public evidence. Use `stopReason: explicit_throttle` for the guarded stop; the UI names the transport layer, rather than declaring a harness limit. Do not publish raw stacks, internal type names, IDs or paths.
 
 ### Native invocation contract
 
@@ -190,9 +214,9 @@ The closed evidence value **`workiq_mcp_transport_429`** means an observed **Wor
 
 `followUp` records the later timeout-discovery snapshot: `observedAt` (real UTC instant), `atCutoff` (earlier attempted/completed/failed/pending partition), `outcome: "agent_reported_workflow_timeout"`, `reportedHttpStatus: 504`, `wireStatus: "not_independently_verified"`, `earlierResponseStatus: "stopped"`, `draftVisible: true`, `submissionConfirmed: false`, `retried: false`. It must update a pending requested outcome to failed with agent-reported workflow-timeout evidence, preserve the same sent attempts and keep late answer/settled timings null. It neither changes the workflow-history state nor implies cancellation.
 
-### Optional paced cohorts / offline support only
+### Optional paced cohort contract
 
-**No paced campaign results are in the public dataset yet.** This contract is offline preparation, not evidence that a stage qualified, an hour completed or any further calls succeeded. The four reviewed records remain unchanged. Synthetic cases live only in `tests/fixtures/synthetic-paced-report.mjs`; their `offline-*` run keys are rejected by the publication loader. No runner, credentials, private consent, account names, controller artifacts or raw responses are stored here.
+Four reviewed paced cohorts are now in the public dataset; the original four records remain unchanged. Support for a full hour does **not** mean one completed. Synthetic cases live only in `tests/fixtures/synthetic-paced-report.mjs`; their `offline-*` run keys are rejected by the publication loader. No runner, credentials, private consent, account names, controller artifacts or raw responses are stored here.
 
 Add one **reviewed** run per nonempty calibration stage or hourly arrival cohort, never a duplicate campaign-total run. Use the existing native published surface and single-account greeting workload, with `nativeInvocation: null` and optional `pacedMeasurement` populated. Do not turn a never-started stage or zero-dispatch plan into a run. A stopped calibration-only campaign needs no invented hour record. Existing visible timing, legacy `arrival`/`concurrency`, workflow state and follow-up fields stay null.
 
@@ -204,13 +228,13 @@ All fields below are required inside `pacedMeasurement`; the schema provides the
 | `path`, `endpoint`, `requestKind`, `timingBasis` | `workiq_ask_via_native_tool_rpc`, `invocation_completion`, `greeting_only`, `calibrated_native_rpc_completion` |
 | `startedAt`, `arrivalEndedAt`, `observedThroughAt` | Ordered millisecond UTC metadata; cutoff date matches `observedOn`. Do not derive monotonic duration from wall-clock subtraction |
 | `targetRpm`, `plannedArrivalSeconds`, `plannedSlots` | Protocol intent, not observation: 10/25/50/100/150 RPM; 120 s calibration or 3600 s hourly arrivals. Planned slots equal rate times planned minutes |
-| `arrivalSeconds`, `drainSeconds` | Actual observed arrival window and subsequent observation/drain duration. Their sum equals run `windowSeconds`. **Achieved dispatch RPM** is attempts divided by actual arrival seconds times 60, never divided by arrival-plus-drain |
+| `arrivalSeconds`, `arrivalEndObservedSeconds`, `drainSeconds` | Offer-window duration (scheduled cutoff for completed windows, actual cutoff for early stops), independently measured monotonic arrival-end offset, and subsequent drain. **Observed end offset + drain equals `windowSeconds`**, not scheduled window + drain. Timer overshoot/separate reads remain explicit. Achieved dispatch RPM uses `arrivalSeconds`, not the drain-inclusive duration; it is not an extrapolated hourly completion result |
 | `skippedSlots`, `unofferedSlots` | Missed client slots versus remaining slots not offered before stop/cutoff. `attempted + skipped + unoffered = plannedSlots`. Neither belongs in agent attempts or failure statistics |
 | `arrivalStatus`, `stopReason` | `full_window`, `stopped` or `partial`; full requires planned duration, no unoffered slots and null reason. Partial requires early `observation_cutoff`. Stopped requires a reviewed enum reason, not arbitrary text. Native `authentication`/`explicit_throttle` require matching errors; a pre-dispatch `account_guard` is separate and must not invent a failed agent invocation |
 | `drainStatus` | `complete` only with no pending calls, otherwise `bounded_cutoff`. A full arrival hour can still have missed slots, errors or pending drain outcomes |
 | `qualification`, `qualifyingRunKey` | Calibration `qualified` only when all slots dispatched, drain complete, at least 99% requested greetings and healthy measured pacing; otherwise `not_qualified` or `not_evaluated`. Hour uses `not_evaluated` and references the highest prior qualified calibration in the same campaign |
 | `pacing` | `schedule: absolute_slots`, `missedSlotPolicy: skip_without_replay`, `intervalMs: 60000/targetRpm`, `jitterAllowance: 0.05`; paired nullable `observedMinIntervalMs` / `violatingIntervals` describe actual gaps. At 150 RPM, intended 400 ms allows minimum 380 ms. Violations remain reportable but cannot qualify a stage |
-| `peakOutstanding`, `concurrencyBasis`, `concurrencyVerification` | Nullable measured peak (max 100), `outstanding_client_invocations`, paired `start_end_interval_sweep` or null. Not configured workers or backend/model executions |
+| `peakOutstanding`, `concurrencyBasis`, `concurrencyVerification` | Nullable measured peak (max 100), `outstanding_client_invocations`, paired `start_end_interval_sweep`, `reviewed_client_peak` or null. The last measured form attests the reviewed client peak without inventing a particular recomputation method. Not configured workers or backend/model executions |
 | `conversationPolicy`, `conversationEvidence`, `failedConversations` | `fresh_per_request` is intent, not a count. `returned_ids_checked_unique` pairs with known `units.conversations`; otherwise null. Nullable failed-ID count cannot exceed failures or verified distinct conversations. Sessions remain independent |
 | `runnerRetries`, `managedServiceRetries` | Zero and `unknown`, respectively. These do not claim control of managed-service retries |
 | `percentileMethod`, `success`, `failure`, `allOutcomes` | Nearest-rank over separate native completion populations with the same summary fields as the burst. Samples match successful, failed and **settled successful+failed** counts. Pending calls are excluded; no settled samples means null. No pooled or averaged cohort percentiles |
@@ -220,7 +244,7 @@ All fields below are required inside `pacedMeasurement`; the schema provides the
 
 The bounded protocol supports distinct calibration rates (at most 670 planned calibration calls) and at most one hour cohort (at most 9000 planned calls), capped at 9670 requests per campaign. Those numbers are protocol constraints, **not executed counts, spending evidence or future authorization**. Private account/consent checks remain the testing owner's responsibility; this report makes no authenticated calls. A generic calibration error can leave an earlier rate qualified, but does not establish a harness limit. No further cohort in the same campaign may follow a terminal guard or pacing violation. Safety/authentication/explicit-throttle/client-pacing stops are not automatic-retry opportunities. Stale Monitor counts, budget acknowledgment and absent posted credits cannot settle cost; keep pending/null until reviewed billing evidence exists.
 
-For ingestion, supply observed slot accounting, UTC markers and monotonic windows, per-dispatch-minute outcomes, distinct verified conversation counts, outcome-specific latency summaries and classification evidence. The offline fixture factory illustrates full, stopped, partial and calibration-only shapes but is not a source of public values. Full responsive UI QA should be rerun after reviewed actual cohorts are supplied.
+For ingestion, supply observed slot accounting, UTC markers and monotonic windows/arrival-end offsets, per-dispatch-minute outcomes, distinct verified conversation counts, outcome-specific latency summaries and classification evidence. The offline fixture factory illustrates full, stopped, partial and calibration-only shapes but is not a source of public values. Rerun responsive UI QA when reviewed actual cohorts change.
 
 ### Costs from the first run
 

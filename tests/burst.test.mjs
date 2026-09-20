@@ -18,7 +18,7 @@ const reject = (edit, expected) => {
 
 test("reviewed burst is exactly 100 native published Microsoft 365 invocations, separate from Teams", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 4);
+  assert.equal(report.runs.filter((run) => !run.pacedMeasurement).length, 4);
   assert.equal(burst.surface, "published_microsoft365_copilot");
   assert.deepEqual(burst.counts, { attempted: 100, completed: 33, failed: 67, pending: 0 });
   assert.equal(burst.counts.completed / burst.counts.attempted * 100, 33);

@@ -15,10 +15,9 @@ const reject = (edit, expected, scenario = "full") => {
   if (expected) assert.match(errors.join("\n"), expected);
 };
 
-test("optional paced support preserves the four actual runs without new observations", async () => {
+test("optional paced support keeps the four earlier runs separate from reviewed campaign cohorts", async () => {
   const { report } = await loadPublicReport();
-  assert.equal(report.runs.length, 4);
-  assert.ok(report.runs.every((run) => !Object.hasOwn(run, "pacedMeasurement")));
+  assert.equal(report.runs.filter((run) => !Object.hasOwn(run, "pacedMeasurement")).length, 4);
   assert.equal(report.runs.find((run) => run.nativeInvocation).counts.attempted, 100);
 });
 
@@ -63,7 +62,7 @@ test("intended slots, achieved arrivals and drain cannot be conflated", () => {
   reject((paced) => { paced.skippedSlots = 1; }, /partition the bounded plan/);
   reject((paced) => { paced.arrivalSeconds = 3601; }, /bounded plan/);
   reject((paced) => { paced.arrivalSeconds = 3599; }, /full arrival window/);
-  reject((paced) => { paced.drainSeconds = 0; }, /arrival plus drain/);
+  reject((paced) => { paced.drainSeconds = 0; }, /arrival-end offset plus drain/);
   reject((paced) => { paced.drainStatus = "complete"; }, /pending invocations/, "stopped");
   reject((paced) => { paced.arrivalStatus = "full_window"; }, /full arrival window/, "stopped");
   reject((paced) => { paced.stopReason = null; }, /explicit reason/, "partial");
@@ -158,7 +157,7 @@ test("the full bounded protocol supports 670 calibration plus 9000 hourly reques
     run.units.conversations = count;
     run.windowSeconds = duration + 1;
     Object.assign(paced, {
-      targetRpm: rate, plannedSlots: count, plannedArrivalSeconds: duration, arrivalSeconds: duration,
+      targetRpm: rate, plannedSlots: count, plannedArrivalSeconds: duration, arrivalSeconds: duration, arrivalEndObservedSeconds: duration,
       startedAt: instant(start), arrivalEndedAt: instant(start + duration), observedThroughAt: instant(start + duration + 1),
       peakOutstanding: Math.ceil(rate / 60), success: syntheticTiming(count), allOutcomes: syntheticTiming(count),
       minutes: Array.from({ length: duration / 60 }, (_, index) => ({
@@ -198,7 +197,7 @@ test("pending invocations are not silently timed or failed; absent observations 
   run.units.conversations = null;
   run.windowSeconds = 1;
   Object.assign(run.pacedMeasurement, {
-    arrivalSeconds: 1, arrivalEndedAt: "2026-01-10T00:00:01.000Z", observedThroughAt: "2026-01-10T00:00:01.000Z",
+    arrivalSeconds: 1, arrivalEndObservedSeconds: 1, arrivalEndedAt: "2026-01-10T00:00:01.000Z", observedThroughAt: "2026-01-10T00:00:01.000Z",
     arrivalStatus: "partial", stopReason: "observation_cutoff", unofferedSlots: 19, drainStatus: "bounded_cutoff", drainSeconds: 0,
     qualification: "not_evaluated", conversationEvidence: null, failedConversations: null, success: null, failure: null, allOutcomes: null,
     peakOutstanding: null, concurrencyVerification: null,

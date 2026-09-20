@@ -29,6 +29,12 @@ const pacedHtml = (await renderHtml(syntheticPacedReport("transport-stop"), sche
 const rejectedHtml = html.replace('"schemaVersion":1', '"schemaVersion":999');
 const server = createServer((request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
+  const json = path === "/report.json" ? report : path === "/report.schema.json" ? schema : null;
+  if (json) {
+    response.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    response.end(JSON.stringify(json));
+    return;
+  }
   const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/paced" ? pacedHtml : path === "/rejected" ? rejectedHtml : null;
   if (content === null) { response.writeHead(404); response.end(); return; }
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -61,7 +67,7 @@ try {
         await page.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
         assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
         const metrics = await page.locator(".metric-value").allTextContents();
-        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["100", "33", "67", "0", "3", "2", "1", "0"]);
+        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
         const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
         assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
         for (const id of ["overview", "response-time", "throughput", "observations", "methodology", "costs"]) {
@@ -75,6 +81,21 @@ try {
           assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
         }
         if (view === "report") {
+          assert.equal(await page.locator(".paced-summary").count(), 4);
+          const campaign = await page.locator(".campaign-summary").textContent();
+          assert.match(campaign, /No full hourly result/);
+          assert.match(campaign, /384 attempts \/ 381 greeting replies \/ 3 failures \/ 0 pending/);
+          assert.match(campaign, /100 \/ 150 RPM calibration stages were not attempted/);
+          assert.match(campaign, /383 distinct returned conversations/);
+          assert.match(campaign, /1286|1,286/);
+          assert.match(campaign, /213 eventual replies are counted through the following 6\.062 s drain/);
+          assert.match(await page.locator("#methodology").textContent(), /150 metadata records.*partial corroboration/);
+          assert.match(await page.locator("#methodology").textContent(), /150 of that cohort's 213 successes/);
+          assert.match(await page.locator("#methodology").textContent(), /211 completed before the observed arrival-end boundary and two during drain/);
+          const hour = page.locator('.paced-summary[data-run-key="paced-hour-25-stopped"]');
+          assert.match(await hour.textContent(), /WorkIQ MCP HTTP transport 429; GitHub Copilot Harness attribution unknown/);
+          assert.match(await hour.textContent(), /512\.233 s of a planned 3,600 s/);
+          assert.match(await hour.textContent(), /1,286 unoffered/);
           const burst = page.locator('.burst-summary[data-run-key="m365-native-burst-100"]');
           assert.match(await burst.textContent(), /100 requests \/ Published Microsoft 365 Copilot/);
           assert.match(await burst.textContent(), /33% greeting reply success/);
@@ -94,16 +115,35 @@ try {
           assert.match(await page.locator("#throughput-content").textContent(), /100 client invocations; backend\/model execution overlap unmeasured/);
           assert.match(await page.locator("#response-content").textContent(), /26,234 ms/);
           const nativeRows = await page.locator("#native-response-content tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
-          assert.deepEqual(nativeRows, [
+          assert.equal(nativeRows.length, 15);
+          assert.deepEqual(nativeRows.slice(-3), [
             ["Successful greeting replies", "33", "8.867 s", "17.299 s", "33.442 s", "34.379 s"],
             ["Failed invocations", "67", "8.235 s", "24.965 s", "37.947 s", "39.024 s"],
             ["All invocation outcomes", "100", "8.235 s", "24.526 s", "37.267 s", "39.024 s"]
           ]);
+          assert.deepEqual(nativeRows.filter((_, index) => index < 12 && index % 3 === 0).map((row) => [row[1], row[3], row[4]]), [
+            ["20", "8.431 s", "10.380 s"], ["50", "8.064 s", "12.842 s"], ["98", "7.644 s", "9.676 s"], ["213", "7.858 s", "9.680 s"]
+          ]);
+          assert.deepEqual(nativeRows[10], ["Failed invocations", "1", "0.065 s", "0.065 s", "0.065 s", "0.065 s"]);
           assert.doesNotMatch(await page.locator("#response-content").textContent(), /m365-native-burst-100|17\.299/);
-          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 4);
+          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 8);
           assert.match(await page.locator("#costs-content").textContent(), /updated 44 minutes earlier/);
           assert.match(await page.locator("#costs-content").textContent(), /stale preburst analytics, not this burst/);
+          assert.match(await page.locator("#costs-content").textContent(), /36 old sessions/);
+          assert.match(await page.locator("#costs-content").textContent(), /refresh 120 minutes earlier/);
+          assert.match(await page.locator("#observations-content").textContent(), /Transport throttling: 1/);
           assert.doesNotMatch(await page.locator("#costs-content").textContent(), /USD|GBP|EUR/);
+          assert.deepEqual(await page.locator("#report-data").evaluate((element) => JSON.parse(element.textContent)), report);
+          if (width === 1440 && theme === "light") {
+            for (const [name, expected] of [["Public aggregate JSON", report], ["JSON schema", schema]]) {
+              const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name, exact: true }).click()]);
+              assert.equal(await download.failure(), null);
+              const chunks = [];
+              for await (const chunk of await download.createReadStream()) chunks.push(chunk);
+              assert.deepEqual(JSON.parse(Buffer.concat(chunks).toString("utf8")), expected);
+              await download.delete();
+            }
+          }
         }
         await page.locator("#theme-toggle").click();
         const url = new URL(page.url());
@@ -211,7 +251,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: six viewport/theme combinations, all sections, axe, keyboard, print, forced colors, system theme, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: six viewport/theme combinations, all sections, eight-record integrity, JSON/schema downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));

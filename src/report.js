@@ -104,6 +104,27 @@ function outcomeCards(runs, native = false, nativeScope = "This native invocatio
 function renderOverview(report) {
   const overview = byId("overview-summary");
   overview.replaceChildren();
+  for (const campaign of report.pacedCampaigns ?? []) {
+    const cohorts = report.runs.filter((run) => campaign.runKeys.includes(run.runKey));
+    const totals = cohorts.reduce((sum, run) => {
+      for (const key of Object.keys(sum)) sum[key] += run.counts[key];
+      return sum;
+    }, { attempted: 0, completed: 0, failed: 0, pending: 0 });
+    const hour = cohorts.find((run) => run.pacedMeasurement.phase === "hour");
+    const card = node("article", undefined, "note boundary campaign-summary");
+    card.append(paragraph("PACED CAMPAIGN / STOPPED EARLY", "eyebrow"), node("h3", "No full hourly result"),
+      paragraph(`${number(totals.attempted)} attempts / ${number(totals.completed)} greeting replies / ${number(totals.failed)} failures / ${number(totals.pending)} pending across this campaign only.`),
+      paragraph("Stopped on WorkIQ MCP HTTP transport 429. GitHub Copilot Harness quota attribution is unknown; this is not a measured harness capacity ceiling."));
+    if (hour) card.append(paragraph(`The ${number(hour.pacedMeasurement.targetRpm)} RPM hourly arrival attempt stopped after ${number(hour.pacedMeasurement.arrivalSeconds)} s of 3,600 s: ${number(hour.counts.attempted)} of ${number(hour.pacedMeasurement.plannedSlots)} planned calls were dispatched, leaving ${number(hour.pacedMeasurement.unofferedSlots)} unsent. Its ${number(hour.counts.completed)} eventual replies are counted through the following ${number(hour.pacedMeasurement.drainSeconds)} s drain, not necessarily inside the arrival window. ${number(hour.pacedMeasurement.targetRpm)} RPM was the last qualified calibration rate, not a sustained-capacity finding.`));
+    for (const run of cohorts.filter((item) => item.pacedMeasurement.phase === "calibration" && item.pacedMeasurement.qualification === "not_qualified")) {
+      const belowThreshold = run.counts.completed * 100 < run.counts.attempted * 99;
+      card.append(paragraph(`${number(run.pacedMeasurement.targetRpm)} RPM calibration returned ${number(run.counts.completed / run.counts.attempted * 100)}% greetings, ${belowThreshold ? "below the predeclared 99% qualification rule" : "but did not qualify; every slot, complete drain and healthy pacing are also required"}. Unclassified errors are not quota evidence.`));
+    }
+    const unattempted = campaign.notAttemptedCalibrationRpm.length ? `${campaign.notAttemptedCalibrationRpm.map(number).join(" / ")} RPM calibration stages were not attempted. ` : "";
+    card.append(paragraph(`${unattempted}${number(campaign.distinctReturnedConversations)} distinct returned conversations were independently verified across the campaign; the transport-429 attempt returned no identifier. Peak client outstanding: ${number(campaign.clientPeakOutstanding)}, not backend/model concurrency.`),
+      paragraph(`Campaign markers: ${campaign.startedAt} to ${campaign.endedAt}. No runner retries or automatic restart; managed-service retries unknown. ${cohorts.every((run) => run.cost.status === "pending") ? "Costs remain pending." : "Cost evidence is reported separately."} Earlier burst and Teams observations are separate.`, "fine"));
+    overview.append(card);
+  }
   for (const run of report.runs.filter((item) => item.pacedMeasurement)) {
     const paced = run.pacedMeasurement;
     const feature = node("article", undefined, "note boundary paced-summary");
@@ -112,7 +133,7 @@ function renderOverview(report) {
       node("h3", `${pacedPhase(paced)} / ${number(paced.targetRpm)} intended RPM`),
       paragraph(`${number(run.counts.completed / run.counts.attempted * 100)}% greeting reply success at observation cutoff`),
       outcomeCards([run], true, "This paced dispatch cohort only"),
-      paragraph(`${achievedRpm(run)} achieved client dispatches/min over ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s arrival window. Arrival status: ${label(paced.arrivalStatus)}; drain: ${label(paced.drainStatus)} (${number(paced.drainSeconds)} s). ${paced.stopReason ? `Stop reason: ${pacedStopLabel(run)}.` : "No arrival stop recorded."}`),
+      paragraph(`${achievedRpm(run)} achieved client dispatches/min over ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s arrival window. This is an observed-window rate, not an extrapolated hourly result. Arrival status: ${label(paced.arrivalStatus)}; drain: ${label(paced.drainStatus)} (${number(paced.drainSeconds)} s). ${paced.stopReason ? `Stop reason: ${pacedStopLabel(run)}.` : "No arrival stop recorded."}`),
       paragraph(`${number(paced.skippedSlots)} skipped and ${number(paced.unofferedSlots)} unoffered client slots are outside the ${number(run.counts.attempted)} invocation attempts, not agent failures. Qualification: ${label(paced.qualification)}.${paced.qualifyingRunKey ? ` Rate selected from ${paced.qualifyingRunKey}.` : ""}`),
       paragraph(`Peak outstanding client invocations: ${paced.peakOutstanding === null ? "not measured" : number(paced.peakOutstanding)}; not backend/model concurrency. Costs: ${run.cost.status}.`, "fine"));
     overview.append(feature);
@@ -217,7 +238,7 @@ function renderThroughput(report) {
   else table("throughput-content", "Observed windows, not platform capacity", ["Run / surface", "Observation window / outcomes", "Launch or arrival observation", "Maximum outstanding"],
     nativeFirst(report.runs).map((run) => [
       `${run.runKey} / ${label(run.surface)}`,
-      run.pacedMeasurement ? `${pacedPhase(run.pacedMeasurement)}: ${number(run.pacedMeasurement.arrivalSeconds)} s arrivals + ${number(run.pacedMeasurement.drainSeconds)} s drain; ${label(run.pacedMeasurement.arrivalStatus)} / ${label(run.pacedMeasurement.drainStatus)}` :
+      run.pacedMeasurement ? `${pacedPhase(run.pacedMeasurement)}: ${number(run.pacedMeasurement.arrivalSeconds)} s offer window; observed end offset ${number(run.pacedMeasurement.arrivalEndObservedSeconds)} s + ${number(run.pacedMeasurement.drainSeconds)} s drain; ${label(run.pacedMeasurement.arrivalStatus)} / ${label(run.pacedMeasurement.drainStatus)}` :
       run.nativeInvocation ? `${number(run.counts.completed)} replies / ${number(run.counts.attempted)} invocation outcomes in ${number(run.windowSeconds)} s; not a sustained capacity result` :
       run.windowSeconds === null ? "Not measured" : run.counts.attempted === 1
         ? `${number(run.windowSeconds)} s; one sent message, not a throughput trial`
@@ -272,6 +293,7 @@ function renderObservations(runs) {
       card.append(paragraph(`${pacedPhase(paced)}; qualification ${label(paced.qualification)}. Arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}.${paced.stopReason ? ` Stop reason: ${pacedStopLabel(run)}.` : ""} A full arrival window does not mean every slot was dispatched or every operation succeeded.`),
         paragraph(`Absolute ${number(paced.pacing.intervalMs)} ms client slots; 5% minimum-gap allowance. Observed minimum gap: ${paced.pacing.observedMinIntervalMs === null ? "not measured" : `${number(paced.pacing.observedMinIntervalMs)} ms`}; violating intervals: ${paced.pacing.violatingIntervals === null ? "not measured" : number(paced.pacing.violatingIntervals)}. Skipped slots are not replayed.`),
         paragraph(`Fresh conversation per request is the configured policy, not proof of conversation/session counts. Verified distinct returned conversations: ${run.units.conversations ?? "unknown"}; from failed outcomes: ${paced.failedConversations ?? "unknown"}. No identifiers are public.`, "fine"),
+        paragraph(`Offer-window duration: ${paced.arrivalSeconds} s. Independently observed arrival-end offset: ${paced.arrivalEndObservedSeconds} s; drain: ${paced.drainSeconds} s; full observation through drain: ${run.windowSeconds} s. Timer overshoot and separate cutoff reads are retained, not rounded into equality; wall-clock metadata is a separate clock source.`, "fine"),
         paragraph("Greeting-only requests; no workflow, approval or email workload. Native completion includes client/pipeline overhead. Unclassified invocation failures do not establish throttling or a harness-wide ceiling. No burst history or Monitor evidence is assumed to cover this cohort.", "fine"));
     }
     if (run.nativeInvocation) {
@@ -342,6 +364,13 @@ function renderCosts(report) {
     const note = node("article", undefined, "note boundary");
     note.append(node("h3", `${run.runKey} / stale preburst analytics`),
       paragraph(`Monitor checked at ${monitor.checkedAt} said it was updated ${number(monitor.updatedMinutesAgo)} minutes earlier. It showed ${number(monitor.sessions)} old Teams session and ${number(monitor.messages)} messages, with no credits recorded. These are stale preburst analytics, not this burst's session or credit totals. They neither measure zero cost nor settle the pending billing amount.`));
+    byId("costs-content").append(note);
+  }
+  for (const campaign of report.pacedCampaigns ?? []) {
+    const monitor = campaign.postCampaignMonitor;
+    const note = node("article", undefined, "note boundary");
+    note.append(node("h3", "Paced campaign / stale Monitor, costs pending"),
+      paragraph(`Monitor checked at ${monitor.checkedAt} still showed ${number(monitor.sessions)} old sessions and no posted credits, with a refresh ${number(monitor.updatedMinutesAgo)} minutes earlier. This stale precampaign snapshot is not attributed usage for these cohorts and is not zero cost. The request-count budget was not a hard monetary limit or billing evidence.`));
     byId("costs-content").append(note);
   }
 }

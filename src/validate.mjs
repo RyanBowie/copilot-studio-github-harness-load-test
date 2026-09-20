@@ -131,8 +131,8 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     || [run.workflowState, run.followUp, run.firstVisibleActivity, run.firstVisibleLatency, run.latency, run.arrival, run.concurrency].some((value) => value !== null)) {
     fail(path, "paced greeting cohorts exclude burst records, workflow requests, unsent drafts and visible/UI measurements.");
   }
-  if (run.windowSeconds === null || Math.abs(run.windowSeconds - paced.arrivalSeconds - paced.drainSeconds) > 0.000001) {
-    fail(path, "full observation window must equal measured arrival plus drain seconds.");
+  if (run.windowSeconds === null || Math.abs(run.windowSeconds - paced.arrivalEndObservedSeconds - paced.drainSeconds) > 0.000001) {
+    fail(path, "full observation window must equal measured arrival-end offset plus drain seconds, not the scheduled offer window.");
   }
   for (const field of ["startedAt", "arrivalEndedAt", "observedThroughAt"]) {
     const value = paced[field];
@@ -169,7 +169,7 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     fail(path, "pacing violations must agree with the measured minimum and 5% allowance.");
   }
   if ((paced.peakOutstanding === null) !== (paced.concurrencyVerification === null) || paced.peakOutstanding > attempted) {
-    fail(path, "client peak requires measured interval-sweep evidence and cannot exceed attempts.");
+    fail(path, "client peak requires measured verification (interval-sweep or reviewed client peak) and cannot exceed attempts.");
   }
   if ((run.units.conversations === null) !== (paced.conversationEvidence === null)
     || (paced.failedConversations !== null && (paced.failedConversations > failed || run.units.conversations === null || paced.failedConversations > run.units.conversations))) {
@@ -267,7 +267,7 @@ export function validateReport(report, schema) {
   };
   checkDate(report.publication.reviewedOn, "report.publication.reviewedOn");
   if (report.publication.status === "awaiting_pilot") {
-    if (report.runs.length || report.documentedLimits.length || report.publication.reviewedOn !== null || report.studyContext !== null) {
+    if (report.runs.length || report.documentedLimits.length || report.publication.reviewedOn !== null || report.studyContext !== null || report.pacedCampaigns) {
       fail("report.publication", "awaiting_pilot must contain no facts and no review date.");
     }
   } else if (report.publication.reviewedOn === null || (!report.runs.length && !report.documentedLimits.length)) {
@@ -418,6 +418,40 @@ export function validateReport(report, schema) {
   });
   if (report.studyContext?.runKeys.some((key) => !runKeys.has(key))) fail("report.studyContext.runKeys", "context can only reference existing reviewed runs.");
   checkPacedCampaigns(report.runs, fail);
+  const campaignKeys = new Set();
+  for (const campaign of report.pacedCampaigns ?? []) {
+    const path = "report.pacedCampaigns";
+    if (campaignKeys.has(campaign.campaignKey)) fail(path, "campaign context keys must be unique.");
+    campaignKeys.add(campaign.campaignKey);
+    const cohorts = report.runs.filter((run) => run.pacedMeasurement?.campaignKey === campaign.campaignKey);
+    if (campaign.runKeys.length !== cohorts.length || campaign.runKeys.some((key) => !cohorts.some((run) => run.runKey === key))) {
+      fail(path, "campaign context must reference exactly its measured cohorts.");
+    }
+    for (const field of ["startedAt", "endedAt"]) {
+      const parsed = new Date(campaign[field]);
+      if (Number.isNaN(parsed.valueOf()) || parsed.toISOString() !== campaign[field]) fail(path, "campaign markers must be real millisecond UTC instants.");
+      checkDate(campaign[field].slice(0, 10), path);
+    }
+    if (campaign.startedAt >= campaign.endedAt || cohorts.some((run) => run.pacedMeasurement.startedAt < campaign.startedAt || run.pacedMeasurement.observedThroughAt > campaign.endedAt)) {
+      fail(path, "campaign markers must contain the measured cohort windows.");
+    }
+    const knownConversations = cohorts.map((run) => run.units.conversations);
+    if (knownConversations.some((count) => count === null) || campaign.distinctReturnedConversations > knownConversations.reduce((sum, count) => sum + count, 0)
+      || campaign.distinctReturnedConversations < Math.max(...knownConversations)) fail(path, "verified campaign distinct conversations must fit the reviewed cohort counts.");
+    if (campaign.clientPeakOutstanding !== Math.max(...cohorts.map((run) => run.pacedMeasurement.peakOutstanding ?? 0))) fail(path, "campaign peak must match non-overlapping cohort peaks.");
+    const measuredRates = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration").map((run) => run.pacedMeasurement.targetRpm);
+    if (campaign.notAttemptedCalibrationRpm.some((rate) => measuredRates.includes(rate))) fail(path, "unattempted calibration rates cannot have observed cohorts.");
+    const last = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
+    if (!last || last.pacedMeasurement.arrivalStatus !== "stopped" || last.pacedMeasurement.stopReason !== "explicit_throttle"
+      || !last.errors.some((error) => error.evidence === "workiq_mcp_transport_429")) fail(path, "campaign transport-stop context requires the corresponding terminal cohort evidence.");
+    const monitor = campaign.postCampaignMonitor;
+    const checked = new Date(monitor.checkedAt);
+    if (Number.isNaN(checked.valueOf()) || checked.toISOString().replace(".000Z", "Z") !== monitor.checkedAt
+      || checked.valueOf() < Date.parse(campaign.endedAt) || checked.valueOf() - monitor.updatedMinutesAgo * 60000 >= Date.parse(campaign.startedAt)) {
+      fail(path, "stale campaign Monitor must be checked after the campaign with a refresh preceding it.");
+    }
+    checkDate(monitor.checkedAt.slice(0, 10), path);
+  }
   const limitKeys = new Set();
   report.documentedLimits.forEach((limit, index) => {
     if (limitKeys.has(limit.limitKey)) fail(`report.documentedLimits[${index}]`, "limitKey must be unique.");

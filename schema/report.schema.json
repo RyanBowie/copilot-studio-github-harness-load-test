@@ -40,6 +40,34 @@
       ]
     },
     "runs": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/run" } },
+    "pacedCampaigns": {
+      "type": "array", "minItems": 1, "maxItems": 20,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["campaignKey", "runKeys", "startedAt", "endedAt", "status", "distinctReturnedConversations", "clientPeakOutstanding", "notAttemptedCalibrationRpm", "postCampaignMonitor"],
+        "properties": {
+          "campaignKey": { "$ref": "#/$defs/key" },
+          "runKeys": { "type": "array", "minItems": 1, "maxItems": 6, "uniqueItems": true, "items": { "$ref": "#/$defs/key" } },
+          "startedAt": { "$ref": "#/$defs/millisecondInstant" },
+          "endedAt": { "$ref": "#/$defs/millisecondInstant" },
+          "status": { "const": "stopped_on_workiq_mcp_transport_429" },
+          "distinctReturnedConversations": { "$ref": "#/$defs/positiveCount" },
+          "clientPeakOutstanding": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "notAttemptedCalibrationRpm": { "type": "array", "uniqueItems": true, "items": { "enum": [10, 25, 50, 100, 150] } },
+          "postCampaignMonitor": {
+            "type": "object", "additionalProperties": false,
+            "required": ["checkedAt", "updatedMinutesAgo", "sessions", "credits", "relevance"],
+            "properties": {
+              "checkedAt": { "$ref": "#/$defs/instant" },
+              "updatedMinutesAgo": { "$ref": "#/$defs/positiveCount" },
+              "sessions": { "$ref": "#/$defs/count" },
+              "credits": { "const": "not_recorded" },
+              "relevance": { "const": "stale_precampaign_analytics" }
+            }
+          }
+        }
+      }
+    },
     "documentedLimits": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/limit" } }
   },
   "$defs": {
@@ -152,7 +180,7 @@
       "required": [
         "campaignKey", "phase", "path", "endpoint", "requestKind", "timingBasis",
         "startedAt", "arrivalEndedAt", "observedThroughAt", "targetRpm", "plannedArrivalSeconds",
-        "arrivalSeconds", "plannedSlots", "skippedSlots", "unofferedSlots", "arrivalStatus",
+        "arrivalSeconds", "arrivalEndObservedSeconds", "plannedSlots", "skippedSlots", "unofferedSlots", "arrivalStatus",
         "stopReason", "drainStatus", "drainSeconds", "qualification", "qualifyingRunKey",
         "pacing", "peakOutstanding", "concurrencyBasis", "concurrencyVerification",
         "conversationPolicy", "conversationEvidence", "failedConversations", "runnerRetries",
@@ -172,6 +200,7 @@
         "targetRpm": { "enum": [10, 25, 50, 100, 150] },
         "plannedArrivalSeconds": { "enum": [120, 3600] },
         "arrivalSeconds": { "$ref": "#/$defs/duration" },
+        "arrivalEndObservedSeconds": { "$ref": "#/$defs/duration" },
         "plannedSlots": { "type": "integer", "minimum": 1, "maximum": 9000 },
         "skippedSlots": { "$ref": "#/$defs/count" },
         "unofferedSlots": { "$ref": "#/$defs/count" },
@@ -195,7 +224,7 @@
         },
         "peakOutstanding": { "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 100 }, { "type": "null" }] },
         "concurrencyBasis": { "const": "outstanding_client_invocations" },
-        "concurrencyVerification": { "enum": ["start_end_interval_sweep", null] },
+        "concurrencyVerification": { "enum": ["start_end_interval_sweep", "reviewed_client_peak", null] },
         "conversationPolicy": { "const": "fresh_per_request" },
         "conversationEvidence": { "enum": ["returned_ids_checked_unique", null] },
         "failedConversations": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
