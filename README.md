@@ -196,6 +196,12 @@ Error categories are `throttling`, `authentication`, `timeout`, `transport`, `co
 
 The closed evidence value **`workiq_mcp_transport_429`** means an observed **WorkIQ MCP HTTP transport HTTP 429**, paired with category `throttling` on a paced cohort. Its fixed scope is transport; **GitHub Copilot Harness attribution is unknown**, not a confirmed harness quota or capacity ceiling. This narrow evidence shape also records that no conversation identifier or exposed Retry-After was returned, so the validator excludes those failed attempts from possible returned-ID counts. It does not prove no backend activity occurred. A runner's generic throttle classification is not accepted as public evidence. Use `stopReason: explicit_throttle` for the guarded stop; the UI names the transport layer, rather than declaring a harness limit. Do not publish raw stacks, internal type names, IDs or paths.
 
+### Work IQ documentation boundary / reviewed 2026-09-20
+
+Review of the official [Work IQ `ask` reference](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference#ask), [error handling](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference#error-handling) and [busy/throttled-response guidance](https://github.com/microsoft/work-iq/blob/main/plugins/workiq/skills/workiq/references/ask-work-iq.md#L5-L9) found **no verified numeric Work IQ ask/MCP RPM, hourly, daily or concurrency ceiling**. This is not evidence of unlimited capacity. Enterprise MCP's 100 RPM figure, Microsoft Graph limits and Standard Harness quotas must not be applied to Work IQ `ask`.
+
+For busy/throttled responses, official guidance says to respect an exposed `retryAfterSeconds`, with no immediate retry or fan-out. Our transport stop exposed **no retry interval to the client**; that does not prove the server omitted a `Retry-After` header. The enforcing component, quota key/window/reset and whether the 429 attempt reached the agent remain unknown. The campaign stopped without retry; this documentation adds no authorization to resume it.
+
 ### Native invocation contract
 
 `nativeInvocation` is separate from `visible_response` and requires surface `published_microsoft365_copilot`. The current narrowly supported shape covers a finished native batch with outcomes fully classified as replies or generic unclassified invocation failures:
