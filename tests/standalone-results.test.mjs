@@ -20,8 +20,7 @@ const reject = (edit, pattern) => {
 
 test("ninth actual record is a separate 21-call standalone calibration, not a prior-campaign restart", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 9);
-  assert.equal(report.runs.at(-1).runKey, runKey);
+  assert.equal(report.runs[8].runKey, runKey);
   assert.deepEqual(run.counts, { attempted: 21, completed: 12, failed: 9, pending: 0 });
   assert.deepEqual(campaign.runKeys, [runKey]);
   assert.equal(paced.campaignKey, "m365-standalone-100");

@@ -114,18 +114,23 @@ function renderOverview(report) {
     const hour = cohorts.find((run) => run.pacedMeasurement.phase === "hour");
     const standalone = cohorts.length === 1 && cohorts[0].pacedMeasurement.phase === "calibration" ? cohorts[0] : null;
     const transportStop = campaign.status === "stopped_on_workiq_mcp_transport_429";
+    const completed = campaign.status === "completed_standalone_calibration";
     const card = node("article", undefined, "note boundary campaign-summary");
     card.dataset.campaignKey = campaign.campaignKey;
-    card.append(paragraph("PACED CAMPAIGN / STOPPED EARLY", "eyebrow"),
-      node("h3", standalone ? `Standalone ${number(standalone.pacedMeasurement.targetRpm)} RPM / safety stop` : "No full hourly result"),
+    card.append(paragraph(completed ? "PACED CAMPAIGN / COMPLETED CALIBRATION" : "PACED CAMPAIGN / STOPPED EARLY", "eyebrow"),
+      node("h3", standalone ? `Standalone ${number(standalone.pacedMeasurement.targetRpm)} RPM / ${completed ? "completed calibration" : "safety stop"}` : "No full hourly result"),
       paragraph(`${number(totals.attempted)} attempts / ${number(totals.completed)} greeting replies / ${number(totals.failed)} failures / ${number(totals.pending)} pending across this campaign only.`),
-      paragraph(transportStop
+      paragraph(completed
+        ? "The full two-minute arrival window and drain completed. Qualification describes this bounded calibration only, not an hourly result or a GitHub Copilot Harness capacity ceiling."
+        : transportStop
         ? "Stopped on WorkIQ MCP HTTP transport 429. GitHub Copilot Harness quota attribution is unknown; this is not a measured harness capacity ceiling."
         : "Stopped on the generic invocation-error safety threshold, not HTTP 429. No HTTP 429 or retry interval was exposed for these errors. The limiting layer and GitHub Copilot Harness capacity remain unknown; this is not confirmed throttling."));
     if (standalone) {
       const paced = standalone.pacedMeasurement;
-      card.append(paragraph(`Separate authorization and campaign, not a restart or escalation of the earlier campaign. ${number(standalone.counts.completed / standalone.counts.attempted * 100)}% eventual greeting success through drain. Dispatch stopped after ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s / ${number(paced.plannedSlots)} calls; ${number(paced.unofferedSlots)} were not offered and ${number(paced.skippedSlots)} were skipped.`),
-        paragraph(`${paced.arrivalSeconds < 60 ? "Not even one full minute completed. " : ""}No completed two-minute calibration or hour. Already-outstanding calls then drained for ${number(paced.drainSeconds)} s; final failure count includes that drain. No restart, retries or escalation, including unused slots.`));
+      card.append(paragraph(`Separate authorization and campaign, not a restart or escalation of the earlier campaign. ${number(standalone.counts.completed / standalone.counts.attempted * 100)}% eventual greeting success through drain. ${completed ? "The full arrival window covered" : "Dispatch stopped after"} ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s / ${number(paced.plannedSlots)} calls; ${number(paced.unofferedSlots)} were not offered and ${number(paced.skippedSlots)} were skipped.`),
+        paragraph(completed
+          ? `All planned calls dispatched; outcomes were observed through the following ${number(paced.drainSeconds)} s drain. No hour or automatic continuation followed.`
+          : `${paced.arrivalSeconds < 60 ? "Not even one full minute completed. " : ""}No completed two-minute calibration or hour. Already-outstanding calls then drained for ${number(paced.drainSeconds)} s; final failure count includes that drain. No restart, retries or escalation, including unused slots.`));
     }
     if (hour) card.append(paragraph(`The ${number(hour.pacedMeasurement.targetRpm)} RPM hourly arrival attempt stopped after ${number(hour.pacedMeasurement.arrivalSeconds)} s of 3,600 s: ${number(hour.counts.attempted)} of ${number(hour.pacedMeasurement.plannedSlots)} planned calls were dispatched, leaving ${number(hour.pacedMeasurement.unofferedSlots)} unsent. Its ${number(hour.counts.completed)} eventual replies are counted through the following ${number(hour.pacedMeasurement.drainSeconds)} s drain, not necessarily inside the arrival window. ${number(hour.pacedMeasurement.targetRpm)} RPM was the last qualified calibration rate, not a sustained-capacity finding.`));
     for (const run of cohorts.filter((item) => item.pacedMeasurement.phase === "calibration" && item.pacedMeasurement.qualification === "not_qualified")) {

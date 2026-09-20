@@ -69,7 +69,7 @@ try {
         await page.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
         assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
         const metrics = await page.locator(".metric-value").allTextContents();
-        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "21", "12", "9", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
+        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "21", "12", "9", "0", "50", "50", "0", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
         const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
         assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
         for (const id of ["overview", "response-time", "throughput", "observations", "methodology", "costs"]) {
@@ -83,8 +83,27 @@ try {
           assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
         }
         if (view === "report") {
-          assert.equal(await page.locator(".paced-summary").count(), 5);
-          assert.equal(await page.locator("#run-ledger .card").count(), 9);
+          assert.equal(await page.locator(".paced-summary").count(), 6);
+          assert.equal(await page.locator("#run-ledger .card").count(), 10);
+          assert.equal(report.runs.at(-1).runKey, "paced-spread-25-completed");
+          const spread = await page.locator('.campaign-summary[data-campaign-key="m365-spread-25"]').textContent();
+          assert.match(spread, /PACED CAMPAIGN \/ COMPLETED CALIBRATION/);
+          assert.match(spread, /Standalone 25 RPM \/ completed calibration/);
+          assert.match(spread, /50 attempts \/ 50 greeting replies \/ 0 failures \/ 0 pending/);
+          assert.match(spread, /100% eventual greeting success through drain/);
+          assert.match(spread, /full arrival window covered 120 s of a planned 120 s \/ 50 calls; 0 were not offered and 0 were skipped/);
+          assert.match(spread, /following 7\.065 s drain.*No hour or automatic continuation/);
+          assert.match(spread, /50 distinct returned conversations.*Peak client outstanding: 5, not backend\/model concurrency/);
+          assert.doesNotMatch(spread, /STOPPED EARLY|safety stop|Stopped on|No completed two-minute|Not even one full minute|no identifier/);
+          const spreadCohort = await page.locator('.paced-summary[data-run-key="paced-spread-25-completed"]').textContent();
+          assert.match(spreadCohort, /Campaign: m365-spread-25/);
+          assert.match(spreadCohort, /25 achieved client dispatches\/min/);
+          assert.match(spreadCohort, /Arrival status: full window; drain: complete/);
+          assert.match(spreadCohort, /No arrival stop recorded.*Qualification: qualified/);
+          assert.match(await page.locator("#methodology").textContent(), /configured client-outstanding cap of 100, not five/);
+          assert.match(await page.locator("#methodology").textContent(), /Forty-seven replies completed before the observed arrival-end boundary and three during drain/);
+          assert.match(await page.locator("#methodology").textContent(), /all 50 successful conversations matched.*150-row page.*hasMore=true/);
+          assert.match(await page.locator("#methodology").textContent(), /Elapsed time, cooldown and background conditions could contribute; this is not causal proof/);
           const campaign = await page.locator('.campaign-summary[data-campaign-key="m365-paced-campaign"]').textContent();
           assert.match(campaign, /No full hourly result/);
           assert.match(campaign, /384 attempts \/ 381 greeting replies \/ 3 failures \/ 0 pending/);
@@ -135,11 +154,20 @@ try {
           assert.match(await page.locator("#throughput-content").textContent(), /100 client invocations; backend\/model execution overlap unmeasured/);
           assert.match(await page.locator("#response-content").textContent(), /26,234 ms/);
           const nativeRows = await page.locator("#native-response-content tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
-          assert.equal(nativeRows.length, 18);
+          assert.equal(nativeRows.length, 21);
           assert.deepEqual(nativeRows.slice(12, 15), [
             ["Successful greeting replies", "12", "7.863 s", "9.188 s", "11.334 s", "11.334 s"],
             ["Failed invocations", "9", "3.247 s", "4.054 s", "4.566 s", "4.566 s"],
             ["All invocation outcomes", "21", "3.247 s", "8.285 s", "10.841 s", "11.334 s"]
+          ]);
+          assert.deepEqual(nativeRows.slice(15, 18), [
+            ["Successful greeting replies", "50", "6.687 s", "7.743 s", "9.890 s", "11.947 s"],
+            ["Failed invocations", "No samples", "Not reported", "Not reported", "Not reported", "Not reported"],
+            ["All invocation outcomes", "50", "6.687 s", "7.743 s", "9.890 s", "11.947 s"]
+          ]);
+          const spreadMinutes = page.getByRole("table", { name: "paced-spread-25-completed / Rate calibration cohort / outcomes by dispatch minute", exact: true, includeHidden: true });
+          assert.deepEqual(await spreadMinutes.locator("tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent))), [
+            ["0", "60", "25", "25", "0", "0"], ["60", "60", "25", "25", "0", "0"]
           ]);
           assert.deepEqual(nativeRows.slice(-3), [
             ["Successful greeting replies", "33", "8.867 s", "17.299 s", "33.442 s", "34.379 s"],
@@ -151,12 +179,13 @@ try {
           ]);
           assert.deepEqual(nativeRows[10], ["Failed invocations", "1", "0.065 s", "0.065 s", "0.065 s", "0.065 s"]);
           assert.doesNotMatch(await page.locator("#response-content").textContent(), /m365-native-burst-100|17\.299/);
-          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 9);
+          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 10);
           assert.match(await page.locator("#costs-content").textContent(), /updated 44 minutes earlier/);
           assert.match(await page.locator("#costs-content").textContent(), /stale preburst analytics, not this burst/);
           assert.match(await page.locator("#costs-content").textContent(), /36 old sessions/);
           assert.match(await page.locator("#costs-content").textContent(), /refresh 120 minutes earlier/);
           assert.match(await page.locator("#costs-content").textContent(), /417 old sessions.*refresh 60 minutes earlier/);
+          assert.match(await page.locator("#costs-content").textContent(), /m365-spread-25.*2026-09-20T21:23:22Z.*417 old sessions.*refresh 60 minutes earlier/);
           assert.match(await page.locator("#observations-content").textContent(), /Transport throttling: 1/);
           assert.doesNotMatch(await page.locator("#costs-content").textContent(), /USD|GBP|EUR/);
           assert.deepEqual(await page.locator("#report-data").evaluate((element) => JSON.parse(element.textContent)), report);
@@ -277,7 +306,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, all sections, nine-record integrity, standalone safety stop and scoped prior campaign, JSON/schema downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, all sections, ten-record integrity, completed spread cohort/null failures, standalone safety stop and scoped prior campaign, JSON/schema downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));

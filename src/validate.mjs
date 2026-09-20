@@ -447,11 +447,19 @@ export function validateReport(report, schema) {
     const measuredRates = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration").map((run) => run.pacedMeasurement.targetRpm);
     if (campaign.notAttemptedCalibrationRpm.some((rate) => measuredRates.includes(rate))) fail(path, "unattempted calibration rates cannot have observed cohorts.");
     const last = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
-    const transportStop = campaign.status === "stopped_on_workiq_mcp_transport_429";
-    const stopReason = transportStop ? "explicit_throttle" : "generic_error_threshold";
-    const evidence = transportStop ? "workiq_mcp_transport_429" : "unclassified_invocation_failure";
-    if (!last || last.pacedMeasurement.arrivalStatus !== "stopped" || last.pacedMeasurement.stopReason !== stopReason
-      || !last.errors.some((error) => error.evidence === evidence)) fail(path, "campaign stop context requires the corresponding terminal cohort evidence.");
+    if (campaign.status === "completed_standalone_calibration") {
+      if (cohorts.length !== 1 || last.pacedMeasurement.phase !== "calibration" || last.pacedMeasurement.arrivalStatus !== "full_window"
+        || last.pacedMeasurement.drainStatus !== "complete" || last.pacedMeasurement.qualification !== "qualified"
+        || last.pacedMeasurement.stopReason !== null || last.counts.attempted !== last.pacedMeasurement.plannedSlots) {
+        fail(path, "completed standalone calibration requires exactly one qualified full-window cohort, all planned dispatches and complete drain; not an hour or a stopped campaign.");
+      }
+    } else {
+      const transportStop = campaign.status === "stopped_on_workiq_mcp_transport_429";
+      const stopReason = transportStop ? "explicit_throttle" : "generic_error_threshold";
+      const evidence = transportStop ? "workiq_mcp_transport_429" : "unclassified_invocation_failure";
+      if (!last || last.pacedMeasurement.arrivalStatus !== "stopped" || last.pacedMeasurement.stopReason !== stopReason
+        || !last.errors.some((error) => error.evidence === evidence)) fail(path, "campaign stop context requires the corresponding terminal cohort evidence.");
+    }
     const monitor = campaign.postCampaignMonitor;
     const checked = new Date(monitor.checkedAt);
     if (Number.isNaN(checked.valueOf()) || checked.toISOString().replace(".000Z", "Z") !== monitor.checkedAt
