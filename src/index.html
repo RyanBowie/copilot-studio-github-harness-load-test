@@ -165,8 +165,10 @@ section { margin-bottom: 48px; }
 .empty p, .note p { color: var(--cp-text-muted); max-width: 820px; }
 .empty .eyebrow { color: var(--cp-warning); }
 .two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
-.stack { display: grid; gap: 16px; margin: 24px 0; }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin: 24px 0; }
 .boundary { border-left: 4px solid var(--cp-accent); }
+.burst-summary { margin: 24px 0 32px; }
+.burst-summary .burst-result { color: var(--cp-accent); font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 600; line-height: 1.25; }
 dl { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); margin: 0; gap: 8px 16px; }
 dt { color: var(--cp-text-muted); }
 dd { margin: 0; overflow-wrap: anywhere; }
@@ -262,17 +264,20 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <div class="two-column">
           <article class="note boundary">
             <h3>What this study measures</h3>
-            <p>Single authenticated account, labelled channel surface, requested-operation outcomes and visible response latency. A final explanatory message does not turn a failed operation into a successful one. Runs, conversations and sessions remain distinct units.</p>
+            <p>Single authenticated account, labelled published surface, requested-operation outcomes and explicitly named timing endpoints. Native invocation completion is separate from Teams visible-response latency. A final explanatory message does not turn a failed operation into a successful one. Runs, conversations and sessions remain distinct units.</p>
           </article>
           <article class="note">
             <h3>What this study does not claim</h3>
-            <p>A single Teams bot chat can serialize turns. Its behavior alone cannot establish platform-wide capacity, backend parallelism or a universal service limit.</p>
+            <p>A single Teams bot chat can serialize turns. Neither that serial pilot nor outstanding client RPC calls establish simultaneous model execution, platform-wide capacity or the backend cause of generic invocation failures.</p>
           </article>
         </div>
       </section>
       <section id="response-time" aria-labelledby="response-heading" hidden>
         <h2 id="response-heading">Response time</h2>
-        <p class="section-intro">Three distinct endpoints: first visible activity, first actual answer and UI settlement. Loading or tool-invocation statuses count only as activity, never an answer. Settled means feedback controls are present and text remains unchanged for the recorded stability interval. None of these is backend completion, backend time to first answer (TTFA) or first token.</p>
+        <p class="section-intro">Native invocation completion and visible channel timing are different endpoints. Successful, failed and all-outcome native durations stay separate; none is backend completion, TTFA, first token or a measure of simultaneous model execution.</p>
+        <div id="native-response-content"></div>
+        <h3>Separate visible channel endpoints</h3>
+        <p class="fine">First activity can be a status, first actual answer excludes status, and UI settlement requires feedback controls plus the recorded stable-text interval. These endpoints were not measured by the native invocation burst.</p>
         <div id="response-content"></div>
         <div class="note">
           <h3>Read the sample, not just the percentile</h3>
@@ -281,7 +286,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       </section>
       <section id="throughput" aria-labelledby="throughput-heading" hidden>
         <h2 id="throughput-heading">Throughput &amp; limits</h2>
-        <p class="section-intro">Observed arrivals, in-flight message overlap and completions describe a measured window, not a platform capacity ceiling. Unobserved rate and concurrency remain not measured.</p>
+        <p class="section-intro">Client RPC launch spread, outstanding native invocations and observed message overlap are explicitly different measurements. Client launch does not prove network/server arrival or backend admission. The outcome of one burst is not a sustained platform capacity ceiling.</p>
         <div id="throughput-content"></div>
         <h3>Documented numerical limits</h3>
         <p class="fine">Documentation is a separate evidence class, never an observed result. Applicability to the tested configuration must be reviewed explicitly.</p>
@@ -289,7 +294,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <div class="two-column">
           <article class="note">
             <h3>Per conversation, not per account</h3>
-            <p>The documented GitHub Copilot Harness <code>CONVERSATION_BUSY</code> constraint is one active turn per conversation. <code>RATE_LIMIT_REACHED</code> and <code>QUOTA_EXCEEDED</code> are documented error classes, but the cited source publishes no numeric GitHub Copilot Harness RPM or token ceiling. None was established by this pilot.</p>
+            <p>The documented GitHub Copilot Harness <code>CONVERSATION_BUSY</code> constraint is one active turn per conversation. <code>RATE_LIMIT_REACHED</code> and <code>QUOTA_EXCEEDED</code> are documented error classes, but the cited source publishes no numeric GitHub Copilot Harness RPM or token ceiling. Neither the pilot nor the generic burst failures establish one.</p>
             <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/troubleshooting-error-codes">GitHub Copilot Harness error-code documentation</a>
           </article>
           <article class="note boundary">
@@ -317,11 +322,12 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <div class="stack">
           <article class="note">
             <h3>01 / Identify the configuration without identifying people</h3>
-            <p>Record published Teams versus Studio Preview, agent version when known, environment type, model, memory setting, workload, workflow and connector involvement. The harness label is GitHub Copilot Harness, not GitHub coding agent or Copilot SDK.</p>
+            <p>Record published Teams, published Microsoft 365 Copilot or Studio Preview separately, along with known agent version, environment type, model, memory setting, workload, workflow and connector involvement. The harness label is GitHub Copilot Harness, not GitHub coding agent or Copilot SDK.</p>
           </article>
           <article class="note">
             <h3>02 / Keep counting units separate</h3>
-            <p>A run has one bounded timing window, not one session. An attempt is one sent user message; retries are new attempts. Unsent drafts do not enter the denominator. Completed means the requested operation was reported successful with a visibly settled response, not an independent general answer-correctness evaluation or backend completion. A failed requested operation can still produce a final explanatory message. Follow-up outcome updates preserve the earlier cutoff snapshot rather than inventing missing timings. Conversations are channel threads; sessions are runtime sessions only when observed, never inferred from conversations.</p>
+            <p>A run has one bounded timing window, not one session. An attempt is one sent user message or one native invocation on its labelled surface; runner retries are new attempts. Unsent drafts do not enter the denominator. Success means the requested outcome was returned: a visibly settled response in the Teams pilot, or a completed native invocation returning the requested greeting in the burst. It is not an independent general correctness evaluation or backend completion measurement. A failed requested operation can still produce a final explanatory message. Follow-up updates preserve the earlier cutoff snapshot rather than inventing missing timings.</p>
+            <p>Conversations are verified channel threads or Microsoft 365 conversation identifiers; sessions remain unknown unless independently observed. Failure payloads can contain valid conversation identifiers. They establish conversation identity, not proof of backend execution.</p>
             <p>Each run record owns non-overlapping attempts. Update a pending run in place rather than appending another snapshot. Conversation and session counts are per-run and must not be summed as globally distinct counts.</p>
           </article>
           <article class="note">
@@ -342,6 +348,13 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
             <p>Every run records costs as pending, settled or unknown. Pending and unknown amounts stay null, not zero. Settled amounts identify currency, evidence source and whether attribution covers this run or a shared window. Shared-window costs and different currencies are never summed.</p>
           </article>
           <article class="note">
+            <h3>Native published Microsoft 365 burst method</h3>
+            <p>A Copilot app extension used <code>session.rpc.tools.execute</code> through the native invocation pipeline to call WorkIQ <code>ask</code> against the exact published agent. The manifest/registry target matched, and Studio history corroborated successful conversations. No token extraction, private-endpoint replay, permission override or extra agents were used. This is an observed native client path, not a newly claimed public load-test API contract.</p>
+            <p>One burst launched 100 promises. The 1.6675 ms measurement is client RPC launch spread only; ordinary CLI start/hook timestamps were coalesced and excluded. Calibration with separate 200 ms and 2,200 ms local native RPC operations preserved different completion durations. Peak 100 outstanding client invocations does not prove 100 simultaneous backend/model executions.</p>
+            <p>Prompt template: <code>Hello! Please reply with a brief greeting only. Greeting reference: burst-NNN.</code> References 001 through 100 belong to the burst. The earlier 000 preflight and an earlier Hello probe do not. No workflow, approval or email requests; no runner retry. Managed-service retry behavior is unknown. Success, failure and all-outcome percentiles use nearest-rank over their own sorted monotonic durations, never averaged percentiles.</p>
+            <p>Wall-clock markers identify the batch from 16:54:21.563Z to 16:55:00.600Z on 2026-09-20. The separately calibrated monotonic batch duration is 39.0336098 s; subtracting wall-clock markers instead gives 39.037 s and is not the duration source. Native timing includes client/pipeline overhead, not UI settlement or TTFA.</p>
+          </article>
+          <article class="note">
             <h3>Pilot workload definitions</h3>
             <p>Greeting: <code>Hello!</code></p>
             <p>Public knowledge: <code>Using Microsoft Learn, define a Power Platform environment in two sentences and cite the source.</code></p>
@@ -349,14 +362,14 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           </article>
           <article class="note">
             <h3>Published channel and programmatic-client boundaries</h3>
-            <p>Published Teams is the primary measurement surface; Studio Preview diagnostic outcomes stay separate. Documentation lists Teams, Microsoft 365, demo and iframe channels, while native DirectLine is unavailable. The existing CopilotStudioClient / Microsoft 365 Agents SDK integration documentation is Standard Harness only.</p>
-            <p>No supported programmatic published GitHub Copilot Harness user-client contract was established by these sources. Do not replay private endpoints or assume Teams APIs are a bot-invocation protocol.</p>
+            <p>The earlier pilot used published Teams; the later burst used published Microsoft 365 Copilot through native WorkIQ invocation. Neither is Studio Preview or direct engine. Documentation lists Teams, Microsoft 365, demo and iframe channels, while native DirectLine is unavailable. Existing CopilotStudioClient / Microsoft 365 Agents SDK integration documentation is Standard Harness only.</p>
+            <p>No general-purpose programmatic published GitHub Copilot Harness user-client contract was established by those sources. The observed native WorkIQ client path does not change that documentation boundary. Do not replay private endpoints or presume Teams APIs invoke the bot.</p>
             <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/publication-channels-overview">GitHub Copilot Harness channels</a>
             &middot; <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk">Standard Harness SDK integration</a>
           </article>
           <article class="note boundary">
-            <h3>Future ramp is not authorized or implemented</h3>
-            <p>A future bounded conversational ramp would exclude review/email turns, wait for prior completion and use no automatic retries. Stop at the first throttle, ambiguous side effect or explicitly approved bound. No larger budget, rate or message count has been approved. Sequential turns in one chat are not independent-session concurrency.</p>
+            <h3>Executed burst is not open-ended authorization</h3>
+            <p>The user-requested 100-call burst was executed once, not merely planned; earlier per-chat serial guidance does not describe that separate batch. This reporting repository contains no live runner. Further work needs an explicit bound, excludes review/email workloads, and must not automatically retry ambiguous failures. The burst is not permission for an ongoing ramp. Sequential turns in one chat and client RPC overlap are not backend/model concurrency.</p>
           </article>
         </div>
         <p class="fine">Future scope: email &rarr; workflow &rarr; agent. That scenario is not implemented or measured by this scaffold.</p>

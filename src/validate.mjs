@@ -122,7 +122,7 @@ export function validateReport(report, schema) {
     checkDate(run.observedOn, `${path}.observedOn`);
     const { attempted, completed, failed, pending } = run.counts;
     if (attempted !== completed + failed + pending) fail(`${path}.counts`, "attempted must equal completed + failed + pending.");
-    if (report.studyContext?.conversationUse === "one_existing_reused" && run.units.conversations !== 1) {
+    if (report.studyContext?.runKeys.includes(run.runKey) && report.studyContext.conversationUse === "one_existing_reused" && run.units.conversations !== 1) {
       fail(`${path}.units.conversations`, "a shared single-conversation study requires one reused conversation per run.");
     }
     for (const [unit, count] of Object.entries(run.units)) {
@@ -164,9 +164,89 @@ export function validateReport(report, schema) {
     if (run.errors.reduce((sum, error) => sum + error.count, 0) !== failed) fail(`${path}.errors`, "error counts must exactly cover failed messages.");
     if (new Set(run.errors.map((error) => error.category)).size !== run.errors.length) fail(`${path}.errors`, "error categories must be unique.");
     run.errors.forEach((error) => {
-      if ((error.category === "unknown") !== (error.evidence === "unclassified_failure")) fail(`${path}.errors`, "unclassified evidence and unknown category must be paired.");
+      if ((error.category === "unknown") !== ["unclassified_failure", "unclassified_invocation_failure"].includes(error.evidence)) fail(`${path}.errors`, "unclassified evidence and unknown category must be paired.");
+      if (error.evidence === "unclassified_invocation_failure" && run.nativeInvocation === null) fail(`${path}.errors`, "invocation evidence requires a native invocation measurement.");
       if (error.evidence === "agent_reported_timeout" && error.category !== "workflow") fail(`${path}.errors`, "an agent-reported workflow timeout is not a wire-status or throttling observation.");
     });
+    if ((run.surface === "published_microsoft365_copilot") !== (run.nativeInvocation !== null)) {
+      fail(`${path}.nativeInvocation`, "this native invocation contract is exclusive to the published Microsoft 365 Copilot surface.");
+    }
+    if (run.nativeInvocation) {
+      const invocation = run.nativeInvocation;
+      if (run.windowSeconds === null || pending !== 0) fail(`${path}.nativeInvocation`, "requires a measured, finished invocation batch.");
+      if (run.workload !== "single_turn" || run.workflow !== "not_involved" || run.workflowState !== null || run.clientIssues.length) {
+        fail(`${path}.nativeInvocation`, "this greeting-only contract excludes workflow requests and unsent-draft client episodes.");
+      }
+      if ([run.firstVisibleActivity, run.firstVisibleLatency, run.latency, run.concurrency, run.arrival, run.followUp].some((value) => value !== null)) {
+        fail(`${path}.nativeInvocation`, "native invocation timing and client overlap cannot stand in for visible/UI timing, message concurrency, arrivals or follow-up outcomes.");
+      }
+      for (const field of ["startedAt", "endedAt"]) {
+        const value = invocation[field];
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.valueOf()) || parsed.toISOString() !== value) fail(`${path}.nativeInvocation.${field}`, "must be a real millisecond UTC instant.");
+        checkDate(value.slice(0, 10), `${path}.nativeInvocation.${field}`);
+      }
+      if (invocation.endedAt <= invocation.startedAt || invocation.endedAt.slice(0, 10) !== run.observedOn) {
+        fail(`${path}.nativeInvocation`, "wall-clock markers must be ordered and end on the run observation date.");
+      }
+      if (invocation.peakOutstanding > attempted || invocation.dispatchWindowMs > run.windowSeconds * 1000) {
+        fail(`${path}.nativeInvocation`, "client overlap and dispatch window must fit the observed invocation batch.");
+      }
+      if (run.units.conversations !== attempted || invocation.failedConversations !== failed) {
+        fail(`${path}.nativeInvocation`, "unique-conversation evidence must cover every invocation including failed payloads.");
+      }
+      const groups = [["success", completed], ["failure", failed], ["allOutcomes", completed + failed]];
+      for (const [field, count] of groups) {
+        const summary = invocation[field];
+        const summaryPath = `${path}.nativeInvocation.${field}`;
+        if (count === 0) {
+          if (summary !== null) fail(summaryPath, "no outcomes must use null, not a fabricated sample.");
+          continue;
+        }
+        if (summary === null) { fail(summaryPath, "requires timing for the observed outcome group."); continue; }
+        if (summary.sampleCount !== count) fail(summaryPath, "samples must match this outcome group's count exactly.");
+        if ((summary.minMs !== null && summary.minMs > summary.p50Ms) || summary.p50Ms > summary.p95Ms || summary.p95Ms > summary.maxMs) {
+          fail(summaryPath, "must satisfy min <= p50 <= p95 <= max where min is known.");
+        }
+        if (summary.maxMs > run.windowSeconds * 1000) fail(summaryPath, "invocation duration cannot exceed the calibrated batch window.");
+        if (summary.sampleCount === 1 && (summary.p50Ms !== summary.p95Ms || summary.p95Ms !== summary.maxMs || (summary.minMs !== null && summary.minMs !== summary.maxMs))) {
+          fail(summaryPath, "one sample requires equal timing values.");
+        }
+        if (invocation.percentileMethod === "nearest_rank" && Math.ceil(summary.sampleCount * 0.95) === summary.sampleCount && summary.p95Ms !== summary.maxMs) {
+          fail(summaryPath, "nearest-rank p95 must equal max for fewer than 20 samples.");
+        }
+      }
+      const presentGroups = [invocation.success, invocation.failure].filter((value) => value !== null);
+      if (presentGroups.length && invocation.allOutcomes.maxMs !== Math.max(...presentGroups.map((group) => group.maxMs))) {
+        fail(`${path}.nativeInvocation.allOutcomes`, "all-outcome max must equal the maximum across outcome groups.");
+      }
+      if (invocation.allOutcomes.minMs !== null && presentGroups.every((group) => group.minMs !== null)
+        && invocation.allOutcomes.minMs !== Math.min(...presentGroups.map((group) => group.minMs))) {
+        fail(`${path}.nativeInvocation.allOutcomes`, "all-outcome min must match the outcome groups when all minima are known.");
+      }
+      if (run.errors.some((error) => error.category !== "unknown" || error.evidence !== "unclassified_invocation_failure")) {
+        fail(`${path}.nativeInvocation`, "generic server_error evidence cannot be labelled a confirmed throttle, quota or backend failure.");
+      }
+      const { calibration, history } = invocation;
+      if (calibration.longRequestedMs <= calibration.shortRequestedMs || calibration.longObservedMs <= calibration.shortObservedMs) {
+        fail(`${path}.nativeInvocation.calibration`, "independent short/long probes must retain their distinct ordered durations.");
+      }
+      if (history.completedConversations > completed || history.failedConversationsAbsent > failed || history.completedConversations > history.snapshotRows) {
+        fail(`${path}.nativeInvocation.history`, "snapshot counts cannot exceed the corresponding invocation outcomes.");
+      }
+      if (history.membership === "exact_intersection_verified" && history.completedConversations !== completed) {
+        fail(`${path}.nativeInvocation.history`, "verified full success membership must cover every successful invocation.");
+      }
+      const monitor = invocation.postRunMonitor;
+      const checkedAt = new Date(monitor.checkedAt);
+      if (Number.isNaN(checkedAt.valueOf()) || checkedAt.toISOString().replace(".000Z", "Z") !== monitor.checkedAt) {
+        fail(`${path}.nativeInvocation.postRunMonitor`, "must include a real UTC check instant.");
+      }
+      checkDate(monitor.checkedAt.slice(0, 10), `${path}.nativeInvocation.postRunMonitor.checkedAt`);
+      if (checkedAt.valueOf() < Date.parse(invocation.endedAt) || checkedAt.valueOf() - monitor.updatedMinutesAgo * 60000 >= Date.parse(invocation.startedAt)) {
+        fail(`${path}.nativeInvocation.postRunMonitor`, "stale preburst analytics must be checked after the burst and last updated before it.");
+      }
+    }
     if (run.workflowState) {
       if (run.workflow !== "involved") fail(`${path}.workflowState`, "requires an involved workflow; its running state is independent of the agent-call outcome.");
       if (run.windowSeconds !== null && run.workflowState.invocationStatusFirstSeenMs > run.windowSeconds * 1000) {
@@ -201,6 +281,7 @@ export function validateReport(report, schema) {
       fail(`${path}.cost`, "pending/unknown must not contain settled values; do not encode unknown costs as zero.");
     }
   });
+  if (report.studyContext?.runKeys.some((key) => !runKeys.has(key))) fail("report.studyContext.runKeys", "context can only reference existing reviewed runs.");
   const limitKeys = new Set();
   report.documentedLimits.forEach((limit, index) => {
     if (limitKeys.has(limit.limitKey)) fail(`report.documentedLimits[${index}]`, "limitKey must be unique.");

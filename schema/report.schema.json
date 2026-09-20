@@ -25,8 +25,9 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["conversationUse", "executionPattern", "volumeRamp", "configurationChanges", "prePilotMonitor", "postPilotMonitor", "harnessVerification"],
+          "required": ["runKeys", "conversationUse", "executionPattern", "volumeRamp", "configurationChanges", "prePilotMonitor", "postPilotMonitor", "harnessVerification"],
           "properties": {
+            "runKeys": { "type": "array", "minItems": 1, "maxItems": 200, "uniqueItems": true, "items": { "$ref": "#/$defs/key" } },
             "conversationUse": { "enum": ["one_existing_reused", "not_established"] },
             "executionPattern": { "enum": ["sequential", "not_established"] },
             "volumeRamp": { "enum": ["not_performed", "performed", "not_established"] },
@@ -44,6 +45,7 @@
   "$defs": {
     "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
     "instant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$" },
+    "millisecondInstant": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
     "key": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
     "label": {
       "type": "string",
@@ -56,6 +58,94 @@
     "positiveCount": { "type": "integer", "minimum": 1, "maximum": 1000000000 },
     "duration": { "type": "number", "minimum": 0.001, "maximum": 31536000 },
     "nullableCount": { "anyOf": [{ "$ref": "#/$defs/positiveCount" }, { "type": "null" }] },
+    "invocationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sampleCount", "minMs", "p50Ms", "p95Ms", "maxMs"],
+      "properties": {
+        "sampleCount": { "$ref": "#/$defs/positiveCount" },
+        "minMs": { "anyOf": [{ "$ref": "#/$defs/duration" }, { "type": "null" }] },
+        "p50Ms": { "$ref": "#/$defs/duration" },
+        "p95Ms": { "$ref": "#/$defs/duration" },
+        "maxMs": { "$ref": "#/$defs/duration" }
+      }
+    },
+    "nativeInvocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path", "endpoint", "requestKind", "targetVerification", "startedAt", "endedAt", "dispatchWindowMs",
+        "peakOutstanding", "concurrencyBasis", "concurrencyVerification", "runnerRetries", "managedServiceRetries",
+        "excludedPreflights", "conversationEvidence", "failedConversations", "percentileMethod",
+        "success", "failure", "allOutcomes", "errorEnvelope", "failureResultType", "throttleEvidence", "bottleneck",
+        "calibration", "history", "postRunMonitor"
+      ],
+      "properties": {
+        "path": { "const": "workiq_ask_via_native_tool_rpc" },
+        "endpoint": { "const": "invocation_completion" },
+        "requestKind": { "const": "greeting_only" },
+        "targetVerification": { "const": "published_manifest_and_registry_match" },
+        "startedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "endedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "dispatchWindowMs": { "$ref": "#/$defs/duration" },
+        "peakOutstanding": { "$ref": "#/$defs/positiveCount" },
+        "concurrencyBasis": { "const": "outstanding_client_invocations" },
+        "concurrencyVerification": { "const": "start_end_interval_sweep" },
+        "runnerRetries": { "const": 0 },
+        "managedServiceRetries": { "const": "unknown" },
+        "excludedPreflights": { "$ref": "#/$defs/count" },
+        "conversationEvidence": { "const": "unique_ids_from_success_and_failure_payloads" },
+        "failedConversations": { "$ref": "#/$defs/count" },
+        "percentileMethod": { "enum": ["nearest_rank", "linear_interpolation", "not_reported"] },
+        "success": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "failure": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "allOutcomes": { "$ref": "#/$defs/invocationSummary" },
+        "errorEnvelope": { "const": "workiq_m365_server_error" },
+        "failureResultType": { "const": "native_failure" },
+        "throttleEvidence": { "const": "none_explicit" },
+        "bottleneck": { "const": "unknown" },
+        "calibration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["clock", "eventTimestamps", "shortRequestedMs", "shortObservedMs", "longRequestedMs", "longObservedMs"],
+          "properties": {
+            "clock": { "const": "native_rpc_completion" },
+            "eventTimestamps": { "const": "coalesced_and_excluded" },
+            "shortRequestedMs": { "$ref": "#/$defs/duration" },
+            "shortObservedMs": { "$ref": "#/$defs/duration" },
+            "longRequestedMs": { "$ref": "#/$defs/duration" },
+            "longObservedMs": { "$ref": "#/$defs/duration" }
+          }
+        },
+        "history": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["completedConversations", "failedConversationsAbsent", "membership", "completeness", "snapshotRows", "hasMore", "successfulLastStep"],
+          "properties": {
+            "completedConversations": { "$ref": "#/$defs/count" },
+            "failedConversationsAbsent": { "$ref": "#/$defs/count" },
+            "membership": { "enum": ["count_only_pending_exact_intersection", "exact_intersection_verified"] },
+            "completeness": { "const": "partial_has_more" },
+            "snapshotRows": { "$ref": "#/$defs/positiveCount" },
+            "hasMore": { "const": true },
+            "successfulLastStep": { "const": "none_recorded" }
+          }
+        },
+        "postRunMonitor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["checkedAt", "updatedMinutesAgo", "sessions", "messages", "credits", "relevance"],
+          "properties": {
+            "checkedAt": { "$ref": "#/$defs/instant" },
+            "updatedMinutesAgo": { "$ref": "#/$defs/positiveCount" },
+            "sessions": { "$ref": "#/$defs/count" },
+            "messages": { "$ref": "#/$defs/count" },
+            "credits": { "const": "not_recorded" },
+            "relevance": { "const": "stale_preburst_analytics" }
+          }
+        }
+      }
+    },
     "run": {
       "type": "object",
       "additionalProperties": false,
@@ -63,12 +153,12 @@
         "runKey", "observedOn", "surface", "agentVersion", "environmentType", "model",
         "authenticatedAccounts", "memory", "workload", "workflow", "connectors", "counts",
         "units", "windowSeconds", "firstVisibleActivity", "firstVisibleLatency", "latency", "concurrency", "arrival", "errors", "clientIssues",
-        "workflowState", "followUp", "observations", "cost"
+        "workflowState", "followUp", "nativeInvocation", "observations", "cost"
       ],
       "properties": {
         "runKey": { "$ref": "#/$defs/key" },
         "observedOn": { "$ref": "#/$defs/date" },
-        "surface": { "enum": ["published_teams", "studio_preview"] },
+        "surface": { "enum": ["published_teams", "studio_preview", "published_microsoft365_copilot"] },
         "agentVersion": { "$ref": "#/$defs/nullableLabel" },
         "environmentType": { "enum": ["production", "developer", "sandbox", "trial", "unknown"] },
         "model": { "$ref": "#/$defs/nullableLabel" },
@@ -98,6 +188,7 @@
           }
         },
         "windowSeconds": { "anyOf": [{ "$ref": "#/$defs/duration" }, { "type": "null" }] },
+        "nativeInvocation": { "anyOf": [{ "$ref": "#/$defs/nativeInvocation" }, { "type": "null" }] },
         "firstVisibleActivity": {
           "anyOf": [
             { "type": "null" },
@@ -199,7 +290,7 @@
                 "enum": ["throttling", "authentication", "timeout", "transport", "connector", "workflow", "agent", "unknown"]
               },
               "count": { "$ref": "#/$defs/positiveCount" },
-              "evidence": { "enum": ["visible_error", "transport_status", "unclassified_failure", "agent_reported_timeout"] }
+              "evidence": { "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout"] }
             }
           }
         },

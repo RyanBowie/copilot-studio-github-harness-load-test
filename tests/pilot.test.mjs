@@ -6,12 +6,14 @@ import { validateReport } from "../src/validate.mjs";
 const report = JSON.parse(await readFile(new URL("../data/report.json", import.meta.url), "utf8"));
 const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
 const run = (key) => report.runs.find((item) => item.runKey === key);
+const pilotRuns = report.runs.filter((item) => report.studyContext.runKeys.includes(item.runKey));
 
 test("reviewed pilot preserves sent-message outcomes and one reused conversation", () => {
   assert.deepEqual(validateReport(report, schema), []);
   assert.equal(report.publication.reviewedOn, "2026-09-20");
-  assert.equal(report.runs.length, 3);
-  assert.deepEqual(report.runs.reduce((total, item) => {
+  assert.equal(pilotRuns.length, 3);
+  assert.deepEqual(report.studyContext.runKeys, ["greeting-pilot", "public-knowledge-pilot", "compliance-review-pilot"]);
+  assert.deepEqual(pilotRuns.reduce((total, item) => {
     for (const key of Object.keys(total)) total[key] += item.counts[key];
     return total;
   }, { attempted: 0, completed: 0, failed: 0, pending: 0 }), { attempted: 3, completed: 2, failed: 1, pending: 0 });
@@ -20,7 +22,7 @@ test("reviewed pilot preserves sent-message outcomes and one reused conversation
   assert.equal(report.studyContext.executionPattern, "sequential");
   assert.equal(report.studyContext.volumeRamp, "not_performed");
   assert.equal(report.studyContext.configurationChanges, "none_by_tester");
-  for (const item of report.runs) {
+  for (const item of pilotRuns) {
     assert.deepEqual(item.units, { conversations: 1, sessions: null });
     assert.equal(item.surface, "published_teams");
     assert.equal(item.environmentType, "developer");
@@ -84,7 +86,7 @@ test("compliance call fails while separate workflow history still shows waiting"
 });
 
 test("reviewed costs stay pending and configuration discrepancies are explicit", () => {
-  for (const item of report.runs) {
+  for (const item of pilotRuns) {
     assert.deepEqual(item.cost, { status: "pending", currency: null, amount: null, source: null, scope: null, recordedOn: null });
     assert.ok(item.observations.includes("standalone_teams_send_tool_missing"));
     assert.ok(item.observations.includes("public_knowledge_all_websites_enabled"));

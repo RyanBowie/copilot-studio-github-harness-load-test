@@ -60,6 +60,7 @@
       "clientIssues": [{ "category": "unsent_draft", "count": 1, "observedWaitSeconds": 20 }],
       "workflowState": null,
       "followUp": null,
+      "nativeInvocation": null,
       "observations": ["manual_timing", "partial_observation"],
       "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
     }

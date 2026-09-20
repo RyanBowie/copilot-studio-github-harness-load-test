@@ -59,7 +59,7 @@ try {
         await page.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
         assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
         const metrics = await page.locator(".metric-value").allTextContents();
-        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["3", "2", "1", "0"]);
+        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["100", "33", "67", "0", "3", "2", "1", "0"]);
         const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
         assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
         for (const id of ["overview", "response-time", "throughput", "observations", "methodology", "costs"]) {
@@ -73,15 +73,34 @@ try {
           assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
         }
         if (view === "report") {
+          const burst = page.locator('.burst-summary[data-run-key="m365-native-burst-100"]');
+          assert.match(await burst.textContent(), /100 requests \/ Published Microsoft 365 Copilot/);
+          assert.match(await burst.textContent(), /33% greeting reply success/);
+          assert.match(await burst.textContent(), /100 outstanding client invocations/);
+          assert.match(await burst.textContent(), /1\.6675 ms/);
+          assert.match(await burst.textContent(), /67 generic WorkIQ\/Microsoft 365 server_error/);
+          assert.doesNotMatch(await burst.textContent(), /same existing conversation|103|105/);
           assert.match(await page.locator("#overview-summary").textContent(), /One existing Teams conversation/);
-          assert.match(await page.locator("#overview-summary").textContent(), /No high-volume ramp/);
+          assert.match(await page.locator("#overview-summary").textContent(), /No high-volume ramp was performed in this earlier Teams pilot/);
           assert.match(await page.locator("#observations-content").textContent(), /agent message reported a workflow HTTP 504 timeout/);
           assert.match(await page.locator("#observations-content").textContent(), /not independently observed wire-level HTTP status/);
           assert.match(await page.locator("#observations-content").textContent(), /Review workflow still running/);
           assert.match(await page.locator("#observations-content").textContent(), /120\.167 s timing cutoff: 0 successful, 0 failed, 1 pending/);
+          assert.match(await page.locator("#observations-content").textContent(), /33 successful reply conversations exactly matched/);
+          assert.match(await page.locator("#observations-content").textContent(), /hasMore=true/);
           assert.doesNotMatch(await page.locator("#throughput-content").textContent(), /completed\/min/);
+          assert.match(await page.locator("#throughput-content").textContent(), /100 client invocations; backend\/model execution overlap unmeasured/);
           assert.match(await page.locator("#response-content").textContent(), /26,234 ms/);
-          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 3);
+          const nativeRows = await page.locator("#native-response-content tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
+          assert.deepEqual(nativeRows, [
+            ["Successful greeting replies", "33", "8.867 s", "17.299 s", "33.442 s", "34.379 s"],
+            ["Failed invocations", "67", "8.235 s", "24.965 s", "37.947 s", "39.024 s"],
+            ["All invocation outcomes", "100", "Not reported", "24.526 s", "37.267 s", "39.024 s"]
+          ]);
+          assert.doesNotMatch(await page.locator("#response-content").textContent(), /m365-native-burst-100|17\.299/);
+          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 4);
+          assert.match(await page.locator("#costs-content").textContent(), /updated 44 minutes earlier/);
+          assert.match(await page.locator("#costs-content").textContent(), /stale preburst analytics, not this burst/);
           assert.doesNotMatch(await page.locator("#costs-content").textContent(), /USD|GBP|EUR/);
         }
         await page.locator("#theme-toggle").click();
@@ -96,6 +115,11 @@ try {
         await page.locator('.section-nav a[href="#costs"]').click();
         await page.screenshot({ path: resolve(artifacts, `${view}-costs-${width}-${theme}.png`), fullPage: true });
         snapshots++;
+        if (view === "report") {
+          await page.locator('.section-nav a[href="#response-time"]').click();
+          await page.screenshot({ path: resolve(artifacts, `native-timing-${width}-${theme}.png`), fullPage: true });
+          snapshots++;
+        }
       }
       assert.deepEqual(errors, [], "no browser errors");
       await context.close();
@@ -158,6 +182,7 @@ try {
   await page.locator("#data-error").waitFor({ state: "visible" });
   assert.equal(await page.locator("#publication-status").textContent(), "DATA REJECTED");
   assert.equal(await page.locator(".metric-value").count(), 0);
+  assert.equal(await page.locator("#native-response-content").textContent(), "");
   await context.close();
   const offline = await browser.newContext({ offline: true });
   const offlinePage = await offline.newPage();

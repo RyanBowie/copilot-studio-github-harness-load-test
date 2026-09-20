@@ -2,13 +2,52 @@
 
 A separate, aggregate-only report for single-account observations of **Copilot Studio agents powered by the GitHub Copilot Harness**. This is not the Standard Harness study, GitHub coding agent, or Copilot SDK.
 
-**Current state: reviewed local pilot, not published.** Three sequential sent-message attempts reused **one existing Teams conversation**: two successful requested outcomes and one agent-reported review-submission timeout, with no agent-call outcome still pending after follow-up. The underlying review workflow remains separately Running/Waiting. Every cost is **pending**, not zero. This is not a high-volume load ramp or a capacity result. No Standard Harness data or images are imported. This repository runs no cloud tests, authentication or connectors; it reports sanitized observations supplied by the testing owner. The separate email-to-workflow-to-agent scenario is not implemented.
+**Current state: reviewed 100-request burst plus preserved Teams pilot, local only.** The native published **Microsoft 365 Copilot** burst returned **33 greeting replies / 100 attempts (33%)**, with **67 unclassified invocation failures** and zero pending. Peak **100 outstanding client invocations** is measured, not 100 simultaneous backend/model executions. The earlier three-turn Teams pilot remains separate. All costs remain **pending**, not zero; no confirmed harness-wide throttle ceiling is inferred. No Standard Harness data or images are imported. This repository is an offline report, not a cloud test runner. The separate email-to-workflow-to-agent scenario is not implemented.
 
 The branch and commits remain local because the GitHub OAuth application lacks permission to push workflow files. No authentication change, workflow workaround, merge or deployment has been performed.
 
-## Reviewed pilot / 2026-09-20
+## Measured native Microsoft 365 burst / 2026-09-20
 
-All runs used published Teams, Developer environment, `GPT 5.6 Sol`, one authenticated account and memory off. The Agents grid independently showed Powered by GitHub Copilot and Published, but the exact agent version was not frozen. Runtime session count is unknown, even though the single reused channel conversation is known.
+One actual 100-request burst was executed by the testing owner through **native WorkIQ `ask` to the exact published agent**, not Teams, Studio Preview or direct engine. A Copilot app extension used `session.rpc.tools.execute` through the native invocation pipeline, not a separate Copilot SDK agent/harness. Manifest/registry target matching and Studio history corroborate the target; no IDs are published. No token extraction, private-endpoint replay, permission override or extra agents were used.
+
+| Measure | Reviewed result | Scope |
+| --- | --- | --- |
+| Attempts / greeting replies / failures / pending | 100 / 33 / 67 / 0 | This burst only; **33% reply success** |
+| Distinct Microsoft 365 conversations | 100 | IDs verified including 67 from failed-invocation payloads; not runtime sessions |
+| Client launch spread / peak outstanding | 1.6675 ms / 100 | Client RPC launch and outstanding native calls; independently verified by a start/end interval sweep, not just configured concurrency; not network/server admission or backend/model execution |
+| Batch duration | 39.0336098 s | Monotonic native completion window; not derived from wall-clock markers |
+| Wall-clock markers | 16:54:21.563Z to 16:55:00.600Z | Date 2026-09-20; marker difference is 39.037 s, a distinct time source |
+| Configuration | One corporate account, Developer, GPT 5.6 Sol, memory off | Exact published revision unknown |
+| Retries and excluded work | 0 runner retries; managed-service retries unknown | Two earlier Microsoft 365 probes and all three earlier Teams turns excluded |
+| Cost | Pending / null amount | Stale Monitor analytics cannot settle burst cost |
+
+**Native invocation-completion durations**, including pipeline overhead; **not visible answer, UI-stable, TTFA or backend timing**:
+
+| Population | n | Minimum (ms) | p50 (ms) | p95 (ms) | Maximum (ms) |
+| --- | --- | --- | --- | --- | --- |
+| Successful greeting replies | 33 | 8866.5169 | 17299.0789 | 33442.3959 | 34378.6106 |
+| Failed invocations | 67 | 8235.0156 | 24965.3921 | 37946.5726 | 39024.4086 |
+| All invocation outcomes | 100 | Not separately reported | 24526.3908 | 37266.7486 | 39024.4086 |
+
+Percentiles are **nearest-rank**, one-based `ceil(p*n)` over sorted raw monotonic durations within each population. The all-outcomes p95 is not reply latency. No average of percentiles, pooling across surfaces, or backend concurrency claim is made. The HTML rounds native duration display to three decimal seconds; public JSON preserves reviewed raw precision.
+
+Independent timing calibration used 200 ms / 2,200 ms local native RPC operations, returning in 1.5626 s / 3.4893 s respectively. The distinct completion durations demonstrate that these native measurements were not batch-coalesced. Ordinary multi-tool CLI event/hook timestamps **were coalesced and were excluded**. Calibration does not remove client overhead or prove backend execution timing.
+
+All 67 failures have native `resultType: "failure"` and the same generic WorkIQ/Microsoft 365 `server_error` at invocation; they are **not runner JSON-parse failures**. They are **unclassified invocation failures**, not confirmed GitHub Copilot Harness throttles: no explicit 429, Retry-After, `RATE_LIMIT_REACHED` or numeric quota evidence was observed. The bottleneck/layer is unknown. Every successful answer was a brief greeting with no workflow, approval, email or send claim; no lastStep tool was recorded on matched successful history rows.
+
+A later workflow Activity check at **17:01:58Z** still showed only the original waiting pilot review run: the greeting burst added no **recorded** review runs. This is a scoped Activity observation, not an exhaustive claim about unobservable backend activity. No private controller artifacts, identifiers or file hashes are included.
+
+All **33 successful conversation IDs exactly intersect** 33 Completed Microsoft 365 Copilot entries in Studio history. None of the 67 failed IDs appeared in the returned snapshot, but **hasMore=true**: its 37 rows include those 33 successes, two earlier Microsoft 365 probes, an earlier Teams row and an unused Preview stub. The snapshot is not exhaustive and history completeness/delay is unknown; absent IDs do **not** prove calls never reached the harness.
+
+Post-burst Monitor checked at **16:59:36Z** said **updated 44 minutes ago**, showing one old Teams session, seven messages and no recorded credits. Those are **stale preburst analytics**, not burst totals or zero cost. Burst runtime sessions remain unknown.
+
+Prompt template: `Hello! Please reply with a brief greeting only. Greeting reference: burst-NNN.` The burst includes only references **001..100**. The separate 000 preflight (9.4315 s) and an earlier Hello probe (10.971 s, uncalibrated client-tool event) are excluded from timing/count statistics. There were 102 new Microsoft 365 greeting calls across probes plus burst, but **only 100 belong to this run**. No workflow/approval/email requests, no automatic retry and no new live activity are implemented here.
+
+## Earlier reviewed Teams pilot / 2026-09-20
+
+These three sequential sent-message attempts reused **one existing Teams conversation**: two successful requested outcomes and one agent-reported review-submission timeout, with no agent-call outcome still pending after follow-up. The underlying review workflow remains separately Running/Waiting. This earlier pilot had no high-volume ramp; its context does not describe the subsequent native burst.
+
+All three pilot runs used published Teams, Developer environment, `GPT 5.6 Sol`, one authenticated account and memory off. The Agents grid independently showed Powered by GitHub Copilot and Published, but the exact agent version was not frozen. Runtime session count is unknown, even though the single reused channel conversation is known.
 
 | Run | First activity | First actual answer | UI settled (3 s stable + feedback) | Outcome at cutoff |
 | --- | --- | --- | --- | --- |
@@ -69,7 +108,7 @@ The root contains exactly `schemaVersion`, `harness`, `outcomeBasis`, `publicati
 - `publication.status: "reviewed"` requires a real ISO `YYYY-MM-DD` review date and at least one reviewed run or documented limit. Observation, settlement and documentation retrieval dates cannot postdate that review.
 - `reviewedOn` is an attestation by the report preparer after evidence and privacy review, not an automatic validation stamp. It contains no reviewer identity. Validation cannot prove that review occurred. These pilot aggregates were reviewed by the authorized testing/reporting agent; this does not attest to a new human review or to the separate workflow's human decision.
 - Run keys and limit keys are unique public slugs, **not source IDs**. Publication rejects reserved offline/fixture/synthetic/example/fake/test keys.
-- `studyContext` is `null` when unestablished, or a closed object with reviewed conversation reuse, sequential execution, ramp/configuration-change state, pre/post-pilot Monitor observations and harness/published-badge verification. `conversationUse: "one_existing_reused"` means every run's `units.conversations: 1` refers to the same existing conversation, not another distinct conversation. These study-level facts must not be inferred from per-run counts.
+- `studyContext` is `null` when unestablished, or a closed object with explicit `runKeys` scoping reviewed conversation reuse, sequential execution, ramp/configuration-change state, pre/post-pilot Monitor observations and harness/published-badge verification. Every key must reference a reviewed run. `conversationUse: "one_existing_reused"` means only those runs' `units.conversations: 1` refer to the same existing conversation. It does not constrain a separate native run's 100 distinct conversations.
 
 ### One run record
 
@@ -79,7 +118,7 @@ Every field in the table is required; only explicitly nullable fields accept `nu
 | --- | --- |
 | `runKey` | Nonidentifying public slug, at most 32 lowercase letters/digits/hyphens, starting with a letter |
 | `observedOn` | Date of the observation cutoff |
-| `surface` | `published_teams` or `studio_preview`; do not combine them in a run |
+| `surface` | `published_teams`, `published_microsoft365_copilot` or `studio_preview`; do not combine them in a run |
 | `agentVersion`, `model` | Reviewed public labels (64 characters maximum), or `null` when unknown; no identifiers, URLs or free-form evidence |
 | `environmentType` | `production`, `developer`, `sandbox`, `trial` or `unknown`; no environment name or ID |
 | `authenticatedAccounts` | Exactly `1`; a larger/multi-account experiment needs a new contract |
@@ -90,6 +129,7 @@ Every field in the table is required; only explicitly nullable fields accept `nu
 | `units` | `conversations` and `sessions`, each observed positive integers or `null`; each cannot exceed attempts |
 | `windowSeconds` | Positive observed full-window duration, or `null`; first send through cutoff, including measured completions |
 | `firstVisibleActivity`, `firstVisibleLatency`, `latency` | Each `null` or an independent activity / first actual answer / UI-settled timing summary described below |
+| `nativeInvocation` | `null` for visible-channel runs; a closed, separately validated native completion/dispatch/evidence object for the published Microsoft 365 Copilot run |
 | `concurrency` | `null` or `{ "maxInFlight": positive integer, "basis": "observed_message_overlap" }`; never a configured worker count |
 | `arrival` | `null` or observed positive `attempts` and `windowSeconds`; no inferred arrival schedule |
 | `errors` | Array of structured failure categories; counts exactly cover failed messages |
@@ -99,11 +139,11 @@ Every field in the table is required; only explicitly nullable fields accept `nu
 | `observations` | Unique approved codes for timing/configuration/activity observations; see the schema enum. No arbitrary narrative text, raw content or identifiers |
 | `cost` | Required status and nullable evidence fields, described below |
 
-An **attempt** is a sent user message. Retries are additional attempts. An unsent draft belongs in `clientIssues`, never in attempted/failed/throttling counts. A client-only episode with no sent messages is not an agent run under v1. **Completed** means the requested operation was reported successful with a visibly settled response, not an independent general correctness evaluation or backend completion. **Failed** means observed or reported failure of the requested operation, with its evidence class explicit; a final explanatory message can coexist with failure. **Pending** means the requested outcome remains unresolved at the stated snapshot. Do not convert pending into success or timeout without evidence.
+An **attempt** is a sent user message or a native invocation on its labelled surface. Runner retries are additional attempts; managed-service retries are not assumed known. An unsent draft belongs in `clientIssues`, never in attempted/failed/throttling counts. A client-only episode with no sent messages is not an agent run under v1. **Completed** means the requested operation was reported successful with a visibly settled response for the Teams pilot, or a native invocation returned the requested greeting for the burst. It is not a general correctness evaluation or backend completion measurement. **Failed** means observed or reported failure of the requested operation, with its evidence class explicit; a final explanatory message can coexist with failure. **Pending** means the requested outcome remains unresolved at the stated snapshot.
 
 Configuration discrepancies belong in structured observations, not successful tool execution. An attached human-review workflow is not evidence that it ran, and a missing standalone Teams-send tool cannot be reported as successful standalone delivery.
 
-A **run** is one bounded observation window. Each record owns non-overlapping attempts; replace a run's snapshot in place as pending outcomes settle. A **conversation** is a channel thread; a **session** is a runtime session only when actually observable. Do not infer session count from thread count or add per-run session/conversation counts into a globally distinct total. The overview adds message counts only.
+A **run** is one bounded observation window. Each record owns non-overlapping attempts; replace a run's snapshot in place as pending outcomes settle. A **conversation** is a channel thread or verified Microsoft 365 conversation identifier; a **session** is a runtime session only when observable. IDs returned in failure payloads are conversation evidence, not backend execution evidence. Do not infer session count or add per-run conversation counts into a globally distinct total. The overview keeps each native batch separate and groups visible-channel message counts only within their own surface; it does not headline a mixed 103-attempt result.
 
 ### Latency, rates and errors
 
@@ -127,7 +167,21 @@ These are **three distinct visible endpoints**, including channel/rendering dela
 
 For runs with multiple sent messages, observed completion pace is `completed / windowSeconds * 60`; arrival rate is `arrival.attempts / arrival.windowSeconds * 60`. A single-message pilot shows its observation window, not an extrapolated per-minute completion rate. The arrival window may differ from the full window but cannot exceed it when both are known; arrivals and maximum in-flight messages cannot exceed attempted messages. These are descriptive window rates, not steady-state platform capacity.
 
-Error categories are `throttling`, `authentication`, `timeout`, `transport`, `connector`, `workflow`, `agent`, `unknown`, once per category. Each has a positive `count` and an `evidence` class: `visible_error`, `transport_status`, `unclassified_failure` or `agent_reported_timeout`. The last is restricted to workflow category, not a proven wire status or throttle. Unknown category and unclassified evidence must be paired. Do not infer throttling from latency alone. Raw error strings, HTTP bodies and correlation IDs are prohibited.
+Error categories are `throttling`, `authentication`, `timeout`, `transport`, `connector`, `workflow`, `agent`, `unknown`, once per category. Each has a positive `count` and an `evidence` class: `visible_error`, `transport_status`, `unclassified_failure`, `unclassified_invocation_failure` or `agent_reported_timeout`. Agent-reported timeout is restricted to workflow category, not a proven wire status or throttle. Unknown category and unclassified evidence must be paired; invocation evidence additionally requires `nativeInvocation`. Do not infer throttling from latency or generic server_error. Raw error bodies and correlation IDs are prohibited.
+
+### Native invocation contract
+
+`nativeInvocation` is separate from `visible_response` and requires surface `published_microsoft365_copilot`. The current narrowly supported shape covers a finished native batch with outcomes fully classified as replies or generic unclassified invocation failures:
+
+- Path `workiq_ask_via_native_tool_rpc`, endpoint `invocation_completion`, request kind `greeting_only`, target verification `published_manifest_and_registry_match`. This narrow native shape requires `single_turn`, workflow `not_involved`, no workflow state and no unsent-draft episodes; broader native workloads require an explicit contract extension rather than silently inheriting greeting labels.
+- `startedAt` / `endedAt`: ordered millisecond UTC wall-clock markers; `windowSeconds` remains the independently measured monotonic duration. Marker subtraction is not substituted for that duration.
+- `dispatchWindowMs`, `peakOutstanding` and `concurrencyBasis: "outstanding_client_invocations"` represent **client launch and outstanding calls**, verified by `concurrencyVerification: "start_end_interval_sweep"`, never network arrival or model execution. Generic `concurrency`, `arrival` and all three visible latency fields must be null.
+- `success`, `failure` and `allOutcomes` each have `sampleCount`, nullable `minMs`, `p50Ms`, `p95Ms`, `maxMs`. Group sizes exactly match outcome counts; timings must be ordered, bounded by the calibrated batch and retain their own populations. A group with no outcomes must be null, not invented. `percentileMethod` is explicit; this reviewed burst uses `nearest_rank`.
+- `conversationEvidence: "unique_ids_from_success_and_failure_payloads"` requires conversations to equal attempted invocations and `failedConversations` to equal failed calls. No actual identifier is allowed.
+- `runnerRetries: 0`, `managedServiceRetries: "unknown"`, `excludedPreflights`, generic `errorEnvelope`, `failureResultType: "native_failure"`, `throttleEvidence: "none_explicit"` and `bottleneck: "unknown"` keep native failure evidence separate from runner parse failures and inferred capacity limits.
+- `calibration` records distinct requested/observed short/long local durations with clock `native_rpc_completion` and `eventTimestamps: "coalesced_and_excluded"`.
+- `history` stores aggregate corroboration only: completion count, failed IDs absent from the returned snapshot, explicit membership-verification state, row count, `hasMore: true`, partial completeness and no lastStep recorded. It cannot establish exhaustive backend absence.
+- `postRunMonitor` records the stale check instant, update age and old displayed counts. The validator ensures that the check follows the burst but the reported last update predates it. These are not burst session/credit counts and do not settle costs.
 
 `workflowState` supports this specific reviewed evidence shape: positive `invocationStatusFirstSeenMs`, `historyCheck: "after_message_cutoff"`, positive `runningRuns`, `triggerStatus: "succeeded"`, `humanReviewStatus: "waiting"`, `emailStatus: "waiting"`, `finalOutputs: "not_available"`, `reviewNotificationDelivery: "unconfirmed"`, `humanDecision: "unconfirmed"` and `testerApprovalOrEmail: "none"`. It requires an involved workflow, **not a pending agent call**. The visible invocation status must be inside the message window; the later history check is not silently backdated to that cutoff. Other workflow states require a reviewed schema change rather than coercion into this waiting-state shape.
 
@@ -162,11 +216,11 @@ Only HTTPS documentation URLs under `learn.microsoft.com` or `docs.github.com` a
 | [GitHub Copilot Harness usage controls](https://learn.microsoft.com/en-us/power-platform/admin/manage-usage-github-copilot-harness) | Shared agent/month credit caps and environment capacity / Stop usage controls; GitHub usage remains billed with a Microsoft 365 Copilot license; Developer/trial usage-based billing from 1 September 2026. | Controls/billing policy, not a measured per-run charge or a workload rate limit. All pilot costs remain pending. |
 | [Teams bot conversation API](https://learn.microsoft.com/en-us/microsoftteams/platform/bots/how-to/rate-limit) | Conversation API estimates: 7 requests / 1 s, 8 / 2 s, 60 / 30 s, 1,800 / 3,600 s; global 50 requests/s per app per tenant. | Transport requests, **not agent turns**. Estimates can change and one message can split into requests. Not a bot-invocation contract. |
 | [Teams connector](https://learn.microsoft.com/en-us/connectors/teams/#throttling-limits) | 100 calls / 60 s per connection; listed non-GET / Flow-bot operations 25 / 300 s; other operations 300 / 300 s. | Operation-specific connector limits, not published conversational-channel allowances. |
-| [GitHub Copilot Harness publication channels](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/publication-channels-overview) | Teams, Microsoft 365, demo and iframe channels; native DirectLine unavailable. | Published Teams is primary. Preview diagnostics must remain separately labelled. |
+| [GitHub Copilot Harness publication channels](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/publication-channels-overview) | Teams, Microsoft 365, demo and iframe channels; native DirectLine unavailable. | Earlier pilot used published Teams; measured burst used published Microsoft 365 Copilot. Preview remains separate. |
 | [CopilotStudioClient / Agents SDK integration](https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk) | Existing integration guidance is Standard Harness only. | No supported programmatic published GitHub Copilot Harness user-client contract was established from these sources. Never replay private endpoints or presume Teams APIs invoke the bot. |
 | [Billed-credit activity timing](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-review-activity#billings) | Billed credits update after "a few hours"; no exact SLA. | An empty pre-pilot meter is not zero usage or settled cost. |
 
-Any future bounded conversational ramp must exclude review/email turns, wait for prior completion and use no automatic retry. Stop at the first throttle, ambiguous side effect or explicitly approved bound. No larger budget, rate or count is currently approved, and no ramp is implemented here. One-chat serial turns are not independent-session concurrency. Old Standard Harness results from a different tenant, Production environment and DirectToEngine transport support descriptive comparison only, not a controlled harness-only comparison.
+The user explicitly requested and the testing owner executed one bounded 100-call native burst; it is not merely a future plan. This report update creates no live runner and grants no further/open-ended load authorization. Additional work requires an explicit bound, excludes review/email workloads and must not automatically retry ambiguous failures. Earlier single-chat wait-for-completion guidance describes the Teams pilot, not the measured distinct-conversation burst. Neither serial turns nor outstanding client RPCs establish backend/model concurrency. Old Standard Harness results from a different tenant, Production environment and DirectToEngine transport support descriptive comparison only, not a controlled harness-only comparison.
 
 ## Safe ingestion and publication
 

@@ -3,6 +3,7 @@ const number = (value) => value > 0 && value < 0.001 ? "<0.001" : new Intl.Numbe
 const words = (value) => value.replaceAll("_", " ");
 const labels = {
   published_teams: "Published Teams",
+  published_microsoft365_copilot: "Published Microsoft 365 Copilot",
   studio_preview: "Studio Preview",
   not_involved: "Not involved",
   involved: "Involved",
@@ -31,6 +32,9 @@ const node = (tag, text, className) => {
   return element;
 };
 const paragraph = (text, className) => node("p", text, className);
+const nativeFirst = (runs) => [...runs.filter((run) => run.nativeInvocation), ...runs.filter((run) => !run.nativeInvocation)];
+const scopedContext = (report, run) => report.studyContext?.runKeys.includes(run.runKey) ? report.studyContext : null;
+const seconds = (milliseconds) => `${(milliseconds / 1000).toFixed(3)} s`;
 
 function empty(target, title, detail) {
   const article = node("article", undefined, "empty");
@@ -73,27 +77,56 @@ function table(target, caption, headers, rows) {
   }
   grid.append(head, body);
   wrapper.append(grid);
-  byId(target).replaceChildren(wrapper);
+  (typeof target === "string" ? byId(target) : target).replaceChildren(wrapper);
+}
+
+function outcomeCards(runs, native = false) {
+  const cards = node("div", undefined, "cards");
+  const metricLabels = native
+    ? { attempted: "Attempted invocations", completed: "Greeting replies", failed: "Failed invocations", pending: "Pending invocations" }
+    : { attempted: "Sent message attempts", completed: "Successful outcomes", failed: "Failed outcomes", pending: "Pending outcomes" };
+  for (const state of ["attempted", "completed", "failed", "pending"]) {
+    const card = node("article", undefined, "card");
+    const count = runs.length ? number(runs.reduce((sum, run) => sum + run.counts[state], 0)) : "NOT MEASURED";
+    card.append(paragraph(metricLabels[state], "metric-label"), paragraph(count, "metric-value"),
+      paragraph(runs.length ? (native ? "This native invocation batch only" : "Requested operation outcome, not merely a final message") : "Awaiting reviewed pilot evidence", "metric-help"));
+    cards.append(card);
+  }
+  return cards;
 }
 
 function renderOverview(report) {
-  const cards = node("div", undefined, "cards");
-  const metricLabels = { attempted: "Sent message attempts", completed: "Successful outcomes", failed: "Failed outcomes", pending: "Pending outcomes" };
-  for (const state of ["attempted", "completed", "failed", "pending"]) {
-    const card = node("article", undefined, "card");
-    const count = report.runs.length ? number(report.runs.reduce((sum, run) => sum + run.counts[state], 0)) : "NOT MEASURED";
-    card.append(paragraph(metricLabels[state], "metric-label"), paragraph(count, "metric-value"),
-      paragraph(report.runs.length ? "Requested operation outcome, not merely a final message" : "Awaiting reviewed pilot evidence", "metric-help"));
-    cards.append(card);
+  const overview = byId("overview-summary");
+  overview.replaceChildren();
+  for (const run of report.runs.filter((item) => item.nativeInvocation)) {
+    const invocation = run.nativeInvocation;
+    const feature = node("article", undefined, "note boundary burst-summary");
+    feature.dataset.runKey = run.runKey;
+    feature.append(paragraph("MEASURED BURST / NATIVE INVOCATION", "eyebrow"),
+      node("h3", `${number(run.counts.attempted)} requests / ${label(run.surface)}`),
+      paragraph(`${number(run.counts.completed / run.counts.attempted * 100)}% greeting reply success`, "burst-result"),
+      outcomeCards([run], true),
+      paragraph(`${number(invocation.peakOutstanding)} outstanding client invocations at peak, independently verified by a start/end interval sweep, launched across ${invocation.dispatchWindowMs} ms. This is client RPC launch spread, not measured network/server admission spread or simultaneous backend/model execution.`),
+      paragraph(`${number(run.units.conversations)} distinct Microsoft 365 conversations verified, including ${number(invocation.failedConversations)} returned with failure payloads. One account; ${number(run.windowSeconds)} s calibrated batch window. No UI-stable or TTFA timing.`),
+      paragraph(`${number(run.counts.failed)} generic WorkIQ/Microsoft 365 server_error outcomes are unclassified invocation failures. No explicit 429, Retry-After, RATE_LIMIT_REACHED or numeric quota evidence; the bottleneck is unknown.`),
+      paragraph(`${number(invocation.excludedPreflights)} earlier probes and the separate Teams pilot are excluded from this batch. Runner retries: ${invocation.runnerRetries}; managed-service retries: unknown. Costs: ${run.cost.status}.`, "fine"));
+    overview.append(feature);
   }
-  byId("overview-summary").replaceChildren(cards);
+  const visibleRuns = report.runs.filter((run) => !run.nativeInvocation);
+  for (const surface of new Set(visibleRuns.map((run) => run.surface))) {
+    const group = node("article");
+    group.dataset.surface = surface;
+    group.append(node("h3", `${label(surface)} / separate observations`), outcomeCards(visibleRuns.filter((run) => run.surface === surface)));
+    overview.append(group);
+  }
+  if (!report.runs.length) overview.append(outcomeCards([]));
   if (report.studyContext) {
     const context = report.studyContext;
     const note = node("article", undefined, "note boundary");
-    note.append(node("h3", "Study design and counting boundaries"));
-    if (context.conversationUse === "one_existing_reused") note.append(paragraph("One existing Teams conversation was reused across every run. The per-run conversation counts refer to that same conversation; they are not separate conversations and must not be added together."));
-    if (context.executionPattern === "sequential") note.append(paragraph("Turns were sent sequentially. One authenticated account is not a multi-account capacity experiment."));
-    if (context.volumeRamp === "not_performed") note.append(paragraph("No high-volume ramp was performed. These pilot outcomes establish neither a numeric throttle threshold nor platform-wide capacity."));
+    note.append(node("h3", "Earlier Teams pilot / scoped counting boundaries"), paragraph(`Applies only to: ${context.runKeys.join(", ")}.`, "fine"));
+    if (context.conversationUse === "one_existing_reused") note.append(paragraph("One existing Teams conversation was reused across these pilot runs only. The per-run conversation counts refer to that same conversation and must not be added together; this is not the later Microsoft 365 burst."));
+    if (context.executionPattern === "sequential") note.append(paragraph("These pilot turns were sent sequentially. One authenticated account is not a multi-account capacity experiment."));
+    if (context.volumeRamp === "not_performed") note.append(paragraph("No high-volume ramp was performed in this earlier Teams pilot. Its outcomes establish neither a numeric throttle threshold nor platform-wide capacity."));
     if (context.configurationChanges === "none_by_tester") note.append(paragraph("The tester did not edit, save or republish the agent configuration."));
     if (context.harnessVerification === "github_copilot_and_published_badges") note.append(paragraph("The Agents grid independently showed Powered by GitHub Copilot and Published. The exact agent version was not frozen."));
     byId("overview-summary").append(note);
@@ -104,13 +137,13 @@ function renderOverview(report) {
   }
   const ledger = node("div", undefined, "stack");
   ledger.append(node("h3", `Reviewed run ledger / ${number(report.runs.length)} ${report.runs.length === 1 ? "run" : "runs"}`));
-  for (const run of report.runs) {
+  for (const run of nativeFirst(report.runs)) {
     const card = node("article", undefined, "card");
     card.append(node("h3", run.runKey, "run-title"), definitionList([
       ["Observed", run.observedOn], ["Surface", label(run.surface)], ["Environment", label(run.environmentType)],
       ["Model", run.model ?? "Unknown"], ["Agent version", run.agentVersion ?? "Unknown"],
       ["Authenticated accounts", "1"], ["Memory", label(run.memory)], ["Workload", label(run.workload)], ["Workflow", label(run.workflow)],
-      ["Connectors", label(run.connectors)], ["Conversations / sessions", `${run.units.conversations ?? "Unknown"}${report.studyContext?.conversationUse === "one_existing_reused" ? " (same existing conversation)" : ""} / ${run.units.sessions ?? "Unknown"}`],
+      ["Connectors", label(run.connectors)], ["Conversations / sessions", `${run.units.conversations ?? "Unknown"}${scopedContext(report, run)?.conversationUse === "one_existing_reused" ? " (same existing conversation)" : run.nativeInvocation ? " (distinct Microsoft 365 conversations)" : ""} / ${run.units.sessions ?? "Unknown"}`],
       ["Requested outcomes", `${number(run.counts.attempted)} attempted / ${number(run.counts.completed)} successful / ${number(run.counts.failed)} failed / ${number(run.counts.pending)} pending`],
       ["Outcome snapshot", run.followUp ? `Updated by follow-up at ${run.followUp.observedAt}` : "At the timing observation cutoff"]
     ]));
@@ -120,12 +153,30 @@ function renderOverview(report) {
 }
 
 function renderResponses(runs) {
-  if (!runs.length) {
+  const nativeContent = byId("native-response-content");
+  nativeContent.replaceChildren();
+  for (const run of runs.filter((item) => item.nativeInvocation)) {
+    const invocation = run.nativeInvocation;
+    const article = node("article", undefined, "stack");
+    article.append(node("h3", `${run.runKey} / native invocation completion`),
+      paragraph("Successful replies, failed invocations and all outcomes are separate populations. The all-outcome percentile is not reply latency. These durations include native invocation pipeline overhead and are neither UI-stable latency nor backend TTFA.", "fine"));
+    const tableContainer = node("div");
+    table(tableContainer, `Native completion duration / ${label(run.surface)}`, ["Outcome population", "n", "Minimum", "p50", "p95", "Maximum"],
+      [["Successful greeting replies", invocation.success], ["Failed invocations", invocation.failure], ["All invocation outcomes", invocation.allOutcomes]]
+        .map(([name, timing]) => [name, timing ? number(timing.sampleCount) : "No samples", ...["minMs", "p50Ms", "p95Ms", "maxMs"].map((field) => timing?.[field] == null ? "Not reported" : seconds(timing[field]))]));
+    article.append(tableContainer, paragraph(`Percentiles: ${words(invocation.percentileMethod)} within each population, never averaged or pooled with Teams timing. Display rounded to milliseconds; reviewed raw milliseconds remain in the public JSON.`, "fine"));
+    const calibration = invocation.calibration;
+    article.append(paragraph(`Completion timing was independently calibrated: ${number(calibration.shortRequestedMs)} ms and ${number(calibration.longRequestedMs)} ms local native RPC operations returned in ${seconds(calibration.shortObservedMs)} and ${seconds(calibration.longObservedMs)}. Ordinary CLI event/hook timestamps were coalesced and excluded; calibration demonstrates distinct completion measurements, not backend timing or eliminated client overhead.`, "fine"));
+    nativeContent.append(article);
+  }
+  const visibleRuns = runs.filter((run) => !run.nativeInvocation);
+  if (runs.some((run) => run.nativeInvocation)) nativeContent.append(paragraph("First visible activity, first answer and UI-settled latency were not measured for native invocations. The separate visible endpoints below belong only to the earlier channel observations.", "fine"));
+  if (!visibleRuns.length) {
     empty("response-content", "Visible latency is not measured.", "First activity, first actual answer and UI-settled timings remain separate until reviewed samples are available. A loading or tool-invocation status is not an answer.");
     return;
   }
   table("response-content", "Visible endpoints by run (milliseconds)", ["Run / surface / endpoint", "Timed / eligible messages", "p50", "p95", "Maximum"],
-    runs.flatMap((run) => ["firstVisibleActivity", "firstVisibleLatency", "latency"].map((field) => {
+    visibleRuns.flatMap((run) => ["firstVisibleActivity", "firstVisibleLatency", "latency"].map((field) => {
       const timing = run[field];
       const activity = field === "firstVisibleActivity";
       const endpoint = activity ? "First activity (status or answer; not answer latency)"
@@ -141,13 +192,16 @@ function renderResponses(runs) {
 
 function renderThroughput(report) {
   if (!report.runs.length) empty("throughput-content", "No observed rate or overlap yet.", "No concurrency, arrival rate, completion pace or throttle threshold has been measured.");
-  else table("throughput-content", "Observed windows, not platform capacity", ["Run", "Observation window / completion pace", "Arrival rate", "Maximum in-flight"],
-    report.runs.map((run) => [
-      run.runKey,
+  else table("throughput-content", "Observed windows, not platform capacity", ["Run / surface", "Observation window / outcomes", "Launch or arrival observation", "Maximum outstanding"],
+    nativeFirst(report.runs).map((run) => [
+      `${run.runKey} / ${label(run.surface)}`,
+      run.nativeInvocation ? `${number(run.counts.completed)} replies / ${number(run.counts.attempted)} invocation outcomes in ${number(run.windowSeconds)} s; not a sustained capacity result` :
       run.windowSeconds === null ? "Not measured" : run.counts.attempted === 1
         ? `${number(run.windowSeconds)} s; one sent message, not a throughput trial`
         : `${number(run.counts.completed / run.windowSeconds * 60)} completed/min over ${number(run.windowSeconds)} s`,
+      run.nativeInvocation ? `${run.nativeInvocation.dispatchWindowMs} ms client RPC launch spread only; network/server arrival spread unmeasured` :
       run.arrival === null ? "Not measured" : `${number(run.arrival.attempts / run.arrival.windowSeconds * 60)} attempts/min (${number(run.arrival.attempts)} over ${number(run.arrival.windowSeconds)} s)`,
+      run.nativeInvocation ? `${number(run.nativeInvocation.peakOutstanding)} client invocations; backend/model execution overlap unmeasured` :
       run.concurrency === null ? "Not measured" : `${number(run.concurrency.maxInFlight)} messages; observed overlap`
     ]));
   if (!report.documentedLimits.length) {
@@ -168,12 +222,23 @@ function renderObservations(runs) {
     return;
   }
   const stack = node("div", undefined, "stack");
-  for (const run of runs) {
+  for (const run of nativeFirst(runs)) {
     const card = node("article", undefined, "card");
-    card.append(node("h3", run.runKey, "run-title"));
-    card.append(paragraph(`${number(run.counts.attempted)} sent; ${number(run.counts.completed)} successful requested outcomes, ${number(run.counts.failed)} failed, ${number(run.counts.pending)} pending ${run.followUp ? "after the reviewed follow-up" : "at cutoff"}.`));
+    card.append(node("h3", `${run.runKey} / ${label(run.surface)}`, "run-title"));
+    card.append(paragraph(`${number(run.counts.attempted)} ${run.nativeInvocation ? "native invocations attempted" : "sent"}; ${number(run.counts.completed)} successful requested outcomes, ${number(run.counts.failed)} failed, ${number(run.counts.pending)} pending ${run.followUp ? "after the reviewed follow-up" : "at cutoff"}.`));
     if (!run.errors.length) card.append(paragraph("No failed messages recorded in this reviewed window. This is not a claim that throttling cannot occur.", "fine"));
     for (const error of run.errors) card.append(paragraph(`${label(error.category)}: ${number(error.count)} / evidence: ${label(error.evidence)}`));
+    if (run.nativeInvocation) {
+      const invocation = run.nativeInvocation;
+      const history = invocation.history;
+      card.append(paragraph("All failed invocations returned the same generic WorkIQ/Microsoft 365 server_error with native resultType=failure; these were not runner JSON-parse errors. This is unclassified invocation failure evidence, not confirmed GitHub Copilot Harness throttling. No explicit 429, Retry-After, RATE_LIMIT_REACHED or numeric quota evidence was observed. The limiting layer is unknown."));
+      card.append(paragraph(`Published target was verified by manifest and registry matching. All ${number(run.units.conversations)} conversation identifiers were checked for uniqueness, including the ${number(invocation.failedConversations)} returned inside failure payloads. No identifiers are published.`));
+      card.append(paragraph(history.membership === "exact_intersection_verified"
+        ? `All ${number(history.completedConversations)} successful reply conversations exactly matched Completed Microsoft 365 Copilot entries in Studio history.`
+        : `${number(history.completedConversations)} Completed Microsoft 365 Copilot history entries corroborate the count; exact membership remains unverified.`));
+      card.append(paragraph(`${number(history.failedConversationsAbsent)} failed-invocation conversations were absent from the returned ${number(history.snapshotRows)}-row snapshot, but hasMore=true: it is not exhaustive and history can lag. Absence does not prove those calls never reached the harness. No lastStep tool was recorded on matched successful rows. The earlier probes and other-surface rows are not added to this burst.`));
+      card.append(paragraph(`Runner retries: ${invocation.runnerRetries}; managed-service retries remain unknown. Greetings only: no workflow, approval or email requests. ${number(invocation.excludedPreflights)} earlier Microsoft 365 probes are excluded.`, "fine"));
+    }
     for (const issue of run.clientIssues) card.append(paragraph(`Excluded client setup issue: ${number(issue.count)} unsent draft${issue.count === 1 ? "" : "s"}${issue.observedWaitSeconds === null ? "" : `; observed wait ${number(issue.observedWaitSeconds)} s`}. Not a sent message, agent failure or throttling outcome.`, "fine"));
     if (run.followUp) {
       const followUp = run.followUp;
@@ -199,7 +264,7 @@ function renderObservations(runs) {
       card.append(paragraph("The workflow reached a waiting review action. An agent-call timeout does not establish workflow cancellation or absence of a review. Notification delivery and a human decision remain unconfirmed.", "fine"));
     }
     for (const observation of run.observations) card.append(paragraph(label(observation), "fine"));
-    if (!run.observations.length) card.append(paragraph("No additional structured observations recorded.", "fine"));
+    if (!run.observations.length && !run.nativeInvocation) card.append(paragraph("No additional structured observations recorded.", "fine"));
     stack.append(card);
   }
   byId("observations-content").replaceChildren(stack);
@@ -211,21 +276,28 @@ function renderCosts(report) {
     empty("costs-content", "Cost evidence is awaiting the pilot.", "No cost amount has been reported or settled. The first run must carry an explicit cost status, even when billing evidence is pending.");
     return;
   }
-  table("costs-content", "Cost evidence by run", ["Run", "Status", "Amount", "Evidence / scope"],
-    runs.map((run) => {
+  table("costs-content", "Cost evidence by run / no cross-surface total", ["Run / surface", "Status", "Amount", "Evidence / scope"],
+    nativeFirst(runs).map((run) => {
       const cost = run.cost;
       return [
-        run.runKey, cost.status.toUpperCase(),
+        `${run.runKey} / ${label(run.surface)}`, cost.status.toUpperCase(),
         cost.status === "settled" ? `${cost.currency} ${cost.amount}` : "Not settled",
         cost.status === "settled" ? `${label(cost.source)} / ${label(cost.scope)} / ${cost.recordedOn}` : "No settled billing evidence"
       ];
     }));
   if (report.studyContext?.prePilotMonitor === "no_sessions_or_credits_recorded") {
     const note = node("article", undefined, "note");
-    note.append(node("h3", "Pre-pilot Monitor is not settled billing evidence"), paragraph("No sessions or credits were recorded in the pre-pilot Monitor check. Analytics and billing meters can lag; that observation is not zero usage or zero cost. Runtime session counts remain unknown."));
+    note.append(node("h3", "Earlier Teams pilot Monitor is not settled billing evidence"), paragraph("No sessions or credits were recorded in the pre-pilot Monitor check for the scoped Teams runs. Analytics and billing meters can lag; that observation is not zero usage or zero cost. Runtime session counts remain unknown."));
     byId("costs-content").append(note);
   }
-  if (report.studyContext?.postPilotMonitor === "no_sessions_or_credits_recorded") byId("costs-content").append(paragraph("A later post-pilot Monitor check also showed no recorded sessions or credits. Delayed meters still do not establish zero cost; all unsettled amounts remain null.", "fine"));
+  if (report.studyContext?.postPilotMonitor === "no_sessions_or_credits_recorded") byId("costs-content").append(paragraph("A later check after the Teams pilot (before the native burst) also showed no recorded sessions or credits. Delayed meters still do not establish zero cost; all unsettled amounts remain null.", "fine"));
+  for (const run of runs.filter((item) => item.nativeInvocation)) {
+    const monitor = run.nativeInvocation.postRunMonitor;
+    const note = node("article", undefined, "note boundary");
+    note.append(node("h3", `${run.runKey} / stale preburst analytics`),
+      paragraph(`Monitor checked at ${monitor.checkedAt} said it was updated ${number(monitor.updatedMinutesAgo)} minutes earlier. It showed ${number(monitor.sessions)} old Teams session and ${number(monitor.messages)} messages, with no credits recorded. These are stale preburst analytics, not this burst's session or credit totals. They neither measure zero cost nor settle the pending billing amount.`));
+    byId("costs-content").append(note);
+  }
 }
 
 const themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -282,7 +354,7 @@ try {
   byId("publication-status").classList.toggle("reviewed", reviewed);
   byId("review-status").textContent = reviewed ? `Public aggregate review: ${report.publication.reviewedOn}. Run dates and cost settlement may differ.` : "Awaiting pilot / no measured results published";
 } catch {
-  for (const id of ["overview-summary", "run-ledger", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
+  for (const id of ["overview-summary", "run-ledger", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
   byId("publication-status").textContent = "DATA REJECTED";
   byId("publication-status").classList.add("rejected");
   byId("review-status").textContent = "No metrics displayed.";
