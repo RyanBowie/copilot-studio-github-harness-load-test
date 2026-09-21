@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { syntheticPacedReport } from "./fixtures/synthetic-paced-report.mjs";
+import { syntheticContinuousRamp } from "./fixtures/synthetic-continuous-ramp.mjs";
 
 const exec = promisify(execFile);
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -29,6 +30,8 @@ test("real CLI refuses fixtures, alternate inputs, invalid JSON and artifact con
   await writeFile(input, JSON.stringify(fixture));
   await assert.rejects(invoke(), (error) => /Offline\/synthetic keys/.test(error.stderr));
   await writeFile(input, JSON.stringify(syntheticPacedReport()));
+  await assert.rejects(invoke(), (error) => /Offline\/synthetic keys/.test(error.stderr));
+  await writeFile(input, JSON.stringify(syntheticContinuousRamp()));
   await assert.rejects(invoke(), (error) => /Offline\/synthetic keys/.test(error.stderr));
   await writeFile(input, JSON.stringify(empty));
   await assert.rejects(invoke("--input", "tests/fixtures/synthetic-report.json"), (error) => /Only --validate-only/.test(error.stderr));

@@ -297,6 +297,141 @@
         }
       }
     },
+    "rampCounts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["attempted", "completed", "failed", "pending"],
+      "properties": {
+        "attempted": { "$ref": "#/$defs/count" }, "completed": { "$ref": "#/$defs/count" },
+        "failed": { "$ref": "#/$defs/count" }, "pending": { "$ref": "#/$defs/count" }
+      }
+    },
+    "rampMinute": {
+      "type": "object", "additionalProperties": false,
+      "required": ["offsetSeconds", "durationSeconds", "attempted", "completed", "failed", "pending"],
+      "properties": {
+        "offsetSeconds": { "type": "integer", "minimum": 0, "maximum": 3540 },
+        "durationSeconds": { "type": "number", "minimum": 0.001, "maximum": 60 },
+        "attempted": { "$ref": "#/$defs/count" }, "completed": { "$ref": "#/$defs/count" },
+        "failed": { "$ref": "#/$defs/count" }, "pending": { "$ref": "#/$defs/count" }
+      }
+    },
+    "rampTimings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["percentileMethod", "success", "failure", "allOutcomes"],
+      "properties": {
+        "percentileMethod": { "const": "nearest_rank" },
+        "success": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "failure": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "allOutcomes": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] }
+      }
+    },
+    "rampMeasurement": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "campaignKey", "protocol", "path", "endpoint", "requestKind", "timingBasis",
+        "startedAt", "arrivalEndedAt", "observedThroughAt", "plannedArrivalSeconds", "requestCeiling",
+        "arrivalSeconds", "arrivalEndObservedSeconds", "arrivalStatus", "stopReason", "drainSeconds", "drainStatus",
+        "unusedRequestBudget", "pacing", "runnerRetries", "managedServiceRetries", "configuredClientCap",
+        "requestTimeoutSeconds", "drainTimeoutSeconds", "clockStatus", "evidenceStatus",
+        "peakOutstanding", "concurrencyBasis", "concurrencyVerification", "conversationEvidence", "failedConversations",
+        "percentileMethod", "success", "failure", "allOutcomes",
+        "successfulWithinArrivalWindow", "successfulAfterArrivalWindow", "segmentBasis", "segments"
+      ],
+      "properties": {
+        "campaignKey": { "$ref": "#/$defs/key" },
+        "protocol": { "const": "continuous_hour_ramp_25_to_50" },
+        "path": { "const": "workiq_ask_via_native_tool_rpc" },
+        "endpoint": { "const": "invocation_completion" },
+        "requestKind": { "const": "greeting_only" },
+        "timingBasis": { "const": "calibrated_native_rpc_completion" },
+        "startedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "arrivalEndedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "observedThroughAt": { "$ref": "#/$defs/millisecondInstant" },
+        "plannedArrivalSeconds": { "const": 3600 },
+        "requestCeiling": { "const": 2250 },
+        "arrivalSeconds": { "type": "number", "minimum": 0.001, "maximum": 3600 },
+        "arrivalEndObservedSeconds": { "$ref": "#/$defs/duration" },
+        "arrivalLoopEndObservedSeconds": { "$ref": "#/$defs/duration" },
+        "arrivalStatus": { "enum": ["full_window", "stopped", "partial"] },
+        "stopReason": { "enum": [null, "explicit_throttle", "authentication", "account_guard", "client_pacing", "client_outstanding_bound", "safety", "request_budget", "manual_stop", "observation_cutoff"] },
+        "drainSeconds": { "type": "number", "minimum": 0, "maximum": 86400 },
+        "drainStatus": { "enum": ["complete", "bounded_cutoff"] },
+        "unusedRequestBudget": { "type": "integer", "minimum": 0, "maximum": 2250 },
+        "pacing": {
+          "type": "object", "additionalProperties": false,
+          "required": ["schedule", "intervalBasis", "missedSlotPolicy", "genericErrorPolicy", "violatingIntervals"],
+          "properties": {
+            "schedule": { "const": "dispatch_rebased" },
+            "intervalBasis": { "const": "current_segment_rate" },
+            "missedSlotPolicy": { "const": "defer_without_catchup" },
+            "genericErrorPolicy": { "const": "count_without_early_stop" },
+            "violatingIntervals": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] }
+          }
+        },
+        "runnerRetries": { "const": 0 },
+        "managedServiceRetries": { "const": "unknown" },
+        "configuredClientCap": { "const": 100 },
+        "requestTimeoutSeconds": { "const": 180 },
+        "drainTimeoutSeconds": { "const": 180 },
+        "clockStatus": { "enum": ["verified_clean", "compromised", "unknown"] },
+        "evidenceStatus": { "enum": ["verified_complete", "incomplete", "unknown"] },
+        "peakOutstanding": { "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 100 }, { "type": "null" }] },
+        "concurrencyBasis": { "const": "outstanding_client_invocations" },
+        "concurrencyVerification": { "enum": ["start_end_interval_sweep", "reviewed_client_peak", null] },
+        "conversationEvidence": { "enum": ["returned_ids_checked_unique", null] },
+        "failedConversations": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+        "percentileMethod": { "const": "nearest_rank" },
+        "success": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "failure": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "allOutcomes": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "successfulWithinArrivalWindow": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+        "successfulAfterArrivalWindow": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+        "stopEvidence": {
+          "type": "object", "additionalProperties": false,
+          "required": ["triggeringAttempt", "nativeDurationMs", "callbackFromArrivalStartMs", "decisionFromArrivalStartMs", "countsAtDecision", "normalizedFailureCategory", "normalizedFailureStage", "backoffExposed"],
+          "properties": {
+            "triggeringAttempt": { "type": "integer", "minimum": 1, "maximum": 2250 },
+            "nativeDurationMs": { "$ref": "#/$defs/duration" },
+            "callbackFromArrivalStartMs": { "$ref": "#/$defs/duration" },
+            "decisionFromArrivalStartMs": { "$ref": "#/$defs/duration" },
+            "countsAtDecision": { "$ref": "#/$defs/rampCounts" },
+            "normalizedFailureCategory": { "const": "transport_failure" },
+            "normalizedFailureStage": { "const": "invoke" },
+            "backoffExposed": { "const": false }
+          }
+        },
+        "minutes": { "type": "array", "minItems": 1, "maxItems": 60, "items": { "$ref": "#/$defs/rampMinute" } },
+        "segmentBasis": { "const": "elapsed_dispatch_segment_outcomes_at_final_cutoff" },
+        "segments": {
+          "type": "array", "minItems": 1, "maxItems": 6,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["offsetSeconds", "durationSeconds", "targetRpm", "nominalRequests", "counts", "outstandingAtStart", "outstandingAtEnd"],
+            "properties": {
+              "offsetSeconds": { "enum": [0, 600, 1200, 1800, 2400, 3000] },
+              "durationSeconds": { "type": "number", "minimum": 0.001, "maximum": 600 },
+              "targetRpm": { "enum": [25, 30, 35, 40, 45, 50] },
+              "nominalRequests": { "enum": [250, 300, 350, 400, 450, 500] },
+              "counts": { "$ref": "#/$defs/rampCounts" },
+              "nativeTimings": { "anyOf": [{ "$ref": "#/$defs/rampTimings" }, { "type": "null" }] },
+              "distinctReturnedConversations": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+              "dispatchCohortPeakOutstanding": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 100 }, { "type": "null" }] },
+              "completionPopulations": {
+                "type": "object", "additionalProperties": false,
+                "required": ["withinNominalWindow", "afterNominalWindow", "allDispatchesWithinObservedWindow"],
+                "properties": {
+                  "withinNominalWindow": { "$ref": "#/$defs/count" },
+                  "afterNominalWindow": { "$ref": "#/$defs/count" },
+                  "allDispatchesWithinObservedWindow": { "$ref": "#/$defs/count" }
+                }
+              },
+              "outstandingAtStart": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 100 }, { "type": "null" }] },
+              "outstandingAtEnd": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 100 }, { "type": "null" }] }
+            }
+          }
+        }
+      }
+    },
     "run": {
       "type": "object",
       "additionalProperties": false,
@@ -341,6 +476,7 @@
         "windowSeconds": { "anyOf": [{ "$ref": "#/$defs/duration" }, { "type": "null" }] },
         "nativeInvocation": { "anyOf": [{ "$ref": "#/$defs/nativeInvocation" }, { "type": "null" }] },
         "pacedMeasurement": { "$ref": "#/$defs/pacedMeasurement" },
+        "rampMeasurement": { "$ref": "#/$defs/rampMeasurement" },
         "firstVisibleActivity": {
           "anyOf": [
             { "type": "null" },
@@ -443,8 +579,8 @@
               },
               "count": { "$ref": "#/$defs/positiveCount" },
               "evidence": {
-                "description": "workiq_mcp_transport_429 records WorkIQ MCP HTTP transport 429 without a returned conversation identifier or exposed Retry-After. native_disconnected_no_conversation records a normalized disconnected native result with no returned conversation identifier; remote admission and root cause remain unknown. Neither establishes a GitHub Copilot Harness quota.",
-                "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout", "workiq_mcp_transport_429", "native_disconnected_no_conversation"]
+                "description": "workiq_mcp_transport_429 records WorkIQ MCP HTTP transport 429 without a returned conversation identifier or exposed Retry-After. native_disconnected_no_conversation records a normalized disconnected native result with no returned conversation identifier. native_http_429_no_conversation records exposed native HTTP 429 without a returned conversation identifier or exposed backoff, with the enforcing layer unknown. Remote admission remains unknown for these missing-ID outcomes; none establishes a numeric WorkIQ or GitHub Copilot Harness quota.",
+                "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout", "workiq_mcp_transport_429", "native_disconnected_no_conversation", "native_http_429_no_conversation"]
               }
             }
           }

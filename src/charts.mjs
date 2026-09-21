@@ -20,14 +20,17 @@ export function orderRunsByRate(runs) {
     a.pacedMeasurement.targetRpm - b.pacedMeasurement.targetRpm
     || a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)
     || a.runKey.localeCompare(b.runKey));
-  return [...paced, ...runs.filter((run) => run.nativeInvocation), ...runs.filter((run) => !run.pacedMeasurement && !run.nativeInvocation)];
+  const ramps = runs.filter((run) => run.rampMeasurement).sort((a, b) =>
+    a.rampMeasurement.startedAt.localeCompare(b.rampMeasurement.startedAt) || a.runKey.localeCompare(b.runKey));
+  return [...paced, ...ramps, ...runs.filter((run) => run.nativeInvocation), ...runs.filter((run) => !run.pacedMeasurement && !run.rampMeasurement && !run.nativeInvocation)];
 }
 
 export function nativeChartRows(runs) {
-  return runs.filter((run) => run.nativeInvocation || run.pacedMeasurement).map((run) => {
-    const measurement = run.pacedMeasurement ?? run.nativeInvocation;
+  return runs.filter((run) => run.nativeInvocation || run.pacedMeasurement || run.rampMeasurement).map((run) => {
+    const measurement = run.rampMeasurement ?? run.pacedMeasurement ?? run.nativeInvocation;
     return {
       runKey: run.runKey,
+      loadShape: run.rampMeasurement ? "ramp" : run.pacedMeasurement ? "paced" : "burst",
       targetRpm: run.pacedMeasurement?.targetRpm ?? null,
       counts: { ...run.counts },
       percentages: ["completed", "failed", "pending"].map((key) => run.counts.attempted ? run.counts[key] / run.counts.attempted * 100 : null),

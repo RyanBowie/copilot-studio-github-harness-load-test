@@ -16,7 +16,7 @@ const reject = (edit, expected) => {
 
 test("the original four-cohort 384-request campaign stays separate from other reviewed runs", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.filter((run) => !run.pacedMeasurement).length, 4);
+  assert.equal(report.runs.filter((run) => !run.pacedMeasurement && !run.rampMeasurement).length, 4);
   assert.deepEqual(cohorts.map((run) => run.runKey), ["paced-calibration-10", "paced-calibration-25", "paced-calibration-50", "paced-hour-25-stopped"]);
   assert.deepEqual(cohorts.map((run) => run.counts), [
     { attempted: 20, completed: 20, failed: 0, pending: 0 },

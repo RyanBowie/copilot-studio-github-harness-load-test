@@ -11,7 +11,7 @@ const paced = run.pacedMeasurement;
 
 test("reviewed full100 denominator retains the disconnected result without inventing remote admission", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 14);
+  assert.equal(report.runs.length, 15);
   assert.deepEqual(run.counts, { attempted: 100, completed: 60, failed: 40, pending: 0 });
   assert.deepEqual(run.errors, [
     { category: "unknown", count: 39, evidence: "unclassified_invocation_failure" },
