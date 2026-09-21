@@ -11,6 +11,7 @@ import { build, renderHtml } from "./build.mjs";
 import { syntheticPacedReport } from "../tests/fixtures/synthetic-paced-report.mjs";
 import { syntheticMinuteRetest } from "../tests/fixtures/synthetic-minute-retest.mjs";
 import { syntheticCountRetest } from "../tests/fixtures/synthetic-count-retest.mjs";
+import { syntheticCountBaseline } from "../tests/fixtures/synthetic-count-baseline.mjs";
 import { syntheticCapacityReport } from "../tests/fixtures/synthetic-capacity-report.mjs";
 
 const require = createRequire(import.meta.url);
@@ -18,7 +19,7 @@ const focused = process.argv.includes("--focused");
 const sectionIds = ["overview", "concurrency", "response-time", "throughput", "observations", "answers", "failures", "conversations", "methodology", "costs"];
 const orderedNativeKeys = [
   "paced-calibration-10", "paced-calibration-25", "paced-hour-25-stopped",
-  "paced-spread-25-completed", "capacity-25-transport-stop", "paced-calibration-50", "paced-standalone-100-stopped", "paced-minute-100-local-stop", "paced-elastic-100-completed", "m365-native-burst-100"
+  "paced-spread-25-completed", "capacity-25-transport-stop", "paced-125-25-baseline", "paced-calibration-50", "paced-standalone-100-stopped", "paced-minute-100-local-stop", "paced-elastic-100-completed", "m365-native-burst-100"
 ];
 const axePath = require.resolve("axe-core/axe.min.js");
 const { html, report, evidence, evidenceSchema } = await build();
@@ -48,6 +49,12 @@ minuteCases.push(...[
   ["count-pending", { pending: 2 }],
   ["count-stopped", { attempted: 21, failed: 1, arrivalSeconds: 14, stopReason: "explicit_throttle" }]
 ].map(([path, options]) => ({ path, report: syntheticCountRetest(options) })));
+minuteCases.push(...[
+  ["baseline", {}], ["baseline-clean", { failed: 0 }],
+  ["baseline-failed", { failed: 125, disconnected: 125 }],
+  ["baseline-pending", { pending: 2 }],
+  ["baseline-stopped", { attempted: 21, failed: 1, arrivalSeconds: 51, stopReason: "explicit_throttle" }]
+].map(([path, options]) => ({ path, report: syntheticCountBaseline(options) })));
 const minutePages = new Map(await Promise.all(minuteCases.map(async ({ path, report }) => [path,
   (await renderHtml(report, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC MINUTE RETEST - NOT OBSERVED RESULTS</aside>')])));
 const capacityCases = ["two-hours", "one-hour", "no-candidate", "fallback", "hour-failure", "safety-stop"];
@@ -97,7 +104,7 @@ try {
         await page.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
         assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
         const metrics = await page.locator("#overview-summary .metric-value").allTextContents();
-        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "21", "12", "9", "0", "50", "50", "0", "0", "41", "26", "15", "0", "100", "60", "40", "0", "1", "0", "1", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
+        assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "21", "12", "9", "0", "50", "50", "0", "0", "41", "26", "15", "0", "100", "60", "40", "0", "1", "0", "1", "0", "125", "124", "1", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
         const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
         assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
         for (const id of sectionIds) {
@@ -119,7 +126,19 @@ try {
           assert.deepEqual(await page.locator("#benchmark-kpis .metric-value").allTextContents(), ["25/min", "50 / 51", "52", "126", "Not measured", "Pending"]);
           assert.equal(await page.locator(".benchmark-chart svg").count(), 8);
           const study = page.locator("#overview-charts [data-capacity-study]");
-          assert.equal(await page.locator("#overview-charts > article").first().getAttribute("data-capacity-study"), "m365-zero-error-capacity");
+          const baseline = page.locator("#overview-charts [data-count-baseline]");
+          assert.equal(await page.locator("#overview-charts > article").first().getAttribute("data-count-baseline"), "paced-125-25-baseline");
+          assert.equal(await baseline.locator("h3").textContent(), "125-request baseline: 1 failed out of 125");
+          assert.match(await baseline.textContent(), /124 successful greetings \/ 1 failed invocations \/ 0 pending/);
+          assert.match(await baseline.textContent(), /303\.081 s; drain: 6\.062 s/);
+          assert.match(await baseline.textContent(), /24\.746 client dispatches\/min/);
+          assert.match(await baseline.textContent(), /99\.2% greeting success.*initial disconnect.*3\.081 s/);
+          assert.match(await baseline.textContent(), /122 successful replies completed before.*2 completed afterward during drain/);
+          assert.match(await baseline.textContent(), /First failed attempt: 1.*291\.735 ms.*all subsequent 124 requests/);
+          assert.match(await baseline.textContent(), /clock: verified clean; evidence: verified complete.*peak: 6/);
+          assert.match(await baseline.textContent(), /cannot qualify either validation hour/);
+          assert.match(await baseline.textContent(), /1 disconnected\/invoke.*124 distinct returned conversations/);
+          assert.equal(await page.getByLabel("Dispatch timeline / choose a cohort", { exact: true }).inputValue(), "paced-125-25-baseline");
           assert.equal(await study.locator("h3").textContent(), "No validated rate from this study");
           assert.match(await study.textContent(), /1 actual attempts \/ 0 greeting replies \/ 1 failed invocations \/ 0 pending/);
           assert.match(await study.textContent(), /No clean screen.*no eligible hour candidate/);
@@ -143,7 +162,7 @@ try {
           assert.match(await page.locator("#benchmark-kpis").textContent(), /7 reviewed native cohorts only.*Excludes 100\/min local stop.*100\/min target retest/);
           const windowOptions = page.getByLabel("Window cohort", { exact: true }).locator("option");
           assert.equal(await windowOptions.first().textContent(), "All reviewed window cohorts");
-          assert.deepEqual(await windowOptions.evaluateAll((options) => options.map((option) => option.value)), ["all", ...orderedNativeKeys.filter((key) => !["paced-minute-100-local-stop", "paced-elastic-100-completed", "capacity-25-transport-stop"].includes(key))]);
+          assert.deepEqual(await windowOptions.evaluateAll((options) => options.map((option) => option.value)), ["all", ...orderedNativeKeys.filter((key) => !["paced-minute-100-local-stop", "paced-elastic-100-completed", "capacity-25-transport-stop", "paced-125-25-baseline"].includes(key))]);
           assert.deepEqual(await page.locator('#overview-charts [data-load-shape="paced"] [data-chart-key]').evaluateAll((rows) => rows.map((row) => row.dataset.chartKey)), orderedNativeKeys.slice(0, -1));
           assert.deepEqual(await page.locator('#overview-charts [data-load-shape="burst"] [data-chart-key]').evaluateAll((rows) => rows.map((row) => row.dataset.chartKey)), ["m365-native-burst-100"]);
           assert.match(await page.locator("#rate-success-explanation").textContent(), /every 2\.4 seconds.*every 0\.6 seconds/);
@@ -156,25 +175,25 @@ try {
           assert.match(await page.locator("#error-timeline").textContent(), /28\.5670088 s \(recorded native callback\)/);
           assert.match(await page.locator("#error-timeline").textContent(), /21 dispatched; 9 settled \(6 successful \/ 3 failed\); 12 client calls outstanding/);
           assert.match(await page.locator("#error-timeline").textContent(), /511\.2884434-511\.2895557 s.*512\.232996 s/);
-          assert.deepEqual(await page.locator("#failure-charts [data-series=generic]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [0, 0, 2, 9, 15, 39, 67]);
-          assert.deepEqual(await page.locator("#failure-charts [data-series=transport]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [1, 0, 0, 0, 0, 0, 0]);
-          assert.deepEqual(await page.locator("#failure-charts [data-series=disconnected]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [0, 1, 0, 0, 0, 1, 0]);
+          assert.deepEqual(await page.locator("#failure-charts [data-series=generic]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [0, 0, 0, 2, 9, 15, 39, 67]);
+          assert.deepEqual(await page.locator("#failure-charts [data-series=transport]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [1, 0, 0, 0, 0, 0, 0, 0]);
+          assert.deepEqual(await page.locator("#failure-charts [data-series=disconnected]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [0, 1, 1, 0, 0, 0, 1, 0]);
           for (const id of ["overview-charts", "latency-charts", "concurrency-charts"]) {
             assert.deepEqual(await page.locator(`#${id} [data-chart-key]`).evaluateAll((rows) => rows.map((row) => row.dataset.chartKey)), orderedNativeKeys);
             assert.ok((await page.locator(`#${id} svg > desc`).allTextContents()).every((text) => text.length > 0));
           }
           const peaks = await page.locator("#concurrency-charts [data-series=peak]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value)));
-          assert.deepEqual(peaks, [3, 5, 5, 5, 1, 9, 18, 17, 15, 100]);
+          assert.deepEqual(peaks, [3, 5, 5, 5, 1, 6, 9, 18, 17, 15, 100]);
           const replyMedians = await page.locator("#latency-charts [data-series=p50]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value)));
           assert.deepEqual(replyMedians, orderedNativeKeys.map((key) => report.runs.find((run) => run.runKey === key)).filter((run) => run.counts.completed > 0).map((run) => (run.pacedMeasurement ?? run.nativeInvocation).success.p50Ms / 1000));
           assert.equal(await page.locator('#latency-charts [data-chart-key="capacity-25-transport-stop"] rect').count(), 0);
-          assert.equal(await page.locator("#stages-content tbody tr").count(), 13);
-          assert.equal(await page.locator("#conversations-content tbody tr").count(), 13);
+          assert.equal(await page.locator("#stages-content tbody tr").count(), 14);
+          assert.equal(await page.locator("#conversations-content tbody tr").count(), 14);
           assert.equal(await page.locator(".capacity-group").count(), 1);
           const capacity = await page.locator("#capacity-summary").textContent();
           assert.match(capacity, /25 intended requests\/min; 2 qualified calibration cohort/);
           assert.match(capacity, /8 minutes \/ 200 \/ 200 \(100%\) eventual replies/);
-          assert.match(capacity, /Longest completed paced trial2 minutes/);
+          assert.match(capacity, /Longest completed paced trial5\.051 minutes/);
           assert.match(capacity, /Full hourly arrival trialNOT ESTABLISHED/);
           assert.match(capacity, /not arbitrary rolling maxima/);
           const capacityRows = await page.locator("#capacity-summary tbody tr").evaluateAll((rows) =>
@@ -191,10 +210,11 @@ try {
             ["1 day", "NOT ESTABLISHED", "NOT ESTABLISHED"]
           ]);
           const allReliabilityRows = await page.locator("#reliability-content tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
-          assert.equal(allReliabilityRows.length, 10);
+          assert.equal(allReliabilityRows.length, 11);
           assert.deepEqual(allReliabilityRows.map((row) => row[0].split(" / ")[0]), orderedNativeKeys);
           assert.deepEqual(allReliabilityRows[4].slice(2, 6), ["0 / 1 (0%)", "1 / 0", "No successful samples", "1 outstanding client calls"]);
-          const reliabilityRows = allReliabilityRows.filter((row) => !row[0].startsWith("capacity-25-transport-stop"));
+          assert.deepEqual(allReliabilityRows[5].slice(2, 6), ["124 / 125 (99.2%)", "1 / 0", "10.427 s", "6 outstanding client calls"]);
+          const reliabilityRows = allReliabilityRows.filter((row) => !["capacity-25-transport-stop", "paced-125-25-baseline"].some((key) => row[0].startsWith(key)));
           assert.equal(reliabilityRows.length, 9);
           assert.deepEqual(reliabilityRows.map((row) => [row[2], row[3], row[4]]), [
             ["20 / 20 (100%)", "0 / 0", "10.380 s"],
@@ -210,9 +230,11 @@ try {
           assert.match(reliabilityRows[2][6], /Arrival stopped.*WorkIQ MCP HTTP transport 429/);
           assert.match(reliabilityRows[5][6], /Generic invocation-error safety threshold/);
           const allFailureRows = await page.locator("#failure-summary tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
-          assert.equal(allFailureRows.length, 7);
+          assert.equal(allFailureRows.length, 8);
           assert.match(allFailureRows[1][4], /remote admission is unknown/);
-          const failureRows = allFailureRows.filter((row) => row[0] !== "capacity-25-transport-stop");
+          assert.match(allFailureRows[2][3], /Count-bound 303\.081 s.*No arrival stop/);
+          assert.match(allFailureRows[2][4], /remote admission is unknown/);
+          const failureRows = allFailureRows.filter((row) => !["capacity-25-transport-stop", "paced-125-25-baseline"].includes(row[0]));
           assert.equal(failureRows.length, 6);
           assert.match(failureRows[1][2], /0-60 s: 1 eventual failure among 50 dispatches/);
           assert.match(failureRows[0][2], /480-512\.233 s: 1 eventual failure among 14 dispatches/);
@@ -223,12 +245,13 @@ try {
           assert.match(failureRows[4][3], /Count-bound 63\.522 s arrival window.*No arrival stop/);
           assert.match(failureRows[4][4], /remote admission is unknown.*not proven agent\/backend failures/);
           assert.match(failureRows[5][2], /exact first-error return time not available/);
-          assert.equal(await page.locator(".paced-summary").count(), 9);
-          assert.equal(await page.locator("#run-ledger .card").count(), 13);
+          assert.equal(await page.locator(".paced-summary").count(), 10);
+          assert.equal(await page.locator("#run-ledger .card").count(), 14);
           assert.equal(report.runs[9].runKey, "paced-spread-25-completed");
           assert.equal(report.runs[10].runKey, "paced-minute-100-local-stop");
           assert.equal(report.runs[11].runKey, "paced-elastic-100-completed");
           assert.equal(report.runs[12].runKey, "capacity-25-transport-stop");
+          assert.equal(report.runs[13].runKey, "paced-125-25-baseline");
           const priorRetest = await page.locator('.paced-summary[data-run-key="paced-minute-100-local-stop"]').textContent();
           assert.match(priorRetest, /63\.415% greeting reply success.*41.*26.*15.*0/);
           assert.match(priorRetest, /1 skipped and 58 unoffered.*outside the 41 invocation attempts/);
@@ -300,13 +323,18 @@ try {
           assert.match(await page.locator("#throughput-content").textContent(), /100 client invocations; backend\/model execution overlap unmeasured/);
           assert.match(await page.locator("#response-content").textContent(), /26,234 ms/);
           const allNativeRows = await page.locator("#native-response-content tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
-          assert.equal(allNativeRows.length, 30);
+          assert.equal(allNativeRows.length, 33);
           assert.deepEqual(allNativeRows.slice(12, 15), [
             ["Successful greeting replies", "No samples", "Not reported", "Not reported", "Not reported", "Not reported"],
             ["Failed invocations", "1", "0.036 s", "0.036 s", "0.036 s", "0.036 s"],
             ["All invocation outcomes", "1", "0.036 s", "0.036 s", "0.036 s", "0.036 s"]
           ]);
-          const nativeRows = allNativeRows.filter((_, index) => index < 12 || index >= 15);
+          assert.deepEqual(allNativeRows.slice(15, 18), [
+            ["Successful greeting replies", "124", "6.148 s", "8.141 s", "10.427 s", "17.592 s"],
+            ["Failed invocations", "1", "0.242 s", "0.242 s", "0.242 s", "0.242 s"],
+            ["All invocation outcomes", "125", "0.242 s", "8.141 s", "10.427 s", "17.592 s"]
+          ]);
+          const nativeRows = allNativeRows.filter((_, index) => index < 12 || index >= 18);
           assert.equal(nativeRows.length, 27);
           assert.deepEqual(nativeRows.slice(21, 24), [
             ["Successful greeting replies", "60", "6.535 s", "8.331 s", "9.832 s", "10.604 s"],
@@ -336,6 +364,11 @@ try {
           assert.deepEqual(await countMinutes.locator("tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent))), [
             ["0", "60", "95", "55", "40", "0"], ["60", "3.522", "5", "5", "0", "0"]
           ]);
+          const baselineMinutes = page.getByRole("table", { name: "paced-125-25-baseline / Count-bound 125-request baseline / outcomes by dispatch minute", exact: true, includeHidden: true });
+          assert.deepEqual(await baselineMinutes.locator("tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent))), [
+            ["0", "60", "25", "24", "1", "0"], ["60", "60", "25", "25", "0", "0"], ["120", "60", "25", "25", "0", "0"],
+            ["180", "60", "24", "24", "0", "0"], ["240", "60", "25", "25", "0", "0"], ["300", "3.081", "1", "1", "0", "0"]
+          ]);
           assert.deepEqual(nativeRows.slice(-3), [
             ["Successful greeting replies", "33", "8.867 s", "17.299 s", "33.442 s", "34.379 s"],
             ["Failed invocations", "67", "8.235 s", "24.965 s", "37.947 s", "39.024 s"],
@@ -347,7 +380,7 @@ try {
           ]);
           assert.deepEqual(nativeRows[7], ["Failed invocations", "1", "0.065 s", "0.065 s", "0.065 s", "0.065 s"]);
           assert.doesNotMatch(await page.locator("#response-content").textContent(), /m365-native-burst-100|17\.299/);
-          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 13);
+          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 14);
           assert.match(await page.locator("#costs-content").textContent(), /updated 44 minutes earlier/);
           assert.match(await page.locator("#costs-content").textContent(), /stale preburst analytics, not this burst/);
           assert.match(await page.locator("#costs-content").textContent(), /36 old sessions/);
@@ -455,7 +488,7 @@ try {
   await page.getByLabel("Search stage or model").fill("");
   await page.getByLabel("Surface", { exact: true }).selectOption("published_microsoft365_copilot");
   await page.getByLabel("Outcomes", { exact: true }).selectOption("failed");
-  assert.equal(await page.locator("#stages-content tbody tr").count(), 7);
+  assert.equal(await page.locator("#stages-content tbody tr").count(), 8);
   await page.getByLabel("Sort stages").selectOption("failures");
   assert.match(await page.locator("#stages-content tbody tr").first().textContent(), /m365-native-burst-100/);
   await page.locator('.section-nav a[href="#throughput"]').click();
@@ -469,6 +502,10 @@ try {
   assert.equal(await page.locator(".timeline-chart [data-chart-key]").count(), 2);
   assert.match(await page.locator(".timeline-chart").textContent(), /3\.522 s partial bucket/);
   assert.match(await page.locator("#timeline-content [role=status]").textContent(), /100 \/ 100 planned dispatches.*count complete.*0 unoffered \/ 0 skipped/);
+  await page.getByLabel("Dispatch timeline / choose a cohort").selectOption("paced-125-25-baseline");
+  assert.equal(await page.locator(".timeline-chart [data-chart-key]").count(), 6);
+  assert.match(await page.locator(".timeline-chart").textContent(), /3\.081 s partial bucket/);
+  assert.match(await page.locator("#timeline-content [role=status]").textContent(), /125 \/ 125 planned dispatches.*count complete.*Not a two-minute calibration or a zero-error capacity screen.*0 unoffered \/ 0 skipped/);
   await page.locator('.section-nav a[href="#overview"]').click();
   await page.locator("#campaign-details > summary").waitFor({ state: "visible" });
   await page.locator("#campaign-details > summary").focus();
@@ -516,19 +553,21 @@ try {
   assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 2);
   for (const { path, report: minuteReport } of minuteCases) {
     const run = minuteReport.runs[0];
+    const baseline = run.pacedMeasurement.phase === "count_baseline";
+    const plan = run.pacedMeasurement.plannedSlots;
     await page.goto(`${origin}/${path}#overview`);
     await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "REVIEWED AGGREGATES");
     assert.equal(await page.locator("#data-error").isVisible(), false);
-    const card = page.locator("#overview-charts [data-minute-retest]");
+    const card = page.locator(`#overview-charts [${baseline ? "data-count-baseline" : "data-minute-retest"}]`);
     assert.equal(await card.count(), 1);
     assert.match(await card.textContent(), new RegExp(`${run.counts.completed} successful greetings / ${run.counts.failed} failed invocations / ${run.counts.pending} pending`));
-    assert.match(await card.textContent(), /without the earlier three-error cutoff/);
-    if (run.counts.attempted === 100 && run.counts.pending === 0) {
-      assert.equal(await card.locator("h3").textContent(), `100-request retest: ${run.counts.failed} failed out of 100`);
-      assert.match(await card.textContent(), run.pacedMeasurement.phase === "count_retest" ? /COUNT COMPLETE AND DRAINED/ : /FULL MINUTE AND DRAIN/);
+    assert.match(await card.textContent(), baseline ? /without first-error or three-error termination/ : /without the earlier three-error cutoff/);
+    if (run.counts.attempted === plan && run.counts.pending === 0) {
+      assert.equal(await card.locator("h3").textContent(), `${plan}-request ${baseline ? "baseline" : "retest"}: ${run.counts.failed} failed out of ${plan}`);
+      assert.match(await card.textContent(), run.pacedMeasurement.phase !== "minute_retest" ? /COUNT COMPLETE AND DRAINED/ : /FULL MINUTE AND DRAIN/);
     } else {
       assert.match(await card.textContent(), /INCOMPLETE OR UNRESOLVED/);
-      assert.doesNotMatch(await card.textContent(), /failed out of 100/);
+      assert.doesNotMatch(await card.textContent(), new RegExp(`failed out of ${plan}`));
     }
     if (path === "minute-stopped") assert.match(await card.textContent(), /79 unoffered.*not sent and are not failures/);
     if (run.pacedMeasurement.phase === "count_retest") {
@@ -536,6 +575,33 @@ try {
       assert.match(await card.textContent(), /not proof of 100 starts inside one minute/);
       assert.doesNotMatch(await card.textContent(), /FULL MINUTE AND DRAIN/);
       if (run.counts.attempted === 100) assert.match(await card.textContent(), /90\.909 client dispatches\/min/);
+    }
+    if (baseline) {
+      assert.match(await card.textContent(), /125 total requests, nominally 25\/min.*at least 2400 ms.*300-second plan may extend/);
+      assert.match(await card.textContent(), /not proof of sustained 25\/min.*cannot qualify either validation hour/);
+      assert.match(await card.textContent(), /neither a resumed zero-error study nor a new 7,125-call campaign/);
+      assert.equal(await page.locator("#overview-charts [data-capacity-study]").count(), 0);
+      assert.equal(await page.locator("#overview-charts [data-minute-retest]").count(), 0);
+      if (run.counts.attempted === 125) assert.match(await card.textContent(), /24\.038 client dispatches\/min/);
+      if (path === "baseline-stopped") assert.match(await card.textContent(), /104 unoffered.*not 1\/125/);
+      if (path === "baseline-failed") {
+        assert.match(await card.textContent(), /125 disconnected\/invoke.*0 distinct returned conversations/);
+        assert.equal(await page.locator("#latency-charts rect").count(), 0);
+      }
+      if (path === "baseline") {
+        for (const width of [320, 390, 1440]) for (const theme of ["light", "dark"]) {
+          await page.setViewportSize({ width, height: 1000 });
+          await page.goto(`${origin}/baseline?scoutTheme=${theme}#overview`);
+          assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
+          assert.equal(await page.locator("#data-error").isVisible(), false);
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+          await page.addScriptTag({ path: axePath });
+          assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
+          await card.screenshot({ path: resolve(artifacts, `synthetic-baseline-${width}-${theme}.png`) });
+          snapshots++;
+        }
+        await page.setViewportSize({ width: 390, height: 900 });
+      }
     }
     if (path === "count-disconnected") {
       assert.match(await card.textContent(), /39 generic server_error\/invoke results and 1 disconnected\/invoke/);
@@ -595,7 +661,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, ten sections, eight charts, thirteen actual records with prior twelve preserved, first-attempt capacity stop/no rate/no server-drain inference, strict screen/two-hour synthetic states, four downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, ten sections, eight charts, fourteen actual records with prior thirteen preserved, actual125 denominator/duration/first-disconnect/completion boundaries, strict screen/two-hour and baseline synthetic states, four downloads, axe, keyboard, print, forced colors/reduced motion, dark default/explicit theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));

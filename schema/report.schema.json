@@ -189,8 +189,20 @@
       ],
       "properties": {
         "campaignKey": { "$ref": "#/$defs/key" },
-        "phase": { "enum": ["calibration", "hour", "minute_retest", "count_retest", "capacity_screen", "capacity_hour"] },
+        "phase": { "enum": ["calibration", "hour", "minute_retest", "count_retest", "count_baseline", "capacity_screen", "capacity_hour"] },
         "genericErrorPolicy": { "const": "count_without_early_stop" },
+        "baselineEvidence": {
+          "type": "object", "additionalProperties": false,
+          "required": ["clockStatus", "evidenceStatus", "successfulWithinArrivalWindow", "successfulAfterArrivalWindow", "firstFailedAttempt", "firstFailureCallbackFromArrivalStartMs"],
+          "properties": {
+            "clockStatus": { "enum": ["verified_clean", "compromised", "unknown"] },
+            "evidenceStatus": { "enum": ["verified_complete", "incomplete", "unknown"] },
+            "successfulWithinArrivalWindow": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+            "successfulAfterArrivalWindow": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+            "firstFailedAttempt": { "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 125 }, { "type": "null" }] },
+            "firstFailureCallbackFromArrivalStartMs": { "anyOf": [{ "$ref": "#/$defs/duration" }, { "type": "null" }] }
+          }
+        },
         "capacityEvidence": {
           "type": "object",
           "additionalProperties": false,
