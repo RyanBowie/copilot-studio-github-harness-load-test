@@ -114,6 +114,9 @@ try {
           assert.match(await retest.textContent(), /36\.585% of the 41 actual attempts, not 15\/100/);
           assert.match(await retest.textContent(), /local runner missed the admission deadline.*not establish agent capacity/);
           assert.match(await page.locator("#benchmark-kpis").textContent(), /7 reviewed native cohorts only.*Excludes 100\/min local stop/);
+          const windowOptions = page.getByLabel("Window cohort", { exact: true }).locator("option");
+          assert.equal(await windowOptions.first().textContent(), "All reviewed window cohorts");
+          assert.deepEqual(await windowOptions.evaluateAll((options) => options.map((option) => option.value)), ["all", ...orderedNativeKeys.filter((key) => key !== "paced-minute-100-local-stop")]);
           assert.deepEqual(await page.locator('#overview-charts [data-load-shape="paced"] [data-chart-key]').evaluateAll((rows) => rows.map((row) => row.dataset.chartKey)), orderedNativeKeys.slice(0, -1));
           assert.deepEqual(await page.locator('#overview-charts [data-load-shape="burst"] [data-chart-key]').evaluateAll((rows) => rows.map((row) => row.dataset.chartKey)), ["m365-native-burst-100"]);
           assert.match(await page.locator("#rate-success-explanation").textContent(), /every 2\.4 seconds.*every 0\.6 seconds/);

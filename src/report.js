@@ -475,7 +475,7 @@ function renderReviewedWindows(report, evidence) {
   const basis = labelledControl("Window coverage", "window-coverage", [
     ["observed_through_drain", "Observed through drain"], ["observed_arrival_only", "Observed arrival interval only"]
   ]);
-  const cohort = labelledControl("Window cohort", "window-cohort", [["all", "All compatible native cohorts"], ...nativeFirst(report.runs).filter((run) => evidence.runs.some((item) => item.runKey === run.runKey)).map((run) => [run.runKey, cohortName(run)])]);
+  const cohort = labelledControl("Window cohort", "window-cohort", [["all", "All reviewed window cohorts"], ...nativeFirst(report.runs).filter((run) => evidence.runs.some((item) => item.runKey === run.runKey)).map((run) => [run.runKey, cohortName(run)])]);
   controls.append(basis.field, cohort.field);
   const results = node("div", undefined, "reviewed-window-results");
   const status = paragraph(undefined, "fine");
