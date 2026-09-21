@@ -284,7 +284,7 @@ function capacityCell(candidate) {
   return cell;
 }
 
-function renderCapacity(report) {
+function renderCapacity(report, evidence = null) {
   const target = byId("capacity-summary");
   target.replaceChildren();
   byId("benchmark-kpis").replaceChildren();
@@ -343,7 +343,7 @@ function renderCapacity(report) {
       ["Dispatch window", "Most eventual successes / attempted", "Best error-free observed window", "Evidence boundary"],
       group.windows.map((window) => [
         windowLabel(window.seconds), capacityCell(window.best), capacityCell(window.clean),
-        window.seconds < 60 ? "Sub-minute timestamps not provided; not derived from a burst."
+        window.seconds < 60 ? "Not derivable from minute buckets; see the separate reviewed rolling-window supplement when available."
           : window.best ? "Complete contiguous minute buckets in one cohort. Offered load can limit the count; not a service ceiling."
             : "No eligible full window within one measured cohort. Not zero capacity."
       ]));
@@ -355,9 +355,137 @@ function renderCapacity(report) {
   const fullHour = groups.some((group) => group.runs.some((run) => run.pacedMeasurement.phase === "hour"
     && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete"));
   gaps.append(node("h3", "Still not established"),
-    paragraph(`Exact rolling-window and completion-window maxima; ${fullHour ? "daily capacity" : "a completed hourly/daily endurance result"}; failure recovery/reset; quota scope; backend concurrency; representative knowledge/workflow throughput. See Costs for separately reviewed billing evidence; no unit cost is derived here.`),
+    paragraph(`${evidence ? "Exact burst completion-window maxima; " : "Exact rolling-window and completion-window maxima; "}${fullHour ? "daily capacity" : "a completed hourly/daily endurance result"}; failure recovery/reset; quota scope; backend concurrency; representative knowledge/workflow throughput. See Costs for separately reviewed billing evidence; no unit cost is derived here.`),
     paragraph("The same rate can pass a short calibration and later encounter a transport stop. Repeated small clean samples do not establish a 99% service guarantee. Check the rate, duration, stop reason and failure layer together."));
   target.append(gaps);
+}
+
+const clockSeconds = (ms) => (ms / 1000).toFixed(7).replace(/\.?0+$/, "");
+const clockBounds = (value) => value.precision === "exact" ? `${clockSeconds(value.lowerMs)} s (recorded native callback)`
+  : `${clockSeconds(value.lowerMs)}-${clockSeconds(value.upperMs)} s (inclusive bound; not an exact timestamp)`;
+const clientSnapshot = (value) => `${value.dispatched} dispatched; ${value.settled} settled (${value.successes} successful / ${value.failures} failed); ${value.outstandingClientCalls} client calls outstanding`;
+
+function reviewedWindowCell(candidate, metric) {
+  if (!candidate) return "UNAVAILABLE / no eligible full window or exact clock";
+  const cell = node("div");
+  const { snapshot } = candidate;
+  const d = snapshot.dispatchCohort, c = snapshot.completionsInWindow;
+  cell.append(node("strong", metric === "dispatch" ? `${d.eventualSuccesses} / ${d.dispatched} eventual successes` : `${c.successes} successful completions`),
+    paragraph(`${cohortName(candidate)} / ${candidate.runKey}`, "fine run-title"),
+    paragraph(`${clockSeconds(snapshot.window.startOffsetMs)}-${clockSeconds(snapshot.window.endOffsetMs)} s; half-open, display rounded`, "fine"),
+    paragraph(`At this same anchor: ${d.dispatched} dispatched, ${d.eventualSuccesses} eventual successes, ${d.eventualFailures} eventual failures, ${d.pendingAtEvidenceCutoff} pending at cutoff; ${c ? `${c.successes} successful / ${c.failures} failed completions inside the window` : "exact completion counts unavailable"}.`, "fine"));
+  const detail = node("details");
+  detail.append(node("summary", "Exact offsets and local client state"),
+    paragraph(`Start included: ${snapshot.window.startOffsetMsExact} ms. End excluded: ${snapshot.window.endOffsetMsExact} ms.`, "fine run-title"),
+    paragraph(`Eligible coverage: ${candidate.coverage.startOffsetMsExact}-${candidate.coverage.endOffsetMsExact} ms.`, "fine run-title"));
+  if (snapshot.clientStateBeforeWindowStart) detail.append(
+    paragraph(`Before start: ${clientSnapshot(snapshot.clientStateBeforeWindowStart)}.`, "fine"),
+    paragraph(`Before end: ${clientSnapshot(snapshot.clientStateBeforeWindowEnd)}. Of this window's dispatch cohort, ${d.pendingImmediatelyBeforeWindowEnd} were still outstanding immediately before its end; that is not pending at the final cutoff.`, "fine"));
+  cell.append(detail);
+  return cell;
+}
+
+function renderReviewedWindows(report, evidence) {
+  if (!evidence) {
+    empty("reviewed-windows", "No reviewed rolling-window supplement.", "Minute-bucket totals alone cannot establish exact rolling or completion-window maxima.");
+    byId("bucket-analysis").open = true;
+    return;
+  }
+  const headline = byId("benchmark-kpis");
+  headline.replaceChildren();
+  for (const group of summarizeReviewedWindows(evidence, report)) {
+    const minute = group.windows.find((window) => window.seconds === 60);
+    const five = group.windows.find((window) => window.seconds === 300);
+    const capacity = summarizeCapacity(group.runs)[0];
+    const kpis = node("div", undefined, "cards benchmark-kpis");
+    for (const [title, value, detail] of [
+      ["Qualified short rate", capacity?.highestQualifiedRpm ? `${number(capacity.highestQualifiedRpm)}/min` : "Not measured", "Completed calibration, not a service ceiling."],
+      ["Peak 60 s dispatch", minute.dispatch ? `${minute.dispatch.successes} / ${minute.dispatch.snapshot.dispatchCohort.dispatched}` : "Not measured", "Eventual successes of a selected dispatch cohort; errors stay in the denominator."],
+      ["Peak 60 s completions", minute.completion ? number(minute.completion.successes) : "Not measured", "Replies completed inside a separately selected 60-second window."],
+      ["Peak 5 min completions", five.completion ? number(five.completion.successes) : "Not measured", "Finite-window peak, not sustained hourly capacity."],
+      ["Full hourly trial", group.runs.some((run) => run.pacedMeasurement?.phase === "hour" && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete") ? "Completed" : "Not measured", "No hourly/daily extrapolation."],
+      ["Cost per success", group.runs.every((run) => run.cost.status === "pending") ? "Pending" : "Not derived", "Client outcomes do not settle remote work, retries or billing."]
+    ]) {
+      const card = node("article", undefined, "card");
+      card.append(paragraph(title, "metric-label"), paragraph(value, "metric-value"), paragraph(detail, "metric-help"));
+      kpis.append(card);
+    }
+    headline.append(kpis, paragraph(`${label(group.context.surface)} / ${label(group.context.environmentType)} / ${group.context.model ?? "unknown model"}. Headline peaks use observed coverage through drain across compatible native cohorts; the two metrics select independent windows. Reviewed ${evidence.reviewedOn}; no new calls.`, "fine"));
+  }
+  const target = byId("reviewed-windows");
+  const controls = node("div", undefined, "searchbar");
+  const basis = labelledControl("Window coverage", "window-coverage", [
+    ["observed_through_drain", "Observed through drain"], ["observed_arrival_only", "Observed arrival interval only"]
+  ]);
+  const cohort = labelledControl("Window cohort", "window-cohort", [["all", "All compatible native cohorts"], ...evidence.runs.map((run) => [run.runKey, cohortName(run)])]);
+  controls.append(basis.field, cohort.field);
+  const results = node("div", undefined, "reviewed-window-results");
+  const status = paragraph(undefined, "fine");
+  status.setAttribute("role", "status");
+  const draw = () => {
+    results.replaceChildren();
+    const groups = summarizeReviewedWindows(evidence, report, basis.control.value, cohort.control.value === "all" ? null : cohort.control.value);
+    const throughDrain = basis.control.value === "observed_through_drain";
+    status.textContent = `${throughDrain ? "Through-drain coverage includes time with no new dispatch; not sustained offered load." : "Arrival-only coverage excludes completions after the observed arrival end."} Controls change this window analysis only. Post-hoc peaks do not establish clean qualification or quotas.`;
+    for (const group of groups) {
+      const article = node("article", undefined, "rolling-group");
+      article.append(barChart({
+        title: `Exact rolling windows / ${throughDrain ? "observed through drain" : "observed arrivals only"}`,
+        description: `${label(group.context.surface)} / ${group.context.model ?? "unknown model"}. Two independently selected maxima: eventual successes from dispatches inside a window, versus successful callbacks inside a window. They may come from different runs and anchors. Unknown is not zero; no hourly normalization.`,
+        series: [
+          { key: "dispatch", label: "Eventual successes of dispatch cohort", className: "series-primary" },
+          { key: "completion", label: "Successful completions inside window", className: "series-secondary" }
+        ],
+        rows: group.windows.filter((window) => window.dispatch || window.completion).map((window) => ({
+          key: `rolling-${window.seconds}`, label: windowLabel(window.seconds),
+          values: [window.dispatch?.successes ?? null, window.completion?.successes ?? null],
+          summary: `${window.dispatch ? `${window.dispatch.successes}/${window.dispatch.snapshot.dispatchCohort.dispatched} eventual dispatch-cohort successes from ${window.dispatch.runKey}` : "dispatch maximum unavailable"}; ${window.completion ? `${window.completion.successes} actual completions from ${window.completion.runKey}` : "exact completion maximum unavailable"}`,
+          summaryLines: [window.dispatch ? `${window.dispatch.successes}/${window.dispatch.snapshot.dispatchCohort.dispatched} eventual` : "Unavailable", window.completion ? `${window.completion.successes} completions` : "Completion unknown"],
+          detail: `Dispatch: ${window.dispatch ? cohortName(window.dispatch) : "unavailable"}; replies: ${window.completion ? cohortName(window.completion) : "unavailable"}`
+        }))
+      }));
+      const rows = node("div");
+      table(rows, `Reviewed rolling maxima / ${throughDrain ? "through drain" : "arrival only"} / ${group.context.model ?? "unknown model"}`,
+        ["Exact window duration", "Maximum eventual successful dispatch cohort", "Maximum successful completions inside window"],
+        group.windows.map((window) => [windowLabel(window.seconds), reviewedWindowCell(window.dispatch, "dispatch"), reviewedWindowCell(window.completion, "completion")]));
+      const details = node("details", undefined, "block rolling-details");
+      details.append(node("summary", "Every maximum, denominator, source anchor and paired count"), rows);
+      article.append(details);
+      results.append(article);
+    }
+  };
+  basis.control.addEventListener("change", draw);
+  cohort.control.addEventListener("change", draw);
+  target.replaceChildren(node("h3", "Maximum successes per measured window"), controls, status, results);
+  draw();
+}
+
+function renderErrorTimeline(evidence) {
+  const target = byId("error-timeline");
+  target.replaceChildren();
+  if (!evidence) return;
+  const errors = evidence.runs.filter((run) => run.firstError);
+  if (!errors.length) return;
+  const first = node("div");
+  table(first, "When the first error returned / client callback evidence",
+    ["Cohort", "First error offset", "Counts just after processing that error", "Observed evidence"],
+    errors.map((run) => [cohortName(run), clockBounds(run.firstError.completion), clientSnapshot(run.firstError.client), label(run.firstError.evidence)]));
+  target.append(first, paragraph("Offsets are relative to each cohort's own monotonic origin, not invocation durations or wire/server timestamps. Burst first-error timing is bounded; it had no per-error dispatch-stop policy. A first error is not necessarily the safety trigger.", "fine"));
+  const stops = node("div");
+  table(stops, "Actual safety triggers and later admitted-call outcomes / not final failure thresholds",
+    ["Cohort / trigger", "Trigger callback", "Dispatch-close bounds", "Client counts at trigger", "After trigger / no new dispatch"],
+    evidence.runs.filter((run) => run.safetyTrigger).map((run) => {
+      const stop = run.safetyTrigger;
+      const arrival = run.bases.find((basis) => basis.basis === "observed_arrival_only").coverage;
+      return [
+        `${cohortName(run)} / ${label(stop.reason)}${stop.reason === "generic_error_threshold" ? " / third consecutive generic failure" : ""}`,
+        clockBounds(stop.completion),
+        `${clockBounds(stop.dispatchClose)}. Separately observed arrival end: ${clockSeconds(arrival.endOffsetMs)} s.`,
+        clientSnapshot(stop.client),
+        `${stop.settlementsAfterTrigger.successes} successes / ${stop.settlementsAfterTrigger.failures} failures / ${stop.settlementsAfterTrigger.pendingAtFinalCutoff} pending at final client cutoff. ${stop.newDispatchesAfterTrigger} later starts; no quota or backend-concurrency inference.`
+      ];
+    }));
+  target.append(stops, paragraph("The dispatch-close assignment was not separately timestamped; synchronous callback order supplies inclusive bounds. Post-trigger outcomes may arrive before the observed arrival end or during the separately measured drain. Final failures include calls already in flight. Zero client pending is not proof that remote work, retries, admission or cost have settled.", "fine"));
 }
 
 function loadStatus(run) {
@@ -418,7 +546,7 @@ function renderFailureSummary(runs) {
     })
   }));
   table("failure-summary", "Where failures were observed / dispatch cohorts are not failure timestamps",
-    ["Cohort", "Failed invocations / evidence", "First affected dispatch bucket", "Arrival stop / observation end", "Attribution and recovery"],
+    ["Cohort", "Failed invocations / evidence", "First affected dispatch bucket", "Observed arrival end / terminal status", "Attribution and recovery"],
     failures.map((run) => {
       const paced = run.pacedMeasurement;
       const first = paced?.minutes.find((minute) => minute.failed > 0);
@@ -428,7 +556,7 @@ function renderFailureSummary(runs) {
         run.runKey,
         run.errors.map((error) => `${number(error.count)} ${label(error.evidence)}`).join("; "),
         first ? `${number(first.offsetSeconds)}-${number(first.offsetSeconds + first.durationSeconds)} s: ${number(first.failed)} eventual failure${first.failed === 1 ? "" : "s"} among ${number(first.attempted)} dispatches. Not the time the first error returned.` : "Not bucketed; exact first-error return time not available.",
-        paced ? (paced.stopReason ? `${number(paced.arrivalSeconds)} s / ${pacedStopLabel(run)}. Final error count includes calls already in flight, not the guard's trigger count.`
+        paced ? (paced.stopReason ? `${number(paced.arrivalEndObservedSeconds)} s observed arrival end / ${pacedStopLabel(run)}. Final error count includes calls already in flight, not the guard's trigger count.`
           : `Full ${number(paced.arrivalSeconds)} s arrival window; ${label(paced.qualification)}. No arrival stop.`)
           : `${number(run.windowSeconds)} s batch observation; not a measured failure-onset time.`,
         transport ? "WorkIQ MCP HTTP transport 429 observed. Harness attribution, quota key/window/reset and backend reach unknown; no retry interval exposed. Recovery not measured."
@@ -479,12 +607,12 @@ function renderOverview(report) {
         : "Stopped on the generic invocation-error safety threshold, not HTTP 429. No HTTP 429 or retry interval was exposed for these errors. The limiting layer and GitHub Copilot Harness capacity remain unknown; this is not confirmed throttling."));
     if (standalone) {
       const paced = standalone.pacedMeasurement;
-      card.append(paragraph(`Separate authorization and campaign, not a restart or escalation of the earlier campaign. ${number(standalone.counts.completed / standalone.counts.attempted * 100)}% eventual greeting success through drain. ${completed ? "The full arrival window covered" : "Dispatch stopped after"} ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s / ${number(paced.plannedSlots)} calls; ${number(paced.unofferedSlots)} were not offered and ${number(paced.skippedSlots)} were skipped.`),
+      card.append(paragraph(`Separate authorization and campaign, not a restart or escalation of the earlier campaign. ${number(standalone.counts.completed / standalone.counts.attempted * 100)}% eventual greeting success through drain. ${completed ? "The full arrival window covered" : "The recorded arrival window covered"} ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s / ${number(paced.plannedSlots)} calls; ${number(paced.unofferedSlots)} were not offered and ${number(paced.skippedSlots)} were skipped.`),
         paragraph(completed
           ? `All planned calls dispatched; outcomes were observed through the following ${number(paced.drainSeconds)} s drain. No hour or automatic continuation followed.`
           : `${paced.arrivalSeconds < 60 ? "Not even one full minute completed. " : ""}No completed two-minute calibration or hour. Already-outstanding calls then drained for ${number(paced.drainSeconds)} s; final failure count includes that drain. No restart, retries or escalation, including unused slots.`));
     }
-    if (hour) card.append(paragraph(`The ${number(hour.pacedMeasurement.targetRpm)} RPM hourly arrival attempt stopped after ${number(hour.pacedMeasurement.arrivalSeconds)} s of 3,600 s: ${number(hour.counts.attempted)} of ${number(hour.pacedMeasurement.plannedSlots)} planned calls were dispatched, leaving ${number(hour.pacedMeasurement.unofferedSlots)} unsent. Its ${number(hour.counts.completed)} eventual replies are counted through the following ${number(hour.pacedMeasurement.drainSeconds)} s drain, not necessarily inside the arrival window. ${number(hour.pacedMeasurement.targetRpm)} RPM was the last qualified calibration rate, not a sustained-capacity finding.`));
+    if (hour) card.append(paragraph(`The ${number(hour.pacedMeasurement.targetRpm)} RPM hourly attempt ended early with a recorded ${number(hour.pacedMeasurement.arrivalSeconds)} s arrival window of 3,600 s: ${number(hour.counts.attempted)} of ${number(hour.pacedMeasurement.plannedSlots)} planned calls were dispatched, leaving ${number(hour.pacedMeasurement.unofferedSlots)} unsent. Its ${number(hour.counts.completed)} eventual replies are counted through the following ${number(hour.pacedMeasurement.drainSeconds)} s drain, not necessarily inside the arrival window. ${number(hour.pacedMeasurement.targetRpm)} RPM was the last qualified calibration rate, not a sustained-capacity finding.`));
     for (const run of cohorts.filter((item) => item.pacedMeasurement.phase === "calibration" && item.pacedMeasurement.qualification === "not_qualified")) {
       const belowThreshold = run.counts.completed * 100 < run.counts.attempted * 99;
       const reason = run.pacedMeasurement.arrivalStatus !== "full_window" ? "but ended before its planned arrival window completed and did not qualify"
@@ -800,7 +928,10 @@ try {
   const report = JSON.parse(byId("report-data").textContent);
   const schema = JSON.parse(byId("report-schema").textContent);
   assertReport(report, schema);
-  renderCapacity(report);
+  const evidence = JSON.parse(byId("window-evidence").textContent);
+  assertWindowEvidence(evidence, JSON.parse(byId("window-schema").textContent), report);
+  renderCapacity(report, evidence);
+  renderReviewedWindows(report, evidence);
   renderOverview(report);
   renderCharts(report.runs);
   renderTimeline(report.runs);
@@ -810,14 +941,18 @@ try {
   renderResponses(report.runs);
   renderThroughput(report);
   renderFailureSummary(report.runs);
+  renderErrorTimeline(evidence);
   renderObservations(report.runs);
   renderCosts(report);
   const reviewed = report.publication.status === "reviewed";
   byId("publication-status").textContent = reviewed ? "REVIEWED AGGREGATES" : "NOT MEASURED";
   byId("publication-status").classList.toggle("reviewed", reviewed);
   byId("review-status").textContent = reviewed ? `Public aggregate review: ${report.publication.reviewedOn}. Run dates and cost settlement may differ.` : "Awaiting pilot / no measured results published";
+  if (evidence) byId("review-status").textContent += ` Window/callback supplement reviewed ${evidence.reviewedOn}; no new calls.`;
+  byId("window-download").hidden = evidence === null;
+  byId("window-schema-download").hidden = evidence === null;
 } catch {
-  for (const id of ["benchmark-kpis", "overview-charts", "concurrency-charts", "concurrency-content", "latency-charts", "timeline-content", "stages-content", "answers-content", "conversations-content", "capacity-summary", "overview-summary", "run-ledger", "reliability-content", "failure-charts", "failure-summary", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
+  for (const id of ["reviewed-windows", "error-timeline", "benchmark-kpis", "overview-charts", "concurrency-charts", "concurrency-content", "latency-charts", "timeline-content", "stages-content", "answers-content", "conversations-content", "capacity-summary", "overview-summary", "run-ledger", "reliability-content", "failure-charts", "failure-summary", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
   byId("publication-status").textContent = "DATA REJECTED";
   byId("publication-status").classList.add("rejected");
   byId("review-status").textContent = "No metrics displayed.";

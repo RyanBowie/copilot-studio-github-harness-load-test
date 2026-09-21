@@ -152,6 +152,7 @@ p { margin: 0 0 16px; }
 .section-nav a { padding: 12px 10px; min-height: 44px; white-space: nowrap; flex: 0 0 auto; border-bottom: 2px solid var(--cp-transparent); font-size: .8125rem; font-weight: 500; color: var(--cp-text-muted); text-decoration: none; }
 .section-nav a:hover { color: var(--cp-text); }
 .section-nav a[aria-current="page"] { color: var(--cp-accent); border-bottom-color: var(--cp-accent); font-weight: 600; }
+main > section { scroll-margin-top: 80px; }
 section { margin-bottom: 48px; }
 .section-intro { color: var(--cp-text-muted); max-width: 880px; margin-bottom: 24px; }
 .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
@@ -301,7 +302,11 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <p class="section-intro">How many requests succeeded, how quickly, and where did errors appear? These are single-account observations of the published route, not a measured service ceiling.</p>
         <div id="benchmark-kpis"></div>
         <div id="overview-charts"></div>
-        <div id="capacity-summary"></div>
+        <div id="reviewed-windows"></div>
+        <details class="block" id="bucket-analysis">
+          <summary>Fixed-minute bucket view and error-free segments</summary>
+          <div id="capacity-summary"></div>
+        </details>
         <details class="block" id="campaign-details">
           <summary>Campaign evidence and all reviewed runs</summary>
           <div id="overview-summary"></div>
@@ -379,6 +384,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <h2 id="failures-heading">Refusals and failures</h2>
         <p class="section-intro">Generic invocation errors are not confirmed throttling. A transport refusal, a failed requested operation and an underlying workflow still waiting are different outcomes.</p>
         <div id="failure-charts"></div>
+        <div id="error-timeline"></div>
         <div id="failure-summary"></div>
         <details class="block" id="failure-details">
           <summary>Detailed evidence, stage observations and workflow follow-up</summary>
@@ -402,7 +408,14 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
             <h3>Capacity summary / what can be derived now</h3>
             <p>Window summaries use only contiguous, complete 60-second dispatch buckets within one cohort. They count the eventual outcomes of those requests at the original drain/cutoff, not replies completed inside the window. Never combine cohorts, bridge cooldowns, scale up a partial minute, or treat a burst as steady-state traffic. Different recorded configurations are ranked separately; unknown agent revisions still prevent a controlled comparison.</p>
             <p>For each duration, the highest observed reply count and the highest zero-failure, zero-pending count are separate results. Ties prefer fewer failures, then fewer pending calls, then the earliest cohort and offset. An error-free segment inside an aborted trial is not a separately completed endurance test. A qualified calibration requires the existing 99% rule and full dispatch/drain; it is not a statistical guarantee or a capacity ceiling.</p>
-            <p>Sub-minute, arbitrary rolling-window and completion-window maxima cannot be reconstructed from these aggregates. Exact first-error/guard timing, quota reset, recovery, longer endurance, representative workload reliability and settled unit costs need separately reviewed evidence. A later successful calibration alone does not prove recovery time or its cause.</p>
+            <p>Sub-minute, rolling-window and completion-window maxima cannot be reconstructed from minute buckets. When present, the separately reviewed window supplement supplies them from existing private event evidence, without publishing that evidence or running new requests. Quota reset, recovery, longer endurance, representative workload reliability and settled unit costs remain unestablished. A later successful calibration alone does not prove recovery time or its cause.</p>
+          </article>
+          <article class="note" id="window-method">
+            <h3>Reviewed rolling windows and callback evidence</h3>
+            <p>Supplemental windows are half-open [start,end), including the start and excluding the end. Dispatch-cohort maxima count eventual successful outcomes of requests dispatched inside the selected window. Completion maxima independently count successful native callbacks inside a window, including calls dispatched earlier. The two maxima need not share a run or window: both count types and exact boundaries are retained at each selected anchor.</p>
+            <p>Arrival-only coverage and observation through drain are separate choices. Through-drain peaks include time when no new requests were offered, not sustained offered load. Missing full coverage is unavailable, not zero; no partial window is normalized. Exact decimal strings preserve arithmetic on the original IEEE-754 clock values, not greater clock accuracy. Numeric display offsets are conveniences. Equal maxima retain the first reviewed representative; the window is not claimed to be a unique or earliest continuous optimum.</p>
+            <p>Selection is post hoc, not a new test or zero-error qualification. Boundary jitter and response-time variation can produce finite-window counts above nominal RPM. A chosen clean window cannot erase errors elsewhere or establish a quota. The burst lacks exact shared-origin completion offsets: adding its dispatch marker to separately clocked duration is only a lower bound, so exact burst completion-window maxima remain unavailable.</p>
+            <p>Failure snapshots count client callbacks after processing the specified event. Paced first errors and trigger callbacks have exact recorded offsets; actual dispatch-close assignments are bounded by synchronous callback and journal clocks, not directly timestamped. Burst first-error timing is bounded. Zero pending at the final cutoff describes recorded client invocation outcomes only: remote admission, work, retries and costs are not thereby settled. Costs remain pending and managed-service retry behaviour unknown.</p>
           </article>
           <article class="note">
             <h3>01 / Identify the configuration without identifying people</h3>
@@ -442,7 +455,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           <article class="note">
             <h3>Original paced campaign / no completed hour</h3>
             <p>The original greeting campaign calibrated 10, 25 and 50 client requests/minute in two-minute arrival windows, with drain and cooldown between stages. Qualification required all slots and at least 99% greeting success. The 50 RPM stage returned 98%, so 100/150 RPM was not attempted within that original campaign and 25 RPM was selected from its last qualified stage, not declared a harness ceiling. The later standalone 100 RPM cohort below is a separate authorization and campaign.</p>
-            <p>The planned 60-minute arrival phase stopped at 512.2330114 s on a WorkIQ MCP HTTP transport 429: 214 dispatched calls, 213 eventual greetings through the following 6.062 s drain, and one transport failure; 1286 remaining requests were not sent. Of those greetings, 211 completed before the observed arrival-end boundary and two during drain. There is no full-hour result. The four-cohort campaign totals 384 attempts, 381 greetings and three failures, all drained. The transport event does not establish a GitHub Copilot Harness quota. No retry or automatic restart followed.</p>
+            <p>The planned 60-minute arrival phase ended early after a WorkIQ MCP HTTP transport 429, with a recorded 512.2330114 s offer-window duration: 214 dispatched calls, 213 eventual greetings through the following 6.062 s drain, and one transport failure; 1286 remaining requests were not sent. Of those greetings, 211 completed before the observed arrival-end boundary and two during drain. There is no full-hour result. The four-cohort campaign totals 384 attempts, 381 greetings and three failures, all drained. The transport event does not establish a GitHub Copilot Harness quota. No retry or automatic restart followed.</p>
             <p>The same brief-greeting template and native published Microsoft 365 route were used, with fresh-conversation intent and one corporate account. All supplied peaks are observed client-outstanding calls, never model concurrency. Requests were bounded by a request-only cap, not a hard monetary budget. Costs remain pending.</p>
             <p>For completed calibration windows, the scheduled 120 s offer duration differs slightly from the observed timer-end offset. Full observation equals that measured end offset plus drain. The stopped-hour duration read and end-offset read differ by about 0.0154 ms; retain both rather than inventing an equality. Dispatch-minute tables attribute final outcomes back to the minute the request started, not the minute a reply completed.</p>
             <p>Supplemental Studio history at 19:45:28Z on 2026-09-20 returned 150 metadata records, all matching the partial hour's successful conversations and marked Completed / Microsoft 365 Copilot: 150 of that cohort's 213 successes. Page size was 150 with <code>hasMore=true</code>: partial corroboration, not a claim that all 381 campaign successes matched or that other requests never reached the backend. No transcripts or identifiers are reproduced.</p>
@@ -450,7 +463,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           <article class="note">
             <h3>Standalone 100 RPM / generic invocation-error safety stop</h3>
             <p>On 2026-09-20, a separately authorized two-minute calibration planned 200 greetings at 100 requests/minute on the same native published Microsoft 365 route: one corporate account, Developer, GPT 5.6 Sol, memory off, published revision unknown. Slots were 600 ms with a 570 ms floor; minimum observed spacing was 572.0913 ms. This was not a restart or escalation of the earlier campaign.</p>
-            <p>Dispatch stopped after 12.612879599999992 s: 21 attempts, 12 eventual greetings, nine generic native invocation failures and zero pending after 4.042247700000007 s drain. Six replies completed before the observed arrival-end boundary and six during drain. No full minute or two-minute window completed. The 179 remaining slots were never offered, not agent failures or permission to restart; zero skipped slots and runner retries. No hour or escalation followed.</p>
+            <p>The recorded arrival-window duration was 12.612879599999992 s, not the exact dispatch-close timestamp: 21 attempts, 12 eventual greetings, nine generic native invocation failures and zero pending after 4.042247700000007 s drain. Six replies completed before the observed arrival-end boundary and six during drain. No full minute or two-minute window completed. The 179 remaining slots were never offered, not agent failures or permission to restart; zero skipped slots and runner retries. No hour or escalation followed.</p>
             <p>All nine failures had the same normalized server_error at invoke, with a null response and returned conversation identifier. No HTTP 429 or retry interval was exposed. The third consecutive generic failure stopped dispatch at nine settled outcomes (six successes / three failures), with no new invocation starts afterward. Twelve already-admitted calls then settled as six successes / six failures. This generic-error safety threshold is not confirmed throttling or a GitHub Copilot Harness capacity finding. Twenty-one distinct returned conversations include all nine failures; peak 18 outstanding client invocations is not backend/model concurrency. Successes among the first twelve requests do not establish a twelve-concurrent quota.</p>
             <p>History at 20:51:25Z matched all twelve successful conversations to Completed / Microsoft 365 Copilot records. Nine failed IDs were absent from the returned 150-row snapshot, but <code>hasMore=true</code>: partial coverage is not proof they never reached the agent. Monitor at 20:48:13Z showed 417 sessions, updated one hour earlier, with no credits recorded. That stale precohort snapshot is not attributed usage or zero cost; costs remain pending. No identifiers or raw responses are reproduced.</p>
           </article>
@@ -505,15 +518,20 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       <p>Independent, single-account observation report for Copilot Studio agents powered by the GitHub Copilot Harness. Observations are configuration-specific, not a service guarantee.</p>
       <a href="report.json" download>Public aggregate JSON</a>
       <a href="report.schema.json" download>JSON schema</a>
+      <a id="window-download" href="window-evidence.json" download hidden>Window evidence JSON</a>
+      <a id="window-schema-download" href="window-evidence.schema.json" download hidden>Window evidence schema</a>
       <a href="https://github.com/RyanBowie/copilot-studio-github-harness-load-test">Source &amp; methodology contract</a>
     </footer>
   </div>
   <script type="application/json" id="report-data"><!-- REPORT_JSON --></script>
   <script type="application/json" id="report-schema"><!-- SCHEMA_JSON --></script>
+  <script type="application/json" id="window-evidence"><!-- WINDOW_EVIDENCE_JSON --></script>
+  <script type="application/json" id="window-schema"><!-- WINDOW_SCHEMA_JSON --></script>
   <script type="module">
 <!-- VALIDATOR_JS -->
 <!-- CAPACITY_JS -->
 <!-- CHARTS_JS -->
+<!-- WINDOW_VALIDATOR_JS -->
 <!-- REPORT_JS -->
   </script>
 </body>

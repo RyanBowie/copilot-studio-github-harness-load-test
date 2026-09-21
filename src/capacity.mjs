@@ -1,8 +1,8 @@
 const capacityWindows = [10, 30, 60, 120, 300, 480, 900, 3600, 86400];
 const countKeys = ["attempted", "completed", "failed", "pending"];
 
-function capacityContext(run) {
-  const measurement = run.pacedMeasurement;
+export function capacityContext(run) {
+  const measurement = run.pacedMeasurement ?? run.nativeInvocation;
   return {
     surface: run.surface,
     environmentType: run.environmentType,

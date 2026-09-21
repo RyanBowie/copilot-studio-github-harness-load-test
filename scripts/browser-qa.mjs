@@ -14,7 +14,7 @@ const require = createRequire(import.meta.url);
 const focused = process.argv.includes("--focused");
 const sectionIds = ["overview", "concurrency", "response-time", "throughput", "observations", "answers", "failures", "conversations", "methodology", "costs"];
 const axePath = require.resolve("axe-core/axe.min.js");
-const { html, report } = await build();
+const { html, report, evidence, evidenceSchema } = await build();
 const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
 const emptyHtml = await renderHtml({
   schemaVersion: 1, harness: "GitHub Copilot Harness", outcomeBasis: "requested_operation",
@@ -29,15 +29,17 @@ Object.assign(synthetic.runs[1], {
 const syntheticHtml = (await renderHtml(synthetic, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC QA FIXTURE - NOT OBSERVED RESULTS</aside>');
 const pacedHtml = (await renderHtml(syntheticPacedReport("transport-stop"), schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC PACED FIXTURE - NOT OBSERVED RESULTS</aside>');
 const rejectedHtml = html.replace('"schemaVersion":1', '"schemaVersion":999');
+const rejectedWindowHtml = html.replace('"newAgentCalls":0', '"newAgentCalls":1');
 const server = createServer((request, response) => {
   const path = new URL(request.url, "http://localhost").pathname;
-  const json = path === "/report.json" ? report : path === "/report.schema.json" ? schema : null;
+  const json = path === "/report.json" ? report : path === "/report.schema.json" ? schema
+    : path === "/window-evidence.json" ? evidence : path === "/window-evidence.schema.json" ? evidenceSchema : null;
   if (json) {
     response.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     response.end(JSON.stringify(json));
     return;
   }
-  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/paced" ? pacedHtml : path === "/rejected" ? rejectedHtml : null;
+  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/paced" ? pacedHtml : path === "/rejected" ? rejectedHtml : path === "/rejected-window" ? rejectedWindowHtml : null;
   if (content === null) { response.writeHead(404); response.end(); return; }
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(content);
@@ -79,13 +81,25 @@ try {
           assert.equal(await page.locator("main > section:visible").count(), 1);
           assert.equal(await page.locator(`.section-nav a[href="#${id}"]`).getAttribute("aria-current"), "page");
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${view}/${width}/${theme}/${id}: no page overflow`);
+          assert.equal(await page.locator(`#${id}`).evaluate((section) => section.querySelector("h2").getBoundingClientRect().top >= document.querySelector(".section-nav").getBoundingClientRect().bottom), true, "sticky navigation must not cover the destination heading");
+          assert.deepEqual(await page.locator(`#${id} .benchmark-chart svg text`).evaluateAll((labels) => labels.filter((label) => {
+            const box = label.getBBox();
+            return box.x < -1 || box.x + box.width > 801;
+          }).map((label) => label.textContent)), [], "chart labels must remain inside their scrollable SVG");
           await page.addScriptTag({ path: axePath });
           const violations = await page.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map(({ id, impact, nodes }) => ({ id, impact, count: nodes.length })));
           assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
         }
         if (view === "report") {
-          assert.deepEqual(await page.locator("#benchmark-kpis .metric-value").allTextContents(), ["25/min", "49 / 50", "125 / 125", "8 minutes", "Not measured", "Pending"]);
-          assert.equal(await page.locator(".benchmark-chart svg").count(), 6);
+          assert.deepEqual(await page.locator("#benchmark-kpis .metric-value").allTextContents(), ["25/min", "50 / 51", "52", "126", "Not measured", "Pending"]);
+          assert.equal(await page.locator(".benchmark-chart svg").count(), 7);
+          assert.deepEqual(await page.locator("#reviewed-windows [data-series=dispatch]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [33, 33, 50, 98, 126]);
+          assert.deepEqual(await page.locator("#reviewed-windows [data-series=completion]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [12, 27, 52, 98, 126]);
+          assert.deepEqual(await page.locator("#window-evidence").evaluate((element) => JSON.parse(element.textContent)), evidence);
+          assert.match(await page.locator("#error-timeline").textContent(), /8\.2365103-8\.2365161 s \(inclusive bound/);
+          assert.match(await page.locator("#error-timeline").textContent(), /28\.5670088 s \(recorded native callback\)/);
+          assert.match(await page.locator("#error-timeline").textContent(), /21 dispatched; 9 settled \(6 successful \/ 3 failed\); 12 client calls outstanding/);
+          assert.match(await page.locator("#error-timeline").textContent(), /511\.2884434-511\.2895557 s.*512\.232996 s/);
           assert.deepEqual(await page.locator("#failure-charts [data-series=generic]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [2, 0, 9, 67]);
           assert.deepEqual(await page.locator("#failure-charts [data-series=transport]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [0, 1, 0, 0]);
           for (const id of ["overview-charts", "latency-charts", "concurrency-charts"]) {
@@ -245,7 +259,7 @@ try {
           assert.doesNotMatch(await page.locator("#costs-content").textContent(), /USD|GBP|EUR/);
           assert.deepEqual(await page.locator("#report-data").evaluate((element) => JSON.parse(element.textContent)), report);
           if (width === 1440 && theme === "light") {
-            for (const [name, expected] of [["Public aggregate JSON", report], ["JSON schema", schema]]) {
+            for (const [name, expected] of [["Public aggregate JSON", report], ["JSON schema", schema], ["Window evidence JSON", evidence], ["Window evidence schema", evidenceSchema]]) {
               const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name, exact: true }).click()]);
               assert.equal(await download.failure(), null);
               const chunks = [];
@@ -313,6 +327,26 @@ try {
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await page.locator("#response-time").waitFor({ state: "visible" });
+  await page.locator('.section-nav a[href="#overview"]').click();
+  await page.getByLabel("Window cohort", { exact: true }).selectOption("paced-standalone-100-stopped");
+  assert.match(await page.locator("#reviewed-windows").textContent(), /12 \/ 17 eventual successes/);
+  assert.equal(await page.locator("#reviewed-windows [data-series=completion]").getAttribute("data-value"), "12");
+  await page.getByLabel("Window coverage", { exact: true }).selectOption("observed_arrival_only");
+  assert.equal(await page.locator("#reviewed-windows [data-series=completion]").getAttribute("data-value"), "6");
+  await page.getByLabel("Window cohort", { exact: true }).selectOption("m365-native-burst-100");
+  assert.equal(await page.locator("#reviewed-windows svg").count(), 0);
+  await page.getByLabel("Window coverage", { exact: true }).selectOption("observed_through_drain");
+  assert.equal(await page.locator("#reviewed-windows [data-series=completion]").count(), 0);
+  assert.deepEqual(await page.locator("#reviewed-windows [data-series=dispatch]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [33, 33]);
+  assert.match(await page.locator("#reviewed-windows").textContent(), /Completion unknown/);
+  await page.getByLabel("Window cohort", { exact: true }).selectOption("paced-spread-25-completed");
+  await page.getByLabel("Window coverage", { exact: true }).selectOption("observed_arrival_only");
+  assert.equal(await page.locator('#reviewed-windows [data-chart-key="rolling-120"] [data-series=completion]').getAttribute("data-value"), "47");
+  await page.getByLabel("Window coverage", { exact: true }).selectOption("observed_through_drain");
+  assert.equal(await page.locator('#reviewed-windows [data-chart-key="rolling-120"] [data-series=completion]').getAttribute("data-value"), "50");
+  await page.locator("#reviewed-windows .rolling-details > summary").focus();
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator("#reviewed-windows .rolling-details").getAttribute("open"), "");
   await page.locator('.section-nav a[href="#observations"]').click();
   await page.getByLabel("Search stage or model").fill("standalone-100");
   assert.equal(await page.locator("#stages-content tbody tr").count(), 1);
@@ -334,6 +368,7 @@ try {
   assert.equal(await page.locator(".timeline-chart [data-chart-key]").count(), 2);
   assert.match(await page.locator("#timeline-content [role=status]").textContent(), /full window.*qualified.*0 unoffered \/ 0 skipped/);
   await page.locator('.section-nav a[href="#overview"]').click();
+  await page.locator("#campaign-details > summary").waitFor({ state: "visible" });
   await page.locator("#campaign-details > summary").focus();
   await page.keyboard.press("Enter");
   assert.equal(await page.locator("#campaign-details").getAttribute("open"), "");
@@ -385,6 +420,11 @@ try {
   assert.equal(await page.locator(".benchmark-chart").count(), 0);
   for (const id of ["benchmark-kpis", "overview-charts", "latency-charts", "concurrency-charts", "concurrency-content", "stages-content", "timeline-content", "answers-content", "conversations-content", "failure-charts"]) assert.equal(await page.locator(`#${id}`).textContent(), "");
   for (const id of ["capacity-summary", "reliability-content", "failure-summary"]) assert.equal(await page.locator(`#${id}`).textContent(), "");
+  await page.goto(`${origin}/rejected-window#overview`);
+  await page.locator("#data-error").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#publication-status").textContent(), "DATA REJECTED");
+  assert.equal(await page.locator(".metric-value, .benchmark-chart").count(), 0);
+  assert.equal(await page.locator("#reviewed-windows, #error-timeline").evaluateAll((elements) => elements.every((element) => !element.textContent)), true);
   await context.close();
   const offline = await browser.newContext({ offline: true });
   const offlinePage = await offline.newPage();
@@ -393,7 +433,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, all sections, capacity windows/clean alternatives, rate/reliability and failure summaries, ten-record integrity, completed spread cohort/null failures, standalone safety stop and scoped prior campaign, JSON/schema downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, ten sections, seven charts, rolling coverage/cohort selectors and paired counts, callback/trigger bounds, bucket/clean alternatives, original ten-record integrity, four JSON/schema downloads, axe, keyboard, sticky-heading/label visibility, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and both rejection paths. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));
