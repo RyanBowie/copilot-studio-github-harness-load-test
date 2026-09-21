@@ -50,7 +50,7 @@
           "runKeys": { "type": "array", "minItems": 1, "maxItems": 6, "uniqueItems": true, "items": { "$ref": "#/$defs/key" } },
           "startedAt": { "$ref": "#/$defs/millisecondInstant" },
           "endedAt": { "$ref": "#/$defs/millisecondInstant" },
-          "status": { "enum": ["stopped_on_workiq_mcp_transport_429", "stopped_on_generic_error_threshold", "completed_standalone_calibration", "standalone_minute_retest"] },
+          "status": { "enum": ["stopped_on_workiq_mcp_transport_429", "stopped_on_generic_error_threshold", "completed_standalone_calibration", "standalone_minute_retest", "standalone_count_retest"] },
           "distinctReturnedConversations": { "$ref": "#/$defs/positiveCount" },
           "clientPeakOutstanding": { "type": "integer", "minimum": 1, "maximum": 100 },
           "notAttemptedCalibrationRpm": { "type": "array", "uniqueItems": true, "items": { "enum": [10, 25, 50, 100, 150] } },
@@ -189,7 +189,7 @@
       ],
       "properties": {
         "campaignKey": { "$ref": "#/$defs/key" },
-        "phase": { "enum": ["calibration", "hour", "minute_retest"] },
+        "phase": { "enum": ["calibration", "hour", "minute_retest", "count_retest"] },
         "genericErrorPolicy": { "const": "count_without_early_stop" },
         "path": { "const": "workiq_ask_via_native_tool_rpc" },
         "endpoint": { "const": "invocation_completion" },
@@ -205,7 +205,7 @@
         "plannedSlots": { "type": "integer", "minimum": 1, "maximum": 9000 },
         "skippedSlots": { "$ref": "#/$defs/count" },
         "unofferedSlots": { "$ref": "#/$defs/count" },
-        "arrivalStatus": { "enum": ["full_window", "stopped", "partial"] },
+        "arrivalStatus": { "enum": ["full_window", "count_complete", "stopped", "partial"] },
         "stopReason": { "enum": [null, "native_error", "generic_error_threshold", "explicit_throttle", "authentication", "account_guard", "client_pacing", "client_outstanding_bound", "safety", "request_budget", "manual_stop", "observation_cutoff"] },
         "drainStatus": { "enum": ["complete", "bounded_cutoff"] },
         "drainSeconds": { "type": "number", "minimum": 0, "maximum": 31536000 },
@@ -215,10 +215,10 @@
           "type": "object", "additionalProperties": false,
           "required": ["schedule", "missedSlotPolicy", "intervalMs", "jitterAllowance", "observedMinIntervalMs", "violatingIntervals"],
           "properties": {
-            "schedule": { "const": "absolute_slots" },
-            "missedSlotPolicy": { "const": "skip_without_replay" },
+            "schedule": { "enum": ["absolute_slots", "dispatch_rebased"] },
+            "missedSlotPolicy": { "enum": ["skip_without_replay", "defer_without_catchup"] },
             "intervalMs": { "$ref": "#/$defs/duration" },
-            "jitterAllowance": { "const": 0.05 },
+            "jitterAllowance": { "enum": [0, 0.05] },
             "observedMinIntervalMs": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 31536000 }, { "type": "null" }] },
             "violatingIntervals": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] }
           }
@@ -399,8 +399,8 @@
               },
               "count": { "$ref": "#/$defs/positiveCount" },
               "evidence": {
-                "description": "workiq_mcp_transport_429 means an observed WorkIQ MCP HTTP transport 429 with no returned conversation identifier or exposed Retry-After; attribution to the GitHub Copilot Harness is unknown.",
-                "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout", "workiq_mcp_transport_429"]
+                "description": "workiq_mcp_transport_429 records WorkIQ MCP HTTP transport 429 without a returned conversation identifier or exposed Retry-After. native_disconnected_no_conversation records a normalized disconnected native result with no returned conversation identifier; remote admission and root cause remain unknown. Neither establishes a GitHub Copilot Harness quota.",
+                "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout", "workiq_mcp_transport_429", "native_disconnected_no_conversation"]
               }
             }
           }

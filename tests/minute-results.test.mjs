@@ -11,7 +11,7 @@ const paced = run.pacedMeasurement;
 
 test("reviewed minute retest has 41 actual attempts, not 100 or 59 additional failures", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 11);
+  assert.equal(report.runs[10].runKey, "paced-minute-100-local-stop");
   assert.equal(report.publication.reviewedOn, "2026-09-21");
   assert.deepEqual(run.counts, { attempted: 41, completed: 26, failed: 15, pending: 0 });
   assert.equal(paced.plannedSlots, 100);
