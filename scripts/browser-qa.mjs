@@ -9,6 +9,7 @@ import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build, renderHtml } from "./build.mjs";
 import { syntheticPacedReport } from "../tests/fixtures/synthetic-paced-report.mjs";
+import { syntheticMinuteRetest } from "../tests/fixtures/synthetic-minute-retest.mjs";
 
 const require = createRequire(import.meta.url);
 const focused = process.argv.includes("--focused");
@@ -32,6 +33,15 @@ Object.assign(synthetic.runs[1], {
 });
 const syntheticHtml = (await renderHtml(synthetic, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC QA FIXTURE - NOT OBSERVED RESULTS</aside>');
 const pacedHtml = (await renderHtml(syntheticPacedReport("transport-stop"), schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC PACED FIXTURE - NOT OBSERVED RESULTS</aside>');
+const minuteCases = [
+  ["minute", {}],
+  ["minute-clean", { failed: 0 }],
+  ["minute-failed", { failed: 100 }],
+  ["minute-stopped", { attempted: 21, failed: 1, arrivalSeconds: 13, stopReason: "explicit_throttle" }],
+  ["minute-pending", { pending: 2 }]
+].map(([path, options]) => ({ path, report: syntheticMinuteRetest(options) }));
+const minutePages = new Map(await Promise.all(minuteCases.map(async ({ path, report }) => [path,
+  (await renderHtml(report, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC MINUTE RETEST - NOT OBSERVED RESULTS</aside>')])));
 const rejectedHtml = html.replace('"schemaVersion":1', '"schemaVersion":999');
 const rejectedWindowHtml = html.replace('"newAgentCalls":0', '"newAgentCalls":1');
 const server = createServer((request, response) => {
@@ -43,7 +53,7 @@ const server = createServer((request, response) => {
     response.end(JSON.stringify(json));
     return;
   }
-  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/paced" ? pacedHtml : path === "/rejected" ? rejectedHtml : path === "/rejected-window" ? rejectedWindowHtml : null;
+  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/paced" ? pacedHtml : path === "/rejected" ? rejectedHtml : path === "/rejected-window" ? rejectedWindowHtml : minutePages.get(path.slice(1)) ?? null;
   if (content === null) { response.writeHead(404); response.end(); return; }
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(content);
@@ -423,6 +433,32 @@ try {
   assert.match(await page.locator("#observations-content").textContent(), /Transport throttling: 1/);
   assert.match(await page.locator("#observations-content").textContent(), /No conversation identifier or Retry-After was exposed/);
   assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 2);
+  for (const { path, report: minuteReport } of minuteCases) {
+    const run = minuteReport.runs[0];
+    await page.goto(`${origin}/${path}#overview`);
+    await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "REVIEWED AGGREGATES");
+    assert.equal(await page.locator("#data-error").isVisible(), false);
+    const card = page.locator("#overview-charts [data-minute-retest]");
+    assert.equal(await card.count(), 1);
+    assert.match(await card.textContent(), new RegExp(`${run.counts.completed} successful greetings / ${run.counts.failed} failed invocations / ${run.counts.pending} pending`));
+    assert.match(await card.textContent(), /without the earlier three-error cutoff/);
+    if (run.counts.attempted === 100 && run.counts.pending === 0) {
+      assert.equal(await card.locator("h3").textContent(), `100-request retest: ${run.counts.failed} failed out of 100`);
+      assert.match(await card.textContent(), /FULL MINUTE AND DRAIN/);
+    } else {
+      assert.match(await card.textContent(), /INCOMPLETE OR UNRESOLVED/);
+      assert.doesNotMatch(await card.textContent(), /failed out of 100/);
+    }
+    if (path === "minute-stopped") assert.match(await card.textContent(), /79 unoffered.*not sent and are not failures/);
+    assert.equal(await page.locator("#benchmark-kpis .metric-value").first().textContent(), "Not measured");
+    for (const id of ["overview", "response-time"]) {
+      await page.locator(`.section-nav a[href="#${id}"]`).click();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+      await page.addScriptTag({ path: axePath });
+      assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
+    }
+    assert.doesNotMatch(await page.locator("main").textContent(), /NaN|Infinity/);
+  }
   await page.goto(`${origin}/rejected#overview`);
   await page.locator("#data-error").waitFor({ state: "visible" });
   assert.equal(await page.locator("#publication-status").textContent(), "DATA REJECTED");

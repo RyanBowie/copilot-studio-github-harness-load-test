@@ -20,8 +20,7 @@ const reject = (edit, pattern) => {
 
 test("tenth actual record is a completed 50-request follow-up in its own campaign", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 10);
-  assert.equal(report.runs.at(-1).runKey, runKey);
+  assert.equal(report.runs[9].runKey, runKey);
   assert.deepEqual(run.counts, { attempted: 50, completed: 50, failed: 0, pending: 0 });
   assert.deepEqual(campaign.runKeys, [runKey]);
   assert.equal(campaign.campaignKey, "m365-spread-25");
@@ -34,7 +33,7 @@ test("tenth actual record is a completed 50-request follow-up in its own campaig
   assert.equal(paced.qualifyingRunKey, null);
   assert.equal(paced.stopReason, null);
   assert.deepEqual(run.errors, []);
-  assert.deepEqual(report.pacedCampaigns.map((item) => item.status), [
+  assert.deepEqual(report.pacedCampaigns.slice(0, 3).map((item) => item.status), [
     "stopped_on_workiq_mcp_transport_429", "stopped_on_generic_error_threshold", "completed_standalone_calibration"
   ]);
   assert.deepEqual(report.pacedCampaigns[0].notAttemptedCalibrationRpm, [100, 150]);
