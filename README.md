@@ -2,9 +2,9 @@
 
 A separate, aggregate-only report for single-account observations of **Copilot Studio agents powered by the GitHub Copilot Harness**. This is not the Standard Harness study, GitHub coding agent, or Copilot SDK.
 
-**Current state: ten reviewed runs, local only.** The latest **25 RPM spread-out follow-up completed its two-minute arrival window: 50 attempts / 50 eventual greetings / 0 failures / 0 pending**, with an observed peak of five outstanding client calls, not a configured cap of five. All prior nine records and their campaign contexts are preserved, including the separately stopped 100 RPM calibration. **No full hour completed and no GitHub Copilot Harness capacity ceiling is established.** All costs remain **pending**, not zero. No Standard Harness data or images are imported. This repository is an offline report, not a cloud test runner. The separate email-to-workflow-to-agent scenario is not implemented.
+**Current state: ten reviewed runs, published on [GitHub Pages](https://ryanbowie.github.io/copilot-studio-github-harness-load-test/).** The latest **25 RPM spread-out follow-up completed its two-minute arrival window: 50 attempts / 50 eventual greetings / 0 failures / 0 pending**, with an observed peak of five outstanding client calls, not a configured cap of five. All prior nine records and their campaign contexts are preserved, including the separately stopped 100 RPM calibration. **No full hour completed and no GitHub Copilot Harness capacity ceiling is established.** All costs remain **pending**, not zero. No Standard Harness data or images are imported. This repository is an offline report, not a cloud test runner. The separate email-to-workflow-to-agent scenario is not implemented.
 
-The branch and commits remain local because the GitHub OAuth application lacks permission to push workflow files. No authentication change, workflow workaround, merge or deployment has been performed.
+First published on **2026-09-21** through the existing GitHub Actions Pages workflow. Deployment remains manual, explicitly opted in, restricted to `main`, and gated by the `github-pages` environment's required reviewer. The published HTML, aggregate JSON and schema were verified against the reviewed source; publication performed no new live load tests.
 
 ## Capacity summary / successes per measured dispatch window
 
