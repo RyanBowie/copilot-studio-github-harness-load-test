@@ -6,6 +6,40 @@ A separate, aggregate-only report for single-account observations of **Copilot S
 
 The branch and commits remain local because the GitHub OAuth application lacks permission to push workflow files. No authentication change, workflow workaround, merge or deployment has been performed.
 
+## Capacity summary / successes per measured dispatch window
+
+The overview now leads with derived capacity evidence rather than requiring readers to combine individual run cards. Throughput adds one rate/reliability table; observations adds failure location and stop context. These are deterministic views of the existing ten reviewed records, **not new measurements or rewritten historical data**.
+
+| Complete dispatch window | Most eventual successes / attempts | Best error-free observed window |
+| --- | --- | --- |
+| 1 minute | 49 / 50 (98%) | 25 / 25 |
+| 2 minutes | 98 / 100 (98%) | 50 / 50 |
+| 5 minutes | 125 / 125 | 125 / 125 |
+| 8 minutes | 200 / 200 | 200 / 200 |
+| 15 minutes / 1 hour / 1 day | Not established | Not established |
+
+The **highest qualified calibration rate is 25 intended RPM**, in two separate completed two-minute cohorts. That is not a guaranteed sustained safe rate or a 25 RPM ceiling. The longest completed paced arrival trial is two minutes. The clean five/eight-minute segments are part of the later-stopped hourly attempt, not separately completed endurance tests. Its **213/214 (99.53%)** eventual success rate must not conceal the WorkIQ transport stop.
+
+The pure helper in `src/capacity.mjs` ranks only **contiguous complete 60-second dispatch buckets within a single run**. Outcomes are those requests' eventual success/failure/pending states at the original cutoff, including drain. It never joins cohorts/campaigns, bridges cooldowns or gaps, promotes a partial minute, normalizes a burst into RPM, or claims actual completion-window throughput. The view lists the source run, intended rate and offset range. Different recorded configurations (including model, environment, memory and known revision) are ranked separately; matching unknown revisions do not prove an unchanged agent.
+
+For each requested duration, best success volume and best zero-failure/zero-pending volume are independent candidates. Success-count ties prefer fewer failures, then fewer pending, then chronological cohort/offset order (run key breaks identical cohort timestamps). Idle minutes do not extend an active clean segment. No eligible window stays **Not established**, not zero. Sub-minute and arbitrary rolling maxima cannot be inferred from minute totals. The public JSON/schema downloads remain the unchanged measurement contract; summaries are derived in the self-contained page.
+
+Failure summaries locate the first **dispatch bucket containing a request that later failed**, not the first error's return timestamp. Arrival-stop duration is distinct from error onset. Generic invocation failures remain unclassified; the observed WorkIQ MCP transport 429 does not identify a GitHub Copilot Harness quota. Final failure counts include drained requests and are not safety-trigger counts. The detailed original 100 RPM third-consecutive-error guard evidence remains below.
+
+### Remaining evidence, not permission for new traffic
+
+The [separate Standard Harness report](https://ryanbowie.github.io/copilot-studio-load-test/) informs the reporting questions, not this report's numerical limits. Its measurements are not imported here; the existing tenant/environment/transport/model/workload confounders remain.
+
+| Missing result | Reviewed aggregate needed |
+| --- | --- |
+| Exact 10/30/60-second and 5/15/60-minute rolling maxima | Explicit dispatch-versus-completion basis; run/configuration; duration and exact monotonic boundaries; window inclusivity; attempts, successes, failures and pending at a common cutoff; full-window coverage and independent maximality check. Compute privately from event pairs, never by interpolation of minute buckets or pooled percentiles |
+| Failure onset and guard timeline | First returned error offset, last healthy observation, dispatched/settled/outstanding counts at the actual trigger, classified evidence layer, exposed retry guidance and subsequent drain outcomes. Do not equate dispatch index with backend concurrency |
+| Recovery/reset | Separately reviewed observations that bound recovery, including prior load/cooldown context. A later successful test alone does not identify reset time or causality; no immediate retry, automatic restart or bypass |
+| Sustained/repeatable operation | Separately authorized, bounded complete windows and repeated rate tests, including intermediate rates if approved; frozen revision/configuration and a declared success/latency criterion. No extrapolated hourly/daily result or inferred production SLO |
+| Representative workloads and cost | Separately approved knowledge/workflow scenarios with requested-operation success and latency; settled, attributable billing evidence, not stale Monitor counts or zero-credit assumptions |
+
+These additions require a reviewed closed-schema extension before ingestion, not arbitrary metadata or raw transcripts. This change does not run experiments, grant a new request budget, access private ledgers, or settle costs. All ten original records and existing documented limits remain unchanged.
+
 ## Spread-out 25 RPM follow-up / completed calibration on 2026-09-20
 
 The user requested more spread-out requests; the testing/reporting agent selected a conservative **25 requests/minute**, not an explicit user-selected rate. This separate campaign, `m365-spread-25`, retained the same two-minute greeting scope and **configured client-outstanding cap of 100**, not five. It used the same native published Microsoft 365 route, one verified corporate account, Developer, `GPT 5.6 Sol`, memory off and unknown published revision.

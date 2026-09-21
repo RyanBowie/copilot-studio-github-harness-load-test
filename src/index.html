@@ -257,8 +257,10 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       <noscript><p class="error">JavaScript is required to validate and display aggregates. No measurements are inferred. The public JSON and schema are available below.</p></noscript>
       <p id="data-error" class="error" role="alert" hidden></p>
       <section id="overview" aria-labelledby="overview-heading">
-        <h2 id="overview-heading">Evidence before scale.</h2>
-        <p class="section-intro">Only explicitly reviewed aggregate facts belong here. Missing evidence is not a zero, a successful test, or an absence of throttling.</p>
+        <h2 id="overview-heading">How much worked, and for how long?</h2>
+        <p class="section-intro">Best observed successful invocations, not the number of test records. A high success percentage can still hide a stopped experiment. Counts below remain bounded by the actual offer window, workload and route.</p>
+        <div id="capacity-summary"></div>
+        <h3>Campaign evidence and individual runs</h3>
         <div id="overview-summary"></div>
         <div id="run-ledger"></div>
         <div class="two-column">
@@ -287,6 +289,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       <section id="throughput" aria-labelledby="throughput-heading" hidden>
         <h2 id="throughput-heading">Throughput &amp; limits</h2>
         <p class="section-intro">Client RPC launch spread, paced dispatch rates, outstanding native invocations and observed message overlap are different measurements. Client launch does not prove network/server arrival or backend admission. Neither one burst nor an early-stopped paced campaign establishes sustained platform capacity.</p>
+        <div id="reliability-content"></div>
         <div id="throughput-content"></div>
         <h3>Documented numerical limits</h3>
         <p class="fine">Documentation is a separate evidence class, never an observed result. Applicability to the tested configuration must be reviewed explicitly.</p>
@@ -310,6 +313,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       <section id="observations" aria-labelledby="observations-heading" hidden>
         <h2 id="observations-heading">Stages &amp; observations</h2>
         <p class="section-intro">Sent attempts are classified by requested-operation success, failure or pending outcome, not simply by the presence of a final message. Later follow-up updates are labelled separately from the timing cutoff. Unsent drafts are excluded client setup issues. Agent-call outcomes and the underlying workflow state remain distinct.</p>
+        <div id="failure-summary"></div>
         <div id="observations-content"></div>
         <div class="note boundary">
           <h3>A failure category is not a root-cause claim</h3>
@@ -320,6 +324,12 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
         <h2 id="methodology-heading">Methodology &amp; boundaries</h2>
         <p class="section-intro">A reproducible public summary, not a transcript archive. Raw evidence stays outside this repository; every published measurement requires evidence and privacy review by the report preparer.</p>
         <div class="stack">
+          <article class="note boundary">
+            <h3>Capacity summary / what can be derived now</h3>
+            <p>Window summaries use only contiguous, complete 60-second dispatch buckets within one cohort. They count the eventual outcomes of those requests at the original drain/cutoff, not replies completed inside the window. Never combine cohorts, bridge cooldowns, scale up a partial minute, or treat a burst as steady-state traffic. Different recorded configurations are ranked separately; unknown agent revisions still prevent a controlled comparison.</p>
+            <p>For each duration, the highest observed reply count and the highest zero-failure, zero-pending count are separate results. Ties prefer fewer failures, then fewer pending calls, then the earliest cohort and offset. An error-free segment inside an aborted trial is not a separately completed endurance test. A qualified calibration requires the existing 99% rule and full dispatch/drain; it is not a statistical guarantee or a capacity ceiling.</p>
+            <p>Sub-minute, arbitrary rolling-window and completion-window maxima cannot be reconstructed from these aggregates. Exact first-error/guard timing, quota reset, recovery, longer endurance, representative workload reliability and settled unit costs need separately reviewed evidence. A later successful calibration alone does not prove recovery time or its cause.</p>
+          </article>
           <article class="note">
             <h3>01 / Identify the configuration without identifying people</h3>
             <p>Record published Teams, published Microsoft 365 Copilot or Studio Preview separately, along with known agent version, environment type, model, memory setting, workload, workflow and connector involvement. The harness label is GitHub Copilot Harness, not GitHub coding agent or Copilot SDK.</p>
@@ -338,6 +348,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           <article class="note boundary">
             <h3>04 / Do not treat Standard Harness as a controlled baseline</h3>
             <p>Tenant, Production versus Developer environment, old DirectToEngine versus the new channel transport, model and workload all confound that comparison. No Standard Harness measurements or images are reused here. A causal harness comparison requires a separately controlled experiment.</p>
+            <p>The <a href="https://ryanbowie.github.io/copilot-studio-load-test/">separate Standard Harness report</a> provides useful reporting patterns: explicit time windows, rate versus reliability, repeated endurance tests and failure analysis. Those patterns are not evidence for this agent's limits; send-window outcomes and completion-window throughput must remain distinct in either report.</p>
           </article>
           <article class="note">
             <h3>05 / Review before publication</h3>
@@ -427,6 +438,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
   <script type="application/json" id="report-schema"><!-- SCHEMA_JSON --></script>
   <script type="module">
 <!-- VALIDATOR_JS -->
+<!-- CAPACITY_JS -->
 <!-- REPORT_JS -->
   </script>
 </body>

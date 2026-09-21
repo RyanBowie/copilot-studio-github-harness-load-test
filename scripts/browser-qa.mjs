@@ -83,6 +83,46 @@ try {
           assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
         }
         if (view === "report") {
+          assert.equal(await page.locator(".capacity-group").count(), 1);
+          const capacity = await page.locator("#capacity-summary").textContent();
+          assert.match(capacity, /25 intended requests\/min; 2 qualified calibration cohort/);
+          assert.match(capacity, /8 minutes \/ 200 \/ 200 \(100%\) eventual replies/);
+          assert.match(capacity, /Longest completed paced trial2 minutes/);
+          assert.match(capacity, /Full hourly arrival trialNOT ESTABLISHED/);
+          assert.match(capacity, /not arbitrary rolling maxima/);
+          const capacityRows = await page.locator("#capacity-summary tbody tr").evaluateAll((rows) =>
+            rows.map((row) => [row.cells[0].textContent, ...[1, 2].map((index) => row.cells[index].querySelector("strong")?.textContent ?? row.cells[index].textContent)]));
+          assert.deepEqual(capacityRows, [
+            ["10 seconds", "NOT ESTABLISHED", "NOT ESTABLISHED"],
+            ["30 seconds", "NOT ESTABLISHED", "NOT ESTABLISHED"],
+            ["1 minute", "49 / 50 (98%)", "25 / 25 (100%)"],
+            ["2 minutes", "98 / 100 (98%)", "50 / 50 (100%)"],
+            ["5 minutes", "125 / 125 (100%)", "125 / 125 (100%)"],
+            ["8 minutes", "200 / 200 (100%)", "200 / 200 (100%)"],
+            ["15 minutes", "NOT ESTABLISHED", "NOT ESTABLISHED"],
+            ["1 hour", "NOT ESTABLISHED", "NOT ESTABLISHED"],
+            ["1 day", "NOT ESTABLISHED", "NOT ESTABLISHED"]
+          ]);
+          const reliabilityRows = await page.locator("#reliability-content tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
+          assert.equal(reliabilityRows.length, 7);
+          assert.deepEqual(reliabilityRows.map((row) => [row[2], row[3], row[4]]), [
+            ["20 / 20 (100%)", "0 / 0", "10.380 s"],
+            ["50 / 50 (100%)", "0 / 0", "12.842 s"],
+            ["98 / 100 (98%)", "2 / 0", "9.676 s"],
+            ["213 / 214 (99.533%)", "1 / 0", "9.680 s"],
+            ["12 / 21 (57.143%)", "9 / 0", "11.334 s"],
+            ["50 / 50 (100%)", "0 / 0", "9.890 s"],
+            ["33 / 100 (33%)", "67 / 0", "33.442 s"]
+          ]);
+          assert.match(reliabilityRows[3][6], /Arrival stopped.*WorkIQ MCP HTTP transport 429/);
+          assert.match(reliabilityRows[4][6], /Generic invocation-error safety threshold/);
+          const failureRows = await page.locator("#failure-summary tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
+          assert.equal(failureRows.length, 4);
+          assert.match(failureRows[0][2], /0-60 s: 1 eventual failure among 50 dispatches/);
+          assert.match(failureRows[1][2], /480-512\.233 s: 1 eventual failure among 14 dispatches/);
+          assert.match(failureRows[1][4], /Harness attribution.*unknown.*Recovery not measured/);
+          assert.match(failureRows[2][3], /Final error count.*not the guard's trigger count/);
+          assert.match(failureRows[3][2], /exact first-error return time not available/);
           assert.equal(await page.locator(".paced-summary").count(), 6);
           assert.equal(await page.locator("#run-ledger .card").count(), 10);
           assert.equal(report.runs.at(-1).runKey, "paced-spread-25-completed");
@@ -298,6 +338,7 @@ try {
   assert.equal(await page.locator("#publication-status").textContent(), "DATA REJECTED");
   assert.equal(await page.locator(".metric-value").count(), 0);
   assert.equal(await page.locator("#native-response-content").textContent(), "");
+  for (const id of ["capacity-summary", "reliability-content", "failure-summary"]) assert.equal(await page.locator(`#${id}`).textContent(), "");
   await context.close();
   const offline = await browser.newContext({ offline: true });
   const offlinePage = await offline.newPage();
@@ -306,7 +347,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, all sections, ten-record integrity, completed spread cohort/null failures, standalone safety stop and scoped prior campaign, JSON/schema downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, all sections, capacity windows/clean alternatives, rate/reliability and failure summaries, ten-record integrity, completed spread cohort/null failures, standalone safety stop and scoped prior campaign, JSON/schema downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact, synthetic states and rejection. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));
