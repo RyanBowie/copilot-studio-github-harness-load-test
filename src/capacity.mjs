@@ -1,6 +1,13 @@
 const capacityWindows = [10, 30, 60, 120, 300, 480, 900, 3600, 86400];
 const countKeys = ["attempted", "completed", "failed", "pending"];
 
+export function observedPacedRpm(run) {
+  const paced = run.pacedMeasurement;
+  if (!paced || run.counts.attempted < 2
+    || (["capacity_screen", "capacity_hour"].includes(paced.phase) && paced.arrivalSeconds < 60)) return null;
+  return run.counts.attempted / paced.arrivalSeconds * 60;
+}
+
 export function capacityContext(run) {
   const measurement = run.pacedMeasurement ?? run.nativeInvocation;
   return {
@@ -28,6 +35,28 @@ function preferCapacityWindow(candidate, current) {
 
 function isCleanCapacityWindow(candidate) {
   return candidate.counts.attempted > 0 && candidate.counts.failed === 0 && candidate.counts.pending === 0;
+}
+
+export function summarizeCapacityStudies(runs) {
+  const groups = new Map();
+  for (const run of runs.filter((item) => ["capacity_screen", "capacity_hour"].includes(item.pacedMeasurement?.phase))) {
+    const key = run.pacedMeasurement.campaignKey;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(run);
+  }
+  return [...groups].map(([campaignKey, cohorts]) => {
+    const ordered = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt));
+    const screens = ordered.filter((run) => run.pacedMeasurement.phase === "capacity_screen");
+    const hours = ordered.filter((run) => run.pacedMeasurement.phase === "capacity_hour");
+    const highestCleanScreen = screens.filter((run) => run.pacedMeasurement.qualification === "qualified").at(-1) ?? null;
+    const validated = highestCleanScreen && hours.length === 2 && hours.every((run) =>
+      run.pacedMeasurement.qualification === "qualified" && run.pacedMeasurement.qualifyingRunKey === highestCleanScreen.runKey);
+    return {
+      campaignKey, runs: ordered, screens, hours, highestCleanScreen,
+      validatedRpm: validated ? highestCleanScreen.pacedMeasurement.targetRpm : null,
+      upperBoundaryUnbracketed: Boolean(validated && highestCleanScreen.pacedMeasurement.targetRpm === 50)
+    };
+  });
 }
 
 export function summarizeCapacity(runs) {

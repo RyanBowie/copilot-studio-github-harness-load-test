@@ -54,7 +54,7 @@ test("capacity derivation leaves every reviewed record unchanged and needs no ra
   const before = structuredClone(report);
   summarizeCapacity(report.runs);
   assert.deepEqual(report, before);
-  assert.equal(report.runs.length, 12);
+  assert.equal(report.runs.length, 13);
   assert.deepEqual(summarizeCapacity([]), []);
   assert.deepEqual(summarizeCapacity(report.runs.filter((run) => !run.pacedMeasurement)), []);
 });
