@@ -2,33 +2,44 @@ import { readFile, mkdir, lstat, readdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { assertReport } from "../src/validate.mjs";
+import { assertWindowEvidence } from "../src/window-evidence.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = (path) => readFile(resolve(root, path), "utf8");
 export const inlineJson = (value) => JSON.stringify(value).replaceAll("<", "\\u003c").replaceAll("\u2028", "\\u2028").replaceAll("\u2029", "\\u2029");
 
 export async function loadPublicReport() {
-  const [dataText, schemaText] = await Promise.all([read("data/report.json"), read("schema/report.schema.json")]);
+  const [dataText, schemaText, evidenceText, evidenceSchemaText] = await Promise.all([
+    read("data/report.json"), read("schema/report.schema.json"), read("data/window-evidence.json"), read("schema/window-evidence.schema.json")
+  ]);
   const schema = JSON.parse(schemaText);
   const report = assertReport(JSON.parse(dataText), schema);
   if ([...report.runs.map((run) => run.runKey), ...report.documentedLimits.map((limit) => limit.limitKey)]
     .some((key) => /(?:^|-)(?:offline|fixture|synthetic|example|fake|test)(?:-|$)/i.test(key))) {
     throw new Error("Offline/synthetic keys are forbidden in the publication input.");
   }
-  return { report, schema };
+  const evidenceSchema = JSON.parse(evidenceSchemaText);
+  const evidence = assertWindowEvidence(JSON.parse(evidenceText), evidenceSchema, report);
+  return { report, schema, evidence, evidenceSchema };
 }
 
-export async function renderHtml(report, schema) {
+export async function renderHtml(report, schema, evidence = null) {
   assertReport(report, schema);
-  const [template, validator, capacity, charts, client] = await Promise.all([
-    read("src/index.html"), read("src/validate.mjs"), read("src/capacity.mjs"), read("src/charts.mjs"), read("src/report.js")
+  const [template, validator, capacity, charts, client, windowValidator, evidenceSchemaText] = await Promise.all([
+    read("src/index.html"), read("src/validate.mjs"), read("src/capacity.mjs"), read("src/charts.mjs"), read("src/report.js"),
+    read("src/window-evidence.mjs"), read("schema/window-evidence.schema.json")
   ]);
+  const evidenceSchema = JSON.parse(evidenceSchemaText);
+  assertWindowEvidence(evidence, evidenceSchema, report);
   const replacements = {
     REPORT_JSON: inlineJson(report),
     SCHEMA_JSON: inlineJson(schema),
     VALIDATOR_JS: validator.replaceAll("export function ", "function "),
     CAPACITY_JS: capacity.replaceAll("export function ", "function "),
     CHARTS_JS: charts.replaceAll("export function ", "function "),
+    WINDOW_EVIDENCE_JSON: inlineJson(evidence),
+    WINDOW_SCHEMA_JSON: inlineJson(evidenceSchema),
+    WINDOW_VALIDATOR_JS: windowValidator.replace(/^import [^\n]+\r?\n/gm, "").replaceAll("export function ", "function "),
     REPORT_JS: client
   };
   let html = template;
@@ -41,11 +52,11 @@ export async function renderHtml(report, schema) {
 }
 
 export async function build() {
-  const { report, schema } = await loadPublicReport();
-  const html = await renderHtml(report, schema);
+  const { report, schema, evidence, evidenceSchema } = await loadPublicReport();
+  const html = await renderHtml(report, schema, evidence);
   await mkdir(resolve(root, "dist"), { recursive: true });
   if (!(await lstat(resolve(root, "dist"))).isDirectory()) throw new Error("dist must be a real directory, not a link.");
-  const allowed = new Set(["index.html", "report.json", "report.schema.json", ".nojekyll"]);
+  const allowed = new Set(["index.html", "report.json", "report.schema.json", "window-evidence.json", "window-evidence.schema.json", ".nojekyll"]);
   const existing = await readdir(resolve(root, "dist"), { withFileTypes: true });
   if (existing.some((entry) => !entry.isFile() || !allowed.has(entry.name))) {
     throw new Error("Unexpected file or directory in dist; inspect and remove it before publishing.");
@@ -54,9 +65,11 @@ export async function build() {
     writeFile(resolve(root, "dist/index.html"), html),
     writeFile(resolve(root, "dist/report.json"), `${JSON.stringify(report, null, 2)}\n`),
     writeFile(resolve(root, "dist/report.schema.json"), `${JSON.stringify(schema, null, 2)}\n`),
+    writeFile(resolve(root, "dist/window-evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`),
+    writeFile(resolve(root, "dist/window-evidence.schema.json"), `${JSON.stringify(evidenceSchema, null, 2)}\n`),
     writeFile(resolve(root, "dist/.nojekyll"), "")
   ]);
-  return { report, html };
+  return { report, html, evidence, evidenceSchema };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

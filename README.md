@@ -6,11 +6,43 @@ A separate, aggregate-only report for single-account observations of **Copilot S
 
 First published on **2026-09-21** through the existing GitHub Actions Pages workflow. Deployment remains manual, explicitly opted in, restricted to `main`, and gated by the `github-pages` environment's required reviewer. The published HTML, aggregate JSON and schema were verified against the reviewed source; publication performed no new live load tests.
 
-## Capacity summary / successes per measured dispatch window
+## Chart-led reporting and measured window maxima
 
 The report follows the Standard report's **Summary, Concurrency, Response time, Throughput and limits, Stages, Answers, Refusals/failures, Every conversation, How it was tested** navigation, plus **Costs**. Headline cards and accessible, dependency-free SVG charts lead the report; detailed evidence and tables remain available in expandable sections. The conversation view is deliberately aggregate-only, not a public transcript or identifier browser.
 
-Charts show separate-cohort success/failure shares, successful native p50/p95 durations, observed client-outstanding peaks, best complete dispatch-window counts with error-free alternatives, selectable dispatch-minute outcomes, and classified failures. Stage search, surface/outcome filters and sorting support detailed comparison. These are deterministic views of the existing ten reviewed records, **not new measurements or rewritten historical data**. The burst is not labelled 100 RPM, partial minutes are not scaled up, failure durations never enter reply-percentile bars, and unsupported hourly/daily capacity or settled costs have no fabricated chart. Horizontal chart scrolling keeps labels legible on small screens; all numeric evidence remains in text/tables and the JSON download. Printing expands the detailed evidence and includes every section.
+Charts show separate-cohort success/failure shares, successful native p50/p95 durations, observed client-outstanding peaks, reviewed rolling dispatch/completion maxima, complete minute-bucket counts with error-free alternatives, selectable dispatch-minute outcomes, and classified failures. Stage search, surface/outcome filters and sorting support detailed comparison. These are deterministic views of the existing ten reviewed records, **not new measurements or rewritten historical data**. The burst is not labelled 100 RPM, partial minutes are not scaled up, failure durations never enter reply-percentile bars, and unsupported hourly/daily capacity or settled costs have no fabricated chart. Horizontal chart scrolling keeps labels legible on small screens; all numeric evidence remains in text/tables and the JSON download. Printing expands the detailed evidence and includes every section.
+
+### Reviewed exact rolling windows / existing evidence only
+
+An independently reviewed **2026-09-21 supplement** analyzes the existing seven native cohorts / 555 attempts, not new traffic. The original ten records, their precision and documented limits are unchanged. It contains **46 eligible run/coverage/duration pairs and 90 independently selected representative maxima**. It does not include the three Teams records or two native preflights.
+
+| Full observed window | Most eventual successful dispatch-cohort outcomes | Most successful completions inside a window |
+| --- | --- | --- |
+| 10 seconds | 33 / 100, native burst (67 failures) | 12, standalone 100/min cohort |
+| 30 seconds | 33 / 100, native burst (67 failures) | 27, 50/min calibration |
+| 60 seconds | 50 / 51, 50/min calibration (1 failure) | 52, 50/min calibration |
+| 120 seconds | 98 / 100, 50/min calibration | 98, 50/min calibration |
+| 300 seconds | 126 / 126, stopped 25/min hourly attempt | 126, stopped 25/min hourly attempt |
+| 900 / 3600 seconds | Unavailable | Unavailable |
+
+These are **post-hoc peaks within observed coverage through drain**, not service ceilings, full-hour results or sustained offered load. The two columns select **independent windows**, possibly from different cohorts; they must not be presented as outcomes of one shared window. For example, the standalone 100/min cohort's best 10-second dispatch window contains **17 attempts / 12 eventual successes / 5 failures**, not 100% success. Exact burst completion-window maxima are unavailable: its recorded dispatch marker preceded a separate, unrecorded latency-start sample, so their sum is not an exact completion offset.
+
+The report lets readers select **arrival-only versus through-drain coverage** and an individual cohort. Successful 120-second completion maxima for the completed 10/25/50/min calibrations are **19/48/92 arrival-only versus 20/50/98 through drain**; the later 25/min follow-up is **47 versus 50**. The standalone 100/min cohort's 10-second completion maximum is **6 versus 12**. Drain cannot be misrepresented as sustained arrivals. Boundary jitter and completion-time variation explain finite-window peaks above nominal RPM without establishing a quota or changing the original qualification result.
+
+First-error and stop tables now expose the independently reviewed callback evidence:
+
+| Cohort | First returned error offset | Client state immediately after that error |
+| --- | --- | --- |
+| Native burst | Bounded **8.2365103-8.2365161 s**, not exact | 100 dispatched; 1 failure settled; 99 outstanding; no per-error stop policy |
+| 50/min calibration | **28.5670088 s** | 24 dispatched; 18 settled (17 successes / 1 failure); 6 outstanding; no early safety trigger |
+| Stopped 25/min hour | **511.2884434 s**, WorkIQ MCP transport 429 | 214 dispatched; 211 settled (210 successes / 1 failure); 3 outstanding |
+| Standalone 100/min | **11.8024572 s**, generic error | 20 dispatched; 7 settled (6 successes / 1 failure); 13 outstanding |
+
+The 100/min guard triggered on the **third consecutive generic failure at 12.4731405 s**: 21 dispatched, 9 settled (6 successes / 3 failures), 12 outstanding. Actual dispatch-close assignment is bounded **12.4731405-12.4742295 s**, not directly timestamped; the separately observed arrival end is 12.6128662 s. The 12 admitted calls then settled as 6 successes / 6 failures, with no later starts. The hourly attempt's dispatch close is bounded **511.2884434-511.2895557 s**, separately from its 512.232996 s observed arrival end; its 3 outstanding calls succeeded afterward (one before the observed arrival end, two during drain). These are client-clock events, not backend admission, a 12-concurrent quota or GitHub Copilot Harness attribution.
+
+### Separate fixed-minute bucket view / clean segments
+
+The earlier minute-bucket view is retained separately. Its boundaries differ from exact rolling selection, so its 49-success minute and 125-success five-minute segment do not contradict the rolling results above.
 
 | Complete dispatch window | Most eventual successes / attempts | Best error-free observed window |
 | --- | --- | --- |
@@ -26,7 +58,7 @@ The pure helper in `src/capacity.mjs` ranks only **contiguous complete 60-second
 
 For each requested duration, best success volume and best zero-failure/zero-pending volume are independent candidates. Success-count ties prefer fewer failures, then fewer pending, then chronological cohort/offset order (run key breaks identical cohort timestamps). Idle minutes do not extend an active clean segment. No eligible window stays **Not established**, not zero. Sub-minute and arbitrary rolling maxima cannot be inferred from minute totals. The public JSON/schema downloads remain the unchanged measurement contract; summaries are derived in the self-contained page.
 
-Failure summaries locate the first **dispatch bucket containing a request that later failed**, not the first error's return timestamp. Arrival-stop duration is distinct from error onset. Generic invocation failures remain unclassified; the observed WorkIQ MCP transport 429 does not identify a GitHub Copilot Harness quota. Final failure counts include drained requests and are not safety-trigger counts. The detailed original 100 RPM third-consecutive-error guard evidence remains below.
+The older dispatch-bucket failure table locates the first **dispatch bucket containing a request that later failed**, not the callback timestamp in the supplemental table. Arrival-stop duration is distinct from error onset. Generic invocation failures remain unclassified; the observed WorkIQ MCP transport 429 does not identify a GitHub Copilot Harness quota. Final failure counts include drained requests and are not safety-trigger counts. The detailed original 100 RPM third-consecutive-error guard evidence remains below.
 
 ### Remaining evidence, not permission for new traffic
 
@@ -34,13 +66,13 @@ The [separate Standard Harness report](https://ryanbowie.github.io/copilot-studi
 
 | Missing result | Reviewed aggregate needed |
 | --- | --- |
-| Exact 10/30/60-second and 5/15/60-minute rolling maxima | Explicit dispatch-versus-completion basis; run/configuration; duration and exact monotonic boundaries; window inclusivity; attempts, successes, failures and pending at a common cutoff; full-window coverage and independent maximality check. Compute privately from event pairs, never by interpolation of minute buckets or pooled percentiles |
-| Failure onset and guard timeline | First returned error offset, last healthy observation, dispatched/settled/outstanding counts at the actual trigger, classified evidence layer, exposed retry guidance and subsequent drain outcomes. Do not equate dispatch index with backend concurrency |
+| Longer windows and burst completion maxima | All 15/60-minute windows lack full observed coverage. Burst exact shared-origin completion timestamps were not captured. Do not interpolate or substitute latency-start proxies |
+| Remote admission and limiting component | The reviewed callback/guard snapshots measure client invocation state, not backend admission, concurrency, quota key/window/reset or proof that a transport-429 attempt reached the agent |
 | Recovery/reset | Separately reviewed observations that bound recovery, including prior load/cooldown context. A later successful test alone does not identify reset time or causality; no immediate retry, automatic restart or bypass |
 | Sustained/repeatable operation | Separately authorized, bounded complete windows and repeated rate tests, including intermediate rates if approved; frozen revision/configuration and a declared success/latency criterion. No extrapolated hourly/daily result or inferred production SLO |
 | Representative workloads and cost | Separately approved knowledge/workflow scenarios with requested-operation success and latency; settled, attributable billing evidence, not stale Monitor counts or zero-credit assumptions |
 
-These additions require a reviewed closed-schema extension before ingestion, not arbitrary metadata or raw transcripts. This change does not run experiments, grant a new request budget, access private ledgers, or settle costs. All ten original records and existing documented limits remain unchanged.
+Further additions require a reviewed closed-schema extension before ingestion, not arbitrary metadata or raw transcripts. This change does not run experiments, grant a new request budget, access private ledgers, or settle costs. All ten original records and existing documented limits remain unchanged.
 
 ## Spread-out 25 RPM follow-up / completed calibration on 2026-09-20
 
@@ -85,7 +117,7 @@ One guarded greeting campaign used the same native published Microsoft 365 Copil
 | Calibration 10 RPM | 120 s / 20 | 20 / 20 / 0 | Qualified | 8.431 / 10.380 s (n=20) |
 | Calibration 25 RPM | 120 s / 50 | 50 / 50 / 0 | Qualified | 8.064 / 12.842 s (n=50) |
 | Calibration 50 RPM | 120 s / 100 | 100 / 98 / 2 | 98%, below the predeclared 99% rule | 7.644 / 9.676 s (n=98) |
-| Hourly attempt at 25 RPM | 3600 s / 1500 | 214 / 213 / 1 | Stopped after 512.2330114 s of arrivals | 7.858 / 9.680 s (n=213) |
+| Hourly attempt at 25 RPM | 3600 s / 1500 | 214 / 213 / 1 | Early stop; recorded arrival duration 512.2330114 s, not exact dispatch-close time | 7.858 / 9.680 s (n=213) |
 
 All four cohorts drained with zero pending. The hour attempt's **213 eventual replies** comprise **211 before its observed arrival-end boundary and two during drain**, not 213 completions inside its 512.2330114 s arrival window. Calibration **100/150 RPM was not attempted within this original campaign**; the later standalone 100 RPM cohort above is separately authorized and counted. The two failures at 50 RPM were generic WorkIQ `server_error` invocation outcomes with no explicit throttle evidence. The selected **25 RPM is the last qualified calibration rate in this original campaign, not a capacity ceiling**. There is no observed full-hour total or extrapolated successful hourly result.
 
@@ -174,11 +206,13 @@ npm run validate
 npm run build
 ```
 
-Open `dist\index.html` directly, or serve `dist` with a local static server. The page embeds the validated dataset, schema, CSS and JavaScript: it performs no API calls, loads no remote fonts or scripts, and works offline. Download links to `report.json` and `report.schema.json` use companion files in `dist`. Never serve the repository root as the report.
+Open `dist\index.html` directly, or serve `dist` with a local static server. The page embeds both validated aggregate contracts, their schemas, CSS and JavaScript: it performs no API calls, loads no remote fonts or scripts, and works offline. Download links to `report.json`, `report.schema.json`, `window-evidence.json` and `window-evidence.schema.json` use companion files in `dist`. Never serve the repository root as the report.
 
 | File | Responsibility |
 | --- | --- |
-| `data/report.json` | Only allowed publication input; reviewed public aggregates or the empty seed |
+| `data/report.json` | Fixed original publication input; reviewed public aggregates or the empty seed |
+| `data/window-evidence.json` | Fixed reviewed supplemental window/callback input; `null` if unavailable |
+| `schema/window-evidence.schema.json`, `src/window-evidence.mjs` | Closed supplemental contract, exact-decimal consistency checks and compatible-cohort summaries |
 | `schema/report.schema.json` | Closed JSON Schema, draft 2020-12 |
 | `src/validate.mjs` | Shared structural, cross-field and privacy checks; fail-closed schema subset |
 | `src/index.html`, `src/report.js` | Accessible static shell and safe text-based rendering |
@@ -188,6 +222,18 @@ Open `dist\index.html` directly, or serve `dist` with a local static server. The
 | `.github/workflows/pages.yml` | Offline CI and separately gated, manual Pages deployment |
 
 ## Public aggregate contract (v1)
+
+### Separate supplemental window contract (v1)
+
+`data/window-evidence.json` is a separately reviewed supplement, never a replacement for `data/report.json`. Its entire value can be `null` when no supplement exists. Otherwise it requires a real `reviewedOn`, `newAgentCalls: 0`, an analyzed-attempt total, fixed half-open/independent-selection semantics and references to existing native run/campaign keys. Every object is closed; no freeform source prose, private paths, source-artifact hashes, identifiers or transcripts are accepted.
+
+Each run retains its original outcome totals, clock-quality flag, two coverage bases, and all seven requested durations (10/30/60/120/300/900/3600 seconds). A maximum is `null` unless its whole window fits the explicitly observed coverage. Exact completion maxima and completion-local state are always null for the burst. Each independent maximum contains its own exact window, dispatch cohort's eventual and before-end outcomes, completions inside that window, and client snapshots immediately before both boundaries. Final-cutoff pending and pending immediately before window end are distinct.
+
+Ranges store numeric plotting offsets alongside authoritative `*Exact` decimal strings representing arithmetic on the source IEEE-754 values. The validator uses fixed-scale `BigInt` decimal arithmetic to enforce exact widths and coverage, including differences too small for ordinary floating-point comparison. It checks both count populations, snapshot deltas, original outcome/peak bounds, unique references, clock precision, first errors, trigger counts and post-trigger settlement reconciliation. It does not increase clock accuracy or independently prove observed data/maximality; that review occurred against private evidence using separate event-density and exhaustive event-partition checks.
+
+First-error/trigger completion bounds are inclusive: `precision: "exact"` has identical endpoints; `"bounded"` has distinct endpoints. A trigger's actual dispatch-close time remains a nonzero uncertainty bound, not an invocation duration or a measured point. The generic guard is the third consecutive error, not nine final failures. WorkIQ transport 429 has explicit transport scope and unknown harness attribution. Zero pending at the client evidence cutoff does not establish remote work/admission/retry/billing settlement. Managed-service retries remain unknown and costs pending.
+
+Build and browser validate both inputs before rendering any measurements. A malformed supplement withholds all metrics rather than silently falling back to older charts. The two supplementary downloads expose the exact public contract without raw evidence. The original run contract follows unchanged.
 
 The JSON Schema is the structural source of truth. All object shapes are closed (`additionalProperties: false`); required fields must be present. Unknown measurements use `null`, not placeholders, fabricated zeros, omitted fields or assumed defaults. The shared validator adds the following semantic constraints that JSON Schema alone does not express.
 
@@ -363,12 +409,12 @@ The user explicitly requested and the testing owner executed one bounded 100-cal
 
 1. Keep raw evidence outside this repository. Exclude UPNs; tenant, environment and agent IDs; internal SharePoint content/URLs/citations; Teams/chat URLs/IDs; connection details; credentials; transcripts; screenshots; and identifying filenames.
 2. The report preparer reviews an aggregate against private source evidence, performs the privacy review and supplies only the permitted facts. Use `null` or an explicit unknown/pending state where evidence is missing. Plain labels/slugs can still disclose identity: explicitly review them rather than relying on validation.
-3. Edit only the reviewed public facts in `data/report.json`, set the explicit review date, and update existing run keys rather than duplicating snapshots. Run `npm test` and `npm run build`; inspect the generated page and JSON before committing.
+3. Edit only reviewed public facts in the fixed input files, set the applicable explicit review date, and update existing run keys rather than duplicating snapshots. Existing-event window analysis belongs in `data/window-evidence.json`, not rewritten historical timings. Run `npm test` and `npm run build`; inspect the generated page and JSON before committing.
 4. Review the public PR. Merging **does not deploy**. No cloud test runs or account/browser interactions are part of this project.
 5. When ready, an authorized maintainer configures Pages to use GitHub Actions, configures the `github-pages` environment's required reviewers, and explicitly sets repository variable `ENABLE_PAGES_DEPLOY=true`. These are external administrative steps, not changes this scaffold performs.
 6. Manually dispatch **Validate report and optionally publish Pages** on `main` with `publish=true`. Deployment additionally rejects an empty dataset or one without reviewed measured runs. The workflow uploads only the fixed `dist` output.
 
-The normal build reads only `data/report.json`; it accepts no alternate data path or environment override. Offline fixture keys are rejected by the publication loader. Extra files/directories in `dist` fail the build rather than being accidentally packaged. No test fixture, source tree, screenshot, credential, or raw evidence file belongs in that artifact.
+The normal build reads only the fixed `data/report.json` and `data/window-evidence.json` inputs; it accepts no alternate data path or environment override. Offline fixture keys are rejected by the publication loader. Extra files/directories in `dist` fail the build rather than being accidentally packaged. No test fixture, source tree, screenshot, credential, or raw evidence file belongs in that artifact.
 
 The validator rejects unknown fields at every object boundary, unsupported schema keywords, private-looking identifiers/URLs and common placeholders. This is **defense in depth, not guaranteed anonymization**. It cannot detect every identifying plain label, prove evidence, prevent a dishonest review flag, or protect private data that someone commits directly. Repository review remains required.
 
@@ -387,7 +433,7 @@ npm run qa
 
 Without `QA_BROWSER_CHANNEL`, install a Playwright Chromium build once with `npx playwright install chromium`, then run `npm run qa`. Screenshots default to a unique OS temporary directory. QA creates and closes its own ephemeral loopback server and browser contexts; it blocks non-local browser requests, uses no saved profile, and never attaches to a debugging port or shared MCP browser.
 
-Checks cover light/dark at **320, 390 and 1440 px**, all six report sections, overflow, axe WCAG A/AA rules, keyboard skip/navigation behavior, query/hash preservation, system theme changes, invalid-data withholding, print, reduced-motion and forced-color support. Explicitly labelled synthetic states exercise populated rendering only on the ephemeral QA server; they never go into `dist`.
+Checks cover light/dark at **320, 390 and 1440 px**, all ten report sections, chart/label overflow, sticky-navigation heading visibility, rolling-window coverage/cohort selectors, paired counts and exact offsets, callback/trigger evidence, four downloads, axe WCAG A/AA rules, keyboard skip/navigation behavior, query/hash preservation, system theme changes, invalid-data withholding, print, reduced-motion and forced-color support. Explicitly labelled synthetic states exercise populated rendering only on the ephemeral QA server; they never go into `dist`.
 
 ## Design and interpretation decisions
 

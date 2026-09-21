@@ -1,0 +1,4208 @@
+{
+  "schemaVersion": 1,
+  "reviewedOn": "2026-09-21",
+  "newAgentCalls": 0,
+  "existingNativeAttemptsAnalyzed": 555,
+  "windowInterval": "half_open_start_inclusive_end_exclusive",
+  "selection": "independent_post_hoc_success_maxima",
+  "runs": [
+    {
+      "runKey": "m365-native-burst-100",
+      "campaignKey": null,
+      "nativeCompletionOffsetsExact": false,
+      "counts": {
+        "dispatched": 100,
+        "eventualSuccesses": 33,
+        "eventualFailures": 67,
+        "pendingAtEvidenceCutoff": 0
+      },
+      "firstError": {
+        "evidence": "unclassified_invocation_failure",
+        "completion": {
+          "precision": "bounded",
+          "lowerMs": 8236.510299999965,
+          "upperMs": 8236.516100000008,
+          "lowerMsExact": "8236.51029999996535480022430419921875",
+          "upperMsExact": "8236.516100000008009374141693115234375"
+        },
+        "client": {
+          "dispatched": 100,
+          "settled": 1,
+          "successes": 0,
+          "failures": 1,
+          "outstandingClientCalls": 99
+        },
+        "harnessAttribution": "unknown"
+      },
+      "safetyTrigger": null,
+      "bases": [
+        {
+          "basis": "observed_arrival_only",
+          "coverage": null,
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        },
+        {
+          "basis": "observed_through_drain",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 39033.609800000035,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "39033.6098000000347383320331573486328125",
+            "durationMs": 39033.609800000035,
+            "durationMsExact": "39033.6098000000347383320331573486328125"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 100,
+                  "eventualSuccesses": 33,
+                  "eventualFailures": 67,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": null,
+                  "failuresBeforeWindowEnd": null,
+                  "pendingImmediatelyBeforeWindowEnd": null
+                },
+                "completionsInWindow": null,
+                "clientStateBeforeWindowStart": null,
+                "clientStateBeforeWindowEnd": null
+              },
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 30000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "30000",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 100,
+                  "eventualSuccesses": 33,
+                  "eventualFailures": 67,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": null,
+                  "failuresBeforeWindowEnd": null,
+                  "pendingImmediatelyBeforeWindowEnd": null
+                },
+                "completionsInWindow": null,
+                "clientStateBeforeWindowStart": null,
+                "clientStateBeforeWindowEnd": null
+              },
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runKey": "paced-calibration-10",
+      "campaignKey": "m365-paced-campaign",
+      "nativeCompletionOffsetsExact": true,
+      "counts": {
+        "dispatched": 20,
+        "eventualSuccesses": 20,
+        "eventualFailures": 0,
+        "pendingAtEvidenceCutoff": 0
+      },
+      "firstError": null,
+      "safetyTrigger": null,
+      "bases": [
+        {
+          "basis": "observed_arrival_only",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 120014.60379999992,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "120014.60379999992437660694122314453125",
+            "durationMs": 120014.60379999992,
+            "durationMsExact": "120014.60379999992437660694122314453125"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 2,
+                  "eventualSuccesses": 2,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 2,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 22385.32329999993,
+                  "endOffsetMs": 32385.32329999993,
+                  "startOffsetMsExact": "22385.323299999930895864963531494140625",
+                  "endOffsetMsExact": "32385.323299999930895864963531494140625",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 2,
+                  "eventualSuccesses": 2,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 3,
+                  "failures": 0,
+                  "settled": 3
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 4,
+                  "settled": 2,
+                  "successes": 2,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 6,
+                  "settled": 5,
+                  "successes": 5,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 6005.692699999898,
+                  "endOffsetMs": 36005.6926999999,
+                  "startOffsetMsExact": "6005.692699999897740781307220458984375",
+                  "endOffsetMsExact": "36005.692699999897740781307220458984375",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 6,
+                  "eventualSuccesses": 6,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 4,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 5,
+                  "failures": 0,
+                  "settled": 5
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 1,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 7,
+                  "settled": 5,
+                  "successes": 5,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9527.984099999885,
+                  "endOffsetMs": 39527.984099999885,
+                  "startOffsetMsExact": "9527.984099999885074794292449951171875",
+                  "endOffsetMsExact": "39527.984099999885074794292449951171875",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 5,
+                  "eventualSuccesses": 5,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 4,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 0,
+                  "settled": 6
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 2,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 7,
+                  "settled": 6,
+                  "successes": 6,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 18024.429399999906,
+                  "endOffsetMs": 78024.4293999999,
+                  "startOffsetMsExact": "18024.429399999906308948993682861328125",
+                  "endOffsetMsExact": "78024.429399999906308948993682861328125",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 11,
+                  "eventualSuccesses": 11,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 9,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 10,
+                  "failures": 0,
+                  "settled": 10
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 3,
+                  "settled": 2,
+                  "successes": 2,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 14,
+                  "settled": 12,
+                  "successes": 12,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9527.984099999885,
+                  "endOffsetMs": 69527.98409999989,
+                  "startOffsetMsExact": "9527.984099999885074794292449951171875",
+                  "endOffsetMsExact": "69527.984099999885074794292449951171875",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 10,
+                  "eventualSuccesses": 10,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 9,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 11,
+                  "failures": 0,
+                  "settled": 11
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 2,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 12,
+                  "settled": 11,
+                  "successes": 11,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 20,
+                  "eventualSuccesses": 20,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 19,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 19,
+                  "failures": 0,
+                  "settled": 19
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 20,
+                  "settled": 19,
+                  "successes": 19,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 20,
+                  "eventualSuccesses": 20,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 19,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 19,
+                  "failures": 0,
+                  "settled": 19
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 20,
+                  "settled": 19,
+                  "successes": 19,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        },
+        {
+          "basis": "observed_through_drain",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 124064.12389999989,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "124064.123899999889545142650604248046875",
+            "durationMs": 124064.12389999989,
+            "durationMsExact": "124064.123899999889545142650604248046875"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 2,
+                  "eventualSuccesses": 2,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 2,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 22385.32329999993,
+                  "endOffsetMs": 32385.32329999993,
+                  "startOffsetMsExact": "22385.323299999930895864963531494140625",
+                  "endOffsetMsExact": "32385.323299999930895864963531494140625",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 2,
+                  "eventualSuccesses": 2,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 3,
+                  "failures": 0,
+                  "settled": 3
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 4,
+                  "settled": 2,
+                  "successes": 2,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 6,
+                  "settled": 5,
+                  "successes": 5,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 6005.692699999898,
+                  "endOffsetMs": 36005.6926999999,
+                  "startOffsetMsExact": "6005.692699999897740781307220458984375",
+                  "endOffsetMsExact": "36005.692699999897740781307220458984375",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 6,
+                  "eventualSuccesses": 6,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 4,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 5,
+                  "failures": 0,
+                  "settled": 5
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 1,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 7,
+                  "settled": 5,
+                  "successes": 5,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9527.984099999885,
+                  "endOffsetMs": 39527.984099999885,
+                  "startOffsetMsExact": "9527.984099999885074794292449951171875",
+                  "endOffsetMsExact": "39527.984099999885074794292449951171875",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 5,
+                  "eventualSuccesses": 5,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 4,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 0,
+                  "settled": 6
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 2,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 7,
+                  "settled": 6,
+                  "successes": 6,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 18024.429399999906,
+                  "endOffsetMs": 78024.4293999999,
+                  "startOffsetMsExact": "18024.429399999906308948993682861328125",
+                  "endOffsetMsExact": "78024.429399999906308948993682861328125",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 11,
+                  "eventualSuccesses": 11,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 9,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 10,
+                  "failures": 0,
+                  "settled": 10
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 3,
+                  "settled": 2,
+                  "successes": 2,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 14,
+                  "settled": 12,
+                  "successes": 12,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9527.984099999885,
+                  "endOffsetMs": 69527.98409999989,
+                  "startOffsetMsExact": "9527.984099999885074794292449951171875",
+                  "endOffsetMsExact": "69527.984099999885074794292449951171875",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 10,
+                  "eventualSuccesses": 10,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 9,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 11,
+                  "failures": 0,
+                  "settled": 11
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 2,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 12,
+                  "settled": 11,
+                  "successes": 11,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 20,
+                  "eventualSuccesses": 20,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 19,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 1
+                },
+                "completionsInWindow": {
+                  "successes": 19,
+                  "failures": 0,
+                  "settled": 19
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 20,
+                  "settled": 19,
+                  "successes": 19,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 4064.1238999998895,
+                  "endOffsetMs": 124064.12389999989,
+                  "startOffsetMsExact": "4064.123899999889545142650604248046875",
+                  "endOffsetMsExact": "124064.123899999889545142650604248046875",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 19,
+                  "eventualSuccesses": 19,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 19,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 0
+                },
+                "completionsInWindow": {
+                  "successes": 20,
+                  "failures": 0,
+                  "settled": 20
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 1,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 20,
+                  "settled": 20,
+                  "successes": 20,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runKey": "paced-calibration-25",
+      "campaignKey": "m365-paced-campaign",
+      "nativeCompletionOffsetsExact": true,
+      "counts": {
+        "dispatched": 50,
+        "eventualSuccesses": 50,
+        "eventualFailures": 0,
+        "pendingAtEvidenceCutoff": 0
+      },
+      "firstError": null,
+      "safetyTrigger": null,
+      "bases": [
+        {
+          "basis": "observed_arrival_only",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 120001.20519999997,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "120001.20519999996758997440338134765625",
+            "durationMs": 120001.20519999997,
+            "durationMsExact": "120001.20519999996758997440338134765625"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 5,
+                  "eventualSuccesses": 5,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 5,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 15340.90129999991,
+                  "endOffsetMs": 25340.90129999991,
+                  "startOffsetMsExact": "15340.901299999910406768321990966796875",
+                  "endOffsetMsExact": "25340.901299999910406768321990966796875",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 4,
+                  "eventualSuccesses": 4,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 0,
+                  "settled": 6
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 7,
+                  "settled": 2,
+                  "successes": 2,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 11,
+                  "settled": 8,
+                  "successes": 8,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 30000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "30000",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 10,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 10,
+                  "failures": 0,
+                  "settled": 10
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 13,
+                  "settled": 10,
+                  "successes": 10,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 18153.3358,
+                  "endOffsetMs": 48153.3358,
+                  "startOffsetMsExact": "18153.3358000000007450580596923828125",
+                  "endOffsetMsExact": "48153.3358000000007450580596923828125",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 10,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 15,
+                  "failures": 0,
+                  "settled": 15
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 8,
+                  "settled": 3,
+                  "successes": 3,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 21,
+                  "settled": 18,
+                  "successes": 18,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 4818.0196,
+                  "endOffsetMs": 64818.0196,
+                  "startOffsetMsExact": "4818.01959999999962747097015380859375",
+                  "endOffsetMsExact": "64818.01959999999962747097015380859375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 26,
+                  "eventualSuccesses": 26,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 24,
+                  "failures": 0,
+                  "settled": 24
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 2,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 28,
+                  "settled": 24,
+                  "successes": 24,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 12442.002699999954,
+                  "endOffsetMs": 72442.00269999995,
+                  "startOffsetMsExact": "12442.002699999953620135784149169921875",
+                  "endOffsetMsExact": "72442.002699999953620135784149169921875",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 25,
+                  "eventualSuccesses": 25,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 27,
+                  "failures": 0,
+                  "settled": 27
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 6,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 31,
+                  "settled": 28,
+                  "successes": 28,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 48,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 48,
+                  "failures": 0,
+                  "settled": 48
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 50,
+                  "settled": 48,
+                  "successes": 48,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 48,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 48,
+                  "failures": 0,
+                  "settled": 48
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 50,
+                  "settled": 48,
+                  "successes": 48,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        },
+        {
+          "basis": "observed_through_drain",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 126056.35489999992,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "126056.35489999991841614246368408203125",
+            "durationMs": 126056.35489999992,
+            "durationMsExact": "126056.35489999991841614246368408203125"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 5,
+                  "eventualSuccesses": 5,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 5,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 15340.90129999991,
+                  "endOffsetMs": 25340.90129999991,
+                  "startOffsetMsExact": "15340.901299999910406768321990966796875",
+                  "endOffsetMsExact": "25340.901299999910406768321990966796875",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 4,
+                  "eventualSuccesses": 4,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 0,
+                  "settled": 6
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 7,
+                  "settled": 2,
+                  "successes": 2,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 11,
+                  "settled": 8,
+                  "successes": 8,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 30000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "30000",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 10,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 10,
+                  "failures": 0,
+                  "settled": 10
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 13,
+                  "settled": 10,
+                  "successes": 10,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 18153.3358,
+                  "endOffsetMs": 48153.3358,
+                  "startOffsetMsExact": "18153.3358000000007450580596923828125",
+                  "endOffsetMsExact": "48153.3358000000007450580596923828125",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 10,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 15,
+                  "failures": 0,
+                  "settled": 15
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 8,
+                  "settled": 3,
+                  "successes": 3,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 21,
+                  "settled": 18,
+                  "successes": 18,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 4818.0196,
+                  "endOffsetMs": 64818.0196,
+                  "startOffsetMsExact": "4818.01959999999962747097015380859375",
+                  "endOffsetMsExact": "64818.01959999999962747097015380859375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 26,
+                  "eventualSuccesses": 26,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 24,
+                  "failures": 0,
+                  "settled": 24
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 2,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 28,
+                  "settled": 24,
+                  "successes": 24,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 12442.002699999954,
+                  "endOffsetMs": 72442.00269999995,
+                  "startOffsetMsExact": "12442.002699999953620135784149169921875",
+                  "endOffsetMsExact": "72442.002699999953620135784149169921875",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 25,
+                  "eventualSuccesses": 25,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 27,
+                  "failures": 0,
+                  "settled": 27
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 6,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 31,
+                  "settled": 28,
+                  "successes": 28,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 48,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 48,
+                  "failures": 0,
+                  "settled": 48
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 50,
+                  "settled": 48,
+                  "successes": 48,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 6056.354899999918,
+                  "endOffsetMs": 126056.35489999992,
+                  "startOffsetMsExact": "6056.35489999991841614246368408203125",
+                  "endOffsetMsExact": "126056.35489999991841614246368408203125",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 47,
+                  "eventualSuccesses": 47,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 47,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 0
+                },
+                "completionsInWindow": {
+                  "successes": 50,
+                  "failures": 0,
+                  "settled": 50
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 3,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 50,
+                  "settled": 50,
+                  "successes": 50,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runKey": "paced-calibration-50",
+      "campaignKey": "m365-paced-campaign",
+      "nativeCompletionOffsetsExact": true,
+      "counts": {
+        "dispatched": 100,
+        "eventualSuccesses": 98,
+        "eventualFailures": 2,
+        "pendingAtEvidenceCutoff": 0
+      },
+      "firstError": {
+        "evidence": "unclassified_invocation_failure",
+        "completion": {
+          "precision": "exact",
+          "lowerMs": 28567.008799999952,
+          "upperMs": 28567.008799999952,
+          "lowerMsExact": "28567.0087999999523162841796875",
+          "upperMsExact": "28567.0087999999523162841796875"
+        },
+        "client": {
+          "dispatched": 24,
+          "settled": 18,
+          "successes": 17,
+          "failures": 1,
+          "outstandingClientCalls": 6
+        },
+        "harnessAttribution": "unknown"
+      },
+      "safetyTrigger": null,
+      "bases": [
+        {
+          "basis": "observed_arrival_only",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 120000.15639999998,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "120000.15639999997802078723907470703125",
+            "durationMs": 120000.15639999998,
+            "durationMsExact": "120000.15639999997802078723907470703125"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 9,
+                  "eventualSuccesses": 9,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 8
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 9,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 8
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9787.982499999925,
+                  "endOffsetMs": 19787.982499999925,
+                  "startOffsetMsExact": "9787.98249999992549419403076171875",
+                  "endOffsetMsExact": "19787.98249999992549419403076171875",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 8,
+                  "eventualSuccesses": 8,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 2,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 11,
+                  "failures": 0,
+                  "settled": 11
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 9,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 9
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 17,
+                  "settled": 11,
+                  "successes": 11,
+                  "failures": 0,
+                  "outstandingClientCalls": 6
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 26413.376300000004,
+                  "endOffsetMs": 56413.3763,
+                  "startOffsetMsExact": "26413.376300000003539025783538818359375",
+                  "endOffsetMsExact": "56413.376300000003539025783538818359375",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 26,
+                  "eventualSuccesses": 26,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 20,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 25,
+                  "failures": 1,
+                  "settled": 26
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 22,
+                  "settled": 16,
+                  "successes": 16,
+                  "failures": 0,
+                  "outstandingClientCalls": 6
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 48,
+                  "settled": 42,
+                  "successes": 41,
+                  "failures": 1,
+                  "outstandingClientCalls": 6
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9787.982499999925,
+                  "endOffsetMs": 39787.982499999925,
+                  "startOffsetMsExact": "9787.98249999992549419403076171875",
+                  "endOffsetMsExact": "39787.98249999992549419403076171875",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 25,
+                  "eventualSuccesses": 24,
+                  "eventualFailures": 1,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 18,
+                  "failuresBeforeWindowEnd": 1,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 27,
+                  "failures": 1,
+                  "settled": 28
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 9,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 9
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 34,
+                  "settled": 28,
+                  "successes": 27,
+                  "failures": 1,
+                  "outstandingClientCalls": 6
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 6.614799999981187,
+                  "endOffsetMs": 60006.61479999998,
+                  "startOffsetMsExact": "6.614799999981187283992767333984375",
+                  "endOffsetMsExact": "60006.614799999981187283992767333984375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 51,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 1,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 43,
+                  "failuresBeforeWindowEnd": 1,
+                  "pendingImmediatelyBeforeWindowEnd": 7
+                },
+                "completionsInWindow": {
+                  "successes": 43,
+                  "failures": 1,
+                  "settled": 44
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 51,
+                  "settled": 44,
+                  "successes": 43,
+                  "failures": 1,
+                  "outstandingClientCalls": 7
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 25060.602399999974,
+                  "endOffsetMs": 85060.60239999997,
+                  "startOffsetMsExact": "25060.60239999997429549694061279296875",
+                  "endOffsetMsExact": "85060.60239999997429549694061279296875",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 49,
+                  "eventualFailures": 1,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 44,
+                  "failuresBeforeWindowEnd": 1,
+                  "pendingImmediatelyBeforeWindowEnd": 5
+                },
+                "completionsInWindow": {
+                  "successes": 52,
+                  "failures": 1,
+                  "settled": 53
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 21,
+                  "settled": 13,
+                  "successes": 13,
+                  "failures": 0,
+                  "outstandingClientCalls": 8
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 71,
+                  "settled": 66,
+                  "successes": 65,
+                  "failures": 1,
+                  "outstandingClientCalls": 5
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 100,
+                  "eventualSuccesses": 98,
+                  "eventualFailures": 2,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 92,
+                  "failuresBeforeWindowEnd": 2,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 92,
+                  "failures": 2,
+                  "settled": 94
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 100,
+                  "settled": 94,
+                  "successes": 92,
+                  "failures": 2,
+                  "outstandingClientCalls": 6
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 100,
+                  "eventualSuccesses": 98,
+                  "eventualFailures": 2,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 92,
+                  "failuresBeforeWindowEnd": 2,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 92,
+                  "failures": 2,
+                  "settled": 94
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 100,
+                  "settled": 94,
+                  "successes": 92,
+                  "failures": 2,
+                  "outstandingClientCalls": 6
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        },
+        {
+          "basis": "observed_through_drain",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 128050.42099999997,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "128050.420999999972991645336151123046875",
+            "durationMs": 128050.42099999997,
+            "durationMsExact": "128050.420999999972991645336151123046875"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 9,
+                  "eventualSuccesses": 9,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 8
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 9,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 8
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9787.982499999925,
+                  "endOffsetMs": 19787.982499999925,
+                  "startOffsetMsExact": "9787.98249999992549419403076171875",
+                  "endOffsetMsExact": "19787.98249999992549419403076171875",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 8,
+                  "eventualSuccesses": 8,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 2,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 11,
+                  "failures": 0,
+                  "settled": 11
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 9,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 9
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 17,
+                  "settled": 11,
+                  "successes": 11,
+                  "failures": 0,
+                  "outstandingClientCalls": 6
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 26413.376300000004,
+                  "endOffsetMs": 56413.3763,
+                  "startOffsetMsExact": "26413.376300000003539025783538818359375",
+                  "endOffsetMsExact": "56413.376300000003539025783538818359375",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 26,
+                  "eventualSuccesses": 26,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 20,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 25,
+                  "failures": 1,
+                  "settled": 26
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 22,
+                  "settled": 16,
+                  "successes": 16,
+                  "failures": 0,
+                  "outstandingClientCalls": 6
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 48,
+                  "settled": 42,
+                  "successes": 41,
+                  "failures": 1,
+                  "outstandingClientCalls": 6
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9787.982499999925,
+                  "endOffsetMs": 39787.982499999925,
+                  "startOffsetMsExact": "9787.98249999992549419403076171875",
+                  "endOffsetMsExact": "39787.98249999992549419403076171875",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 25,
+                  "eventualSuccesses": 24,
+                  "eventualFailures": 1,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 18,
+                  "failuresBeforeWindowEnd": 1,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 27,
+                  "failures": 1,
+                  "settled": 28
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 9,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 9
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 34,
+                  "settled": 28,
+                  "successes": 27,
+                  "failures": 1,
+                  "outstandingClientCalls": 6
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 6.614799999981187,
+                  "endOffsetMs": 60006.61479999998,
+                  "startOffsetMsExact": "6.614799999981187283992767333984375",
+                  "endOffsetMsExact": "60006.614799999981187283992767333984375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 51,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 1,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 43,
+                  "failuresBeforeWindowEnd": 1,
+                  "pendingImmediatelyBeforeWindowEnd": 7
+                },
+                "completionsInWindow": {
+                  "successes": 43,
+                  "failures": 1,
+                  "settled": 44
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 51,
+                  "settled": 44,
+                  "successes": 43,
+                  "failures": 1,
+                  "outstandingClientCalls": 7
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 25060.602399999974,
+                  "endOffsetMs": 85060.60239999997,
+                  "startOffsetMsExact": "25060.60239999997429549694061279296875",
+                  "endOffsetMsExact": "85060.60239999997429549694061279296875",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 49,
+                  "eventualFailures": 1,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 44,
+                  "failuresBeforeWindowEnd": 1,
+                  "pendingImmediatelyBeforeWindowEnd": 5
+                },
+                "completionsInWindow": {
+                  "successes": 52,
+                  "failures": 1,
+                  "settled": 53
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 21,
+                  "settled": 13,
+                  "successes": 13,
+                  "failures": 0,
+                  "outstandingClientCalls": 8
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 71,
+                  "settled": 66,
+                  "successes": 65,
+                  "failures": 1,
+                  "outstandingClientCalls": 5
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 100,
+                  "eventualSuccesses": 98,
+                  "eventualFailures": 2,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 92,
+                  "failuresBeforeWindowEnd": 2,
+                  "pendingImmediatelyBeforeWindowEnd": 6
+                },
+                "completionsInWindow": {
+                  "successes": 92,
+                  "failures": 2,
+                  "settled": 94
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 100,
+                  "settled": 94,
+                  "successes": 92,
+                  "failures": 2,
+                  "outstandingClientCalls": 6
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 8050.420999999973,
+                  "endOffsetMs": 128050.42099999997,
+                  "startOffsetMsExact": "8050.420999999972991645336151123046875",
+                  "endOffsetMsExact": "128050.420999999972991645336151123046875",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 93,
+                  "eventualSuccesses": 91,
+                  "eventualFailures": 2,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 91,
+                  "failuresBeforeWindowEnd": 2,
+                  "pendingImmediatelyBeforeWindowEnd": 0
+                },
+                "completionsInWindow": {
+                  "successes": 98,
+                  "failures": 2,
+                  "settled": 100
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 7,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 7
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 100,
+                  "settled": 100,
+                  "successes": 98,
+                  "failures": 2,
+                  "outstandingClientCalls": 0
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runKey": "paced-hour-25-stopped",
+      "campaignKey": "m365-paced-campaign",
+      "nativeCompletionOffsetsExact": true,
+      "counts": {
+        "dispatched": 214,
+        "eventualSuccesses": 213,
+        "eventualFailures": 1,
+        "pendingAtEvidenceCutoff": 0
+      },
+      "firstError": {
+        "evidence": "workiq_mcp_transport_429",
+        "completion": {
+          "precision": "exact",
+          "lowerMs": 511288.4434,
+          "upperMs": 511288.4434,
+          "lowerMsExact": "511288.44339999998919665813446044921875",
+          "upperMsExact": "511288.44339999998919665813446044921875"
+        },
+        "client": {
+          "dispatched": 214,
+          "settled": 211,
+          "successes": 210,
+          "failures": 1,
+          "outstandingClientCalls": 3
+        },
+        "harnessAttribution": "unknown"
+      },
+      "safetyTrigger": {
+        "reason": "workiq_mcp_transport_429",
+        "completion": {
+          "precision": "exact",
+          "lowerMs": 511288.4434,
+          "upperMs": 511288.4434,
+          "lowerMsExact": "511288.44339999998919665813446044921875",
+          "upperMsExact": "511288.44339999998919665813446044921875"
+        },
+        "dispatchClose": {
+          "precision": "bounded",
+          "lowerMs": 511288.4434,
+          "upperMs": 511289.5556999999,
+          "lowerMsExact": "511288.44339999998919665813446044921875",
+          "upperMsExact": "511289.5556999999098479747772216796875"
+        },
+        "client": {
+          "dispatched": 214,
+          "settled": 211,
+          "successes": 210,
+          "failures": 1,
+          "outstandingClientCalls": 3
+        },
+        "consecutiveGenericFailures": 0,
+        "newDispatchesAfterTrigger": 0,
+        "settlementsAfterTrigger": {
+          "successes": 3,
+          "failures": 0,
+          "pendingAtFinalCutoff": 0
+        },
+        "harnessAttribution": "unknown"
+      },
+      "bases": [
+        {
+          "basis": "observed_arrival_only",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 512232.99600000004,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "512232.99600000004284083843231201171875",
+            "durationMs": 512232.99600000004,
+            "durationMsExact": "512232.99600000004284083843231201171875"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 5,
+                  "eventualSuccesses": 5,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 5,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 43838.47160000005,
+                  "endOffsetMs": 53838.47160000005,
+                  "startOffsetMsExact": "43838.47160000004805624485015869140625",
+                  "endOffsetMsExact": "53838.47160000004805624485015869140625",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 4,
+                  "eventualSuccesses": 4,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 0,
+                  "settled": 6
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 19,
+                  "settled": 14,
+                  "successes": 14,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 23,
+                  "settled": 20,
+                  "successes": 20,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 30000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "30000",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 10,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 10,
+                  "failures": 0,
+                  "settled": 10
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 13,
+                  "settled": 10,
+                  "successes": 10,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 28901.52059999993,
+                  "endOffsetMs": 58901.52059999993,
+                  "startOffsetMsExact": "28901.5205999999307096004486083984375",
+                  "endOffsetMsExact": "58901.5205999999307096004486083984375",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 12,
+                  "eventualSuccesses": 12,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 9,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 14,
+                  "failures": 0,
+                  "settled": 14
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 13,
+                  "settled": 8,
+                  "successes": 8,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 25,
+                  "settled": 22,
+                  "successes": 22,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 7208.823300000047,
+                  "endOffsetMs": 67208.82330000005,
+                  "startOffsetMsExact": "7208.82330000004731118679046630859375",
+                  "endOffsetMsExact": "67208.82330000004731118679046630859375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 26,
+                  "eventualSuccesses": 26,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 25,
+                  "failures": 0,
+                  "settled": 25
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 3,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 29,
+                  "settled": 25,
+                  "successes": 25,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 67181.38379999995,
+                  "endOffsetMs": 127181.38379999995,
+                  "startOffsetMsExact": "67181.3837999999523162841796875",
+                  "endOffsetMsExact": "127181.3837999999523162841796875",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 25,
+                  "eventualSuccesses": 25,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 23,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 27,
+                  "failures": 0,
+                  "settled": 27
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 28,
+                  "settled": 24,
+                  "successes": 24,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 53,
+                  "settled": 51,
+                  "successes": 51,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 7208.823300000047,
+                  "endOffsetMs": 127208.82330000005,
+                  "startOffsetMsExact": "7208.82330000004731118679046630859375",
+                  "endOffsetMsExact": "127208.82330000004731118679046630859375",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 51,
+                  "eventualSuccesses": 51,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 48,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 51,
+                  "failures": 0,
+                  "settled": 51
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 3,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 54,
+                  "settled": 51,
+                  "successes": 51,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 43838.47160000005,
+                  "endOffsetMs": 163838.47160000005,
+                  "startOffsetMsExact": "43838.47160000004805624485015869140625",
+                  "endOffsetMsExact": "163838.47160000004805624485015869140625",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 47,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 52,
+                  "failures": 0,
+                  "settled": 52
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 19,
+                  "settled": 14,
+                  "successes": 14,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 69,
+                  "settled": 66,
+                  "successes": 66,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 13.036300000036135,
+                  "endOffsetMs": 300013.03630000004,
+                  "startOffsetMsExact": "13.03630000003613531589508056640625",
+                  "endOffsetMsExact": "300013.03630000003613531589508056640625",
+                  "durationMs": 300000,
+                  "durationMsExact": "300000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 126,
+                  "eventualSuccesses": 126,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 122,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 122,
+                  "failures": 0,
+                  "settled": 122
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 126,
+                  "settled": 122,
+                  "successes": 122,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 8409.615900000092,
+                  "endOffsetMs": 308409.6159000001,
+                  "startOffsetMsExact": "8409.6159000000916421413421630859375",
+                  "endOffsetMsExact": "308409.6159000000916421413421630859375",
+                  "durationMs": 300000,
+                  "durationMsExact": "300000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 125,
+                  "eventualSuccesses": 125,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 122,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 126,
+                  "failures": 0,
+                  "settled": 126
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 4,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 129,
+                  "settled": 126,
+                  "successes": 126,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        },
+        {
+          "basis": "observed_through_drain",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 518294.7663,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "518294.76630000001750886440277099609375",
+            "durationMs": 518294.7663,
+            "durationMsExact": "518294.76630000001750886440277099609375"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 5,
+                  "eventualSuccesses": 5,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 5,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 43838.47160000005,
+                  "endOffsetMs": 53838.47160000005,
+                  "startOffsetMsExact": "43838.47160000004805624485015869140625",
+                  "endOffsetMsExact": "53838.47160000004805624485015869140625",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 4,
+                  "eventualSuccesses": 4,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 0,
+                  "settled": 6
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 19,
+                  "settled": 14,
+                  "successes": 14,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 23,
+                  "settled": 20,
+                  "successes": 20,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 30000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "30000",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 10,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 10,
+                  "failures": 0,
+                  "settled": 10
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 13,
+                  "settled": 10,
+                  "successes": 10,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 28901.52059999993,
+                  "endOffsetMs": 58901.52059999993,
+                  "startOffsetMsExact": "28901.5205999999307096004486083984375",
+                  "endOffsetMsExact": "58901.5205999999307096004486083984375",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 12,
+                  "eventualSuccesses": 12,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 9,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 14,
+                  "failures": 0,
+                  "settled": 14
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 13,
+                  "settled": 8,
+                  "successes": 8,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 25,
+                  "settled": 22,
+                  "successes": 22,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 7208.823300000047,
+                  "endOffsetMs": 67208.82330000005,
+                  "startOffsetMsExact": "7208.82330000004731118679046630859375",
+                  "endOffsetMsExact": "67208.82330000004731118679046630859375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 26,
+                  "eventualSuccesses": 26,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 25,
+                  "failures": 0,
+                  "settled": 25
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 3,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 29,
+                  "settled": 25,
+                  "successes": 25,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 67181.38379999995,
+                  "endOffsetMs": 127181.38379999995,
+                  "startOffsetMsExact": "67181.3837999999523162841796875",
+                  "endOffsetMsExact": "127181.3837999999523162841796875",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 25,
+                  "eventualSuccesses": 25,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 23,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 2
+                },
+                "completionsInWindow": {
+                  "successes": 27,
+                  "failures": 0,
+                  "settled": 27
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 28,
+                  "settled": 24,
+                  "successes": 24,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 53,
+                  "settled": 51,
+                  "successes": 51,
+                  "failures": 0,
+                  "outstandingClientCalls": 2
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 7208.823300000047,
+                  "endOffsetMs": 127208.82330000005,
+                  "startOffsetMsExact": "7208.82330000004731118679046630859375",
+                  "endOffsetMsExact": "127208.82330000004731118679046630859375",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 51,
+                  "eventualSuccesses": 51,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 48,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 51,
+                  "failures": 0,
+                  "settled": 51
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 3,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 54,
+                  "settled": 51,
+                  "successes": 51,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 43838.47160000005,
+                  "endOffsetMs": 163838.47160000005,
+                  "startOffsetMsExact": "43838.47160000004805624485015869140625",
+                  "endOffsetMsExact": "163838.47160000004805624485015869140625",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 47,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 52,
+                  "failures": 0,
+                  "settled": 52
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 19,
+                  "settled": 14,
+                  "successes": 14,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 69,
+                  "settled": 66,
+                  "successes": 66,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 13.036300000036135,
+                  "endOffsetMs": 300013.03630000004,
+                  "startOffsetMsExact": "13.03630000003613531589508056640625",
+                  "endOffsetMsExact": "300013.03630000003613531589508056640625",
+                  "durationMs": 300000,
+                  "durationMsExact": "300000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 126,
+                  "eventualSuccesses": 126,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 122,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 122,
+                  "failures": 0,
+                  "settled": 122
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 126,
+                  "settled": 122,
+                  "successes": 122,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 8409.615900000092,
+                  "endOffsetMs": 308409.6159000001,
+                  "startOffsetMsExact": "8409.6159000000916421413421630859375",
+                  "endOffsetMsExact": "308409.6159000000916421413421630859375",
+                  "durationMs": 300000,
+                  "durationMsExact": "300000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 125,
+                  "eventualSuccesses": 125,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 122,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 126,
+                  "failures": 0,
+                  "settled": 126
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 4,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 129,
+                  "settled": 126,
+                  "successes": 126,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runKey": "paced-standalone-100-stopped",
+      "campaignKey": "m365-standalone-100",
+      "nativeCompletionOffsetsExact": true,
+      "counts": {
+        "dispatched": 21,
+        "eventualSuccesses": 12,
+        "eventualFailures": 9,
+        "pendingAtEvidenceCutoff": 0
+      },
+      "firstError": {
+        "evidence": "unclassified_invocation_failure",
+        "completion": {
+          "precision": "exact",
+          "lowerMs": 11802.457199999997,
+          "upperMs": 11802.457199999997,
+          "lowerMsExact": "11802.4571999999971012584865093231201171875",
+          "upperMsExact": "11802.4571999999971012584865093231201171875"
+        },
+        "client": {
+          "dispatched": 20,
+          "settled": 7,
+          "successes": 6,
+          "failures": 1,
+          "outstandingClientCalls": 13
+        },
+        "harnessAttribution": "unknown"
+      },
+      "safetyTrigger": {
+        "reason": "generic_error_threshold",
+        "completion": {
+          "precision": "exact",
+          "lowerMs": 12473.140500000001,
+          "upperMs": 12473.140500000001,
+          "lowerMsExact": "12473.1405000000013387762010097503662109375",
+          "upperMsExact": "12473.1405000000013387762010097503662109375"
+        },
+        "dispatchClose": {
+          "precision": "bounded",
+          "lowerMs": 12473.140500000001,
+          "upperMs": 12474.229499999994,
+          "lowerMsExact": "12473.1405000000013387762010097503662109375",
+          "upperMsExact": "12474.2294999999940046109259128570556640625"
+        },
+        "client": {
+          "dispatched": 21,
+          "settled": 9,
+          "successes": 6,
+          "failures": 3,
+          "outstandingClientCalls": 12
+        },
+        "consecutiveGenericFailures": 3,
+        "newDispatchesAfterTrigger": 0,
+        "settlementsAfterTrigger": {
+          "successes": 6,
+          "failures": 6,
+          "pendingAtFinalCutoff": 0
+        },
+        "harnessAttribution": "unknown"
+      },
+      "bases": [
+        {
+          "basis": "observed_arrival_only",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 12612.866199999997,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "12612.8661999999967520125210285186767578125",
+            "durationMs": 12612.866199999997,
+            "durationMsExact": "12612.8661999999967520125210285186767578125"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 17,
+                  "eventualSuccesses": 12,
+                  "eventualFailures": 5,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 0,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 17
+                },
+                "completionsInWindow": {
+                  "successes": 0,
+                  "failures": 0,
+                  "settled": 0
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 17,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 17
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 2612.8661999999968,
+                  "endOffsetMs": 12612.866199999997,
+                  "startOffsetMsExact": "2612.8661999999967520125210285186767578125",
+                  "endOffsetMsExact": "12612.8661999999967520125210285186767578125",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 16,
+                  "eventualSuccesses": 7,
+                  "eventualFailures": 9,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 3,
+                  "pendingImmediatelyBeforeWindowEnd": 12
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 3,
+                  "settled": 9
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 5,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 21,
+                  "settled": 9,
+                  "successes": 6,
+                  "failures": 3,
+                  "outstandingClientCalls": 12
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        },
+        {
+          "basis": "observed_through_drain",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 16655.113900000004,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "16655.1139000000039231963455677032470703125",
+            "durationMs": 16655.113900000004,
+            "durationMsExact": "16655.1139000000039231963455677032470703125"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 17,
+                  "eventualSuccesses": 12,
+                  "eventualFailures": 5,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 0,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 17
+                },
+                "completionsInWindow": {
+                  "successes": 0,
+                  "failures": 0,
+                  "settled": 0
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 17,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 17
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 6655.113900000004,
+                  "endOffsetMs": 16655.113900000004,
+                  "startOffsetMsExact": "6655.1139000000039231963455677032470703125",
+                  "endOffsetMsExact": "16655.1139000000039231963455677032470703125",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 9,
+                  "eventualSuccesses": 0,
+                  "eventualFailures": 9,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 0,
+                  "failuresBeforeWindowEnd": 9,
+                  "pendingImmediatelyBeforeWindowEnd": 0
+                },
+                "completionsInWindow": {
+                  "successes": 12,
+                  "failures": 9,
+                  "settled": 21
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 12,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 12
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 21,
+                  "settled": 21,
+                  "successes": 12,
+                  "failures": 9,
+                  "outstandingClientCalls": 0
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runKey": "paced-spread-25-completed",
+      "campaignKey": "m365-spread-25",
+      "nativeCompletionOffsetsExact": true,
+      "counts": {
+        "dispatched": 50,
+        "eventualSuccesses": 50,
+        "eventualFailures": 0,
+        "pendingAtEvidenceCutoff": 0
+      },
+      "firstError": null,
+      "safetyTrigger": null,
+      "bases": [
+        {
+          "basis": "observed_arrival_only",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 120001.6429,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "120001.6429000000134692527353763580322265625",
+            "durationMs": 120001.6429,
+            "durationMsExact": "120001.6429000000134692527353763580322265625"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 5,
+                  "eventualSuccesses": 5,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 5,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 28960.5587,
+                  "endOffsetMs": 38960.5587,
+                  "startOffsetMsExact": "28960.5587000000014086253941059112548828125",
+                  "endOffsetMsExact": "38960.5587000000014086253941059112548828125",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 4,
+                  "eventualSuccesses": 4,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 0,
+                  "settled": 6
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 13,
+                  "settled": 8,
+                  "successes": 8,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 17,
+                  "settled": 14,
+                  "successes": 14,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 30000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "30000",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 9,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 9,
+                  "failures": 0,
+                  "settled": 9
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 13,
+                  "settled": 9,
+                  "successes": 9,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9088.559999999998,
+                  "endOffsetMs": 39088.56,
+                  "startOffsetMsExact": "9088.5599999999976716935634613037109375",
+                  "endOffsetMsExact": "39088.5599999999976716935634613037109375",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 10,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 14,
+                  "failures": 0,
+                  "settled": 14
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 4,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 17,
+                  "settled": 14,
+                  "successes": 14,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 2459.5872999999992,
+                  "endOffsetMs": 62459.5873,
+                  "startOffsetMsExact": "2459.587299999999231658875942230224609375",
+                  "endOffsetMsExact": "62459.587299999999231658875942230224609375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 26,
+                  "eventualSuccesses": 26,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 23,
+                  "failures": 0,
+                  "settled": 23
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 1,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 27,
+                  "settled": 23,
+                  "successes": 23,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9088.559999999998,
+                  "endOffsetMs": 69088.56,
+                  "startOffsetMsExact": "9088.5599999999976716935634613037109375",
+                  "endOffsetMsExact": "69088.5599999999976716935634613037109375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 25,
+                  "eventualSuccesses": 25,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 26,
+                  "failures": 0,
+                  "settled": 26
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 4,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 29,
+                  "settled": 26,
+                  "successes": 26,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 47,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 47,
+                  "failures": 0,
+                  "settled": 47
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 50,
+                  "settled": 47,
+                  "successes": 47,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 47,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 47,
+                  "failures": 0,
+                  "settled": 47
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 50,
+                  "settled": 47,
+                  "successes": 47,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        },
+        {
+          "basis": "observed_through_drain",
+          "coverage": {
+            "startOffsetMs": 0,
+            "endOffsetMs": 127066.3904,
+            "startOffsetMsExact": "0",
+            "endOffsetMsExact": "127066.3904000000111409462988376617431640625",
+            "durationMs": 127066.3904,
+            "durationMsExact": "127066.3904000000111409462988376617431640625"
+          },
+          "windows": [
+            {
+              "durationSeconds": 10,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 10000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "10000",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 5,
+                  "eventualSuccesses": 5,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 1,
+                  "failures": 0,
+                  "settled": 1
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 5,
+                  "settled": 1,
+                  "successes": 1,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 28960.5587,
+                  "endOffsetMs": 38960.5587,
+                  "startOffsetMsExact": "28960.5587000000014086253941059112548828125",
+                  "endOffsetMsExact": "38960.5587000000014086253941059112548828125",
+                  "durationMs": 10000,
+                  "durationMsExact": "10000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 4,
+                  "eventualSuccesses": 4,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 1,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 6,
+                  "failures": 0,
+                  "settled": 6
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 13,
+                  "settled": 8,
+                  "successes": 8,
+                  "failures": 0,
+                  "outstandingClientCalls": 5
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 17,
+                  "settled": 14,
+                  "successes": 14,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 30,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 30000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "30000",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 9,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 9,
+                  "failures": 0,
+                  "settled": 9
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 13,
+                  "settled": 9,
+                  "successes": 9,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9088.559999999998,
+                  "endOffsetMs": 39088.56,
+                  "startOffsetMsExact": "9088.5599999999976716935634613037109375",
+                  "endOffsetMsExact": "39088.5599999999976716935634613037109375",
+                  "durationMs": 30000,
+                  "durationMsExact": "30000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 13,
+                  "eventualSuccesses": 13,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 10,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 14,
+                  "failures": 0,
+                  "settled": 14
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 4,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 17,
+                  "settled": 14,
+                  "successes": 14,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 60,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 2459.5872999999992,
+                  "endOffsetMs": 62459.5873,
+                  "startOffsetMsExact": "2459.587299999999231658875942230224609375",
+                  "endOffsetMsExact": "62459.587299999999231658875942230224609375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 26,
+                  "eventualSuccesses": 26,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 4
+                },
+                "completionsInWindow": {
+                  "successes": 23,
+                  "failures": 0,
+                  "settled": 23
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 1,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 1
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 27,
+                  "settled": 23,
+                  "successes": 23,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 9088.559999999998,
+                  "endOffsetMs": 69088.56,
+                  "startOffsetMsExact": "9088.5599999999976716935634613037109375",
+                  "endOffsetMsExact": "69088.5599999999976716935634613037109375",
+                  "durationMs": 60000,
+                  "durationMsExact": "60000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 25,
+                  "eventualSuccesses": 25,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 22,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 26,
+                  "failures": 0,
+                  "settled": 26
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 4,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 4
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 29,
+                  "settled": 26,
+                  "successes": 26,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              }
+            },
+            {
+              "durationSeconds": 120,
+              "dispatchCohortMaximum": {
+                "window": {
+                  "startOffsetMs": 0,
+                  "endOffsetMs": 120000,
+                  "startOffsetMsExact": "0",
+                  "endOffsetMsExact": "120000",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 50,
+                  "eventualSuccesses": 50,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 47,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 3
+                },
+                "completionsInWindow": {
+                  "successes": 47,
+                  "failures": 0,
+                  "settled": 47
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 0,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 50,
+                  "settled": 47,
+                  "successes": 47,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                }
+              },
+              "completionMaximum": {
+                "window": {
+                  "startOffsetMs": 7066.390400000011,
+                  "endOffsetMs": 127066.3904,
+                  "startOffsetMsExact": "7066.3904000000111409462988376617431640625",
+                  "endOffsetMsExact": "127066.3904000000111409462988376617431640625",
+                  "durationMs": 120000,
+                  "durationMsExact": "120000"
+                },
+                "dispatchCohort": {
+                  "dispatched": 47,
+                  "eventualSuccesses": 47,
+                  "eventualFailures": 0,
+                  "pendingAtEvidenceCutoff": 0,
+                  "successesBeforeWindowEnd": 47,
+                  "failuresBeforeWindowEnd": 0,
+                  "pendingImmediatelyBeforeWindowEnd": 0
+                },
+                "completionsInWindow": {
+                  "successes": 50,
+                  "failures": 0,
+                  "settled": 50
+                },
+                "clientStateBeforeWindowStart": {
+                  "dispatched": 3,
+                  "settled": 0,
+                  "successes": 0,
+                  "failures": 0,
+                  "outstandingClientCalls": 3
+                },
+                "clientStateBeforeWindowEnd": {
+                  "dispatched": 50,
+                  "settled": 50,
+                  "successes": 50,
+                  "failures": 0,
+                  "outstandingClientCalls": 0
+                }
+              }
+            },
+            {
+              "durationSeconds": 300,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 900,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            },
+            {
+              "durationSeconds": 3600,
+              "dispatchCohortMaximum": null,
+              "completionMaximum": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

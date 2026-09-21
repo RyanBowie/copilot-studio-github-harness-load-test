@@ -24,6 +24,7 @@ test("real CLI refuses fixtures, alternate inputs, invalid JSON and artifact con
   await mkdir(resolve(directory, "data"));
   await cp(resolve(root, "scripts/build.mjs"), resolve(directory, "scripts/build.mjs"));
   const input = resolve(directory, "data/report.json");
+  await writeFile(resolve(directory, "data/window-evidence.json"), "null\n");
   const invoke = (...args) => exec(process.execPath, [resolve(directory, "scripts/build.mjs"), ...args], { cwd: directory });
   await writeFile(input, JSON.stringify(fixture));
   await assert.rejects(invoke(), (error) => /Offline\/synthetic keys/.test(error.stderr));
@@ -32,7 +33,7 @@ test("real CLI refuses fixtures, alternate inputs, invalid JSON and artifact con
   await writeFile(input, JSON.stringify(empty));
   await assert.rejects(invoke("--input", "tests/fixtures/synthetic-report.json"), (error) => /Only --validate-only/.test(error.stderr));
   await invoke();
-  assert.deepEqual((await readdir(resolve(directory, "dist"))).sort(), [".nojekyll", "index.html", "report.json", "report.schema.json"]);
+  assert.deepEqual((await readdir(resolve(directory, "dist"))).sort(), [".nojekyll", "index.html", "report.json", "report.schema.json", "window-evidence.json", "window-evidence.schema.json"]);
   assert.deepEqual(JSON.parse(await readFile(resolve(directory, "dist/report.json"), "utf8")), empty);
   const stale = resolve(directory, "dist/do-not-publish.txt");
   await writeFile(stale, "unrelated artifact");

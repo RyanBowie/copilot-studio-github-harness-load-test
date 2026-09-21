@@ -73,6 +73,13 @@ function checkShape(value, rule, root, path, errors) {
   }
 }
 
+export function validateAggregateShape(value, schema, path = "aggregate") {
+  inspectSchema(schema);
+  const errors = [];
+  checkShape(value, schema, schema, path, errors);
+  return errors;
+}
+
 function checkPublicStrings(value, path, errors) {
   if (typeof value === "string") {
     const isDocumentationUrl = /^report\.documentedLimits\[\d+\]\.sourceUrl$/.test(path);
