@@ -20,14 +20,15 @@ export async function loadPublicReport() {
 
 export async function renderHtml(report, schema) {
   assertReport(report, schema);
-  const [template, validator, capacity, client] = await Promise.all([
-    read("src/index.html"), read("src/validate.mjs"), read("src/capacity.mjs"), read("src/report.js")
+  const [template, validator, capacity, charts, client] = await Promise.all([
+    read("src/index.html"), read("src/validate.mjs"), read("src/capacity.mjs"), read("src/charts.mjs"), read("src/report.js")
   ]);
   const replacements = {
     REPORT_JSON: inlineJson(report),
     SCHEMA_JSON: inlineJson(schema),
     VALIDATOR_JS: validator.replaceAll("export function ", "function "),
     CAPACITY_JS: capacity.replaceAll("export function ", "function "),
+    CHARTS_JS: charts.replaceAll("export function ", "function "),
     REPORT_JS: client
   };
   let html = template;

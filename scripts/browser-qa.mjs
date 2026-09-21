@@ -12,6 +12,7 @@ import { syntheticPacedReport } from "../tests/fixtures/synthetic-paced-report.m
 
 const require = createRequire(import.meta.url);
 const focused = process.argv.includes("--focused");
+const sectionIds = ["overview", "concurrency", "response-time", "throughput", "observations", "answers", "failures", "conversations", "methodology", "costs"];
 const axePath = require.resolve("axe-core/axe.min.js");
 const { html, report } = await build();
 const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
@@ -68,11 +69,11 @@ try {
         const expectedStatus = view === "empty" ? "NOT MEASURED" : "REVIEWED AGGREGATES";
         await page.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
         assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
-        const metrics = await page.locator(".metric-value").allTextContents();
+        const metrics = await page.locator("#overview-summary .metric-value").allTextContents();
         assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "21", "12", "9", "0", "50", "50", "0", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
         const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
         assert.equal(background, theme === "light" ? "rgb(242, 242, 248)" : "rgb(23, 23, 23)");
-        for (const id of ["overview", "response-time", "throughput", "observations", "methodology", "costs"]) {
+        for (const id of sectionIds) {
           await page.locator(`.section-nav a[href="#${id}"]`).click();
           await page.locator(`#${id}`).waitFor({ state: "visible" });
           assert.equal(await page.locator("main > section:visible").count(), 1);
@@ -83,6 +84,20 @@ try {
           assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
         }
         if (view === "report") {
+          assert.deepEqual(await page.locator("#benchmark-kpis .metric-value").allTextContents(), ["25/min", "49 / 50", "125 / 125", "8 minutes", "Not measured", "Pending"]);
+          assert.equal(await page.locator(".benchmark-chart svg").count(), 6);
+          assert.deepEqual(await page.locator("#failure-charts [data-series=generic]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [2, 0, 9, 67]);
+          assert.deepEqual(await page.locator("#failure-charts [data-series=transport]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), [0, 1, 0, 0]);
+          for (const id of ["overview-charts", "latency-charts", "concurrency-charts"]) {
+            assert.equal(await page.locator(`#${id} [data-chart-key]`).count(), 7);
+            assert.ok(await page.locator(`#${id} svg > desc`).textContent());
+          }
+          const peaks = await page.locator("#concurrency-charts [data-series=peak]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value)));
+          assert.deepEqual(peaks, [3, 5, 9, 5, 18, 5, 100]);
+          const replyMedians = await page.locator("#latency-charts [data-series=p50]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value)));
+          assert.deepEqual(replyMedians, [...report.runs.filter((run) => run.pacedMeasurement), ...report.runs.filter((run) => run.nativeInvocation)].map((run) => (run.pacedMeasurement ?? run.nativeInvocation).success.p50Ms / 1000));
+          assert.equal(await page.locator("#stages-content tbody tr").count(), 10);
+          assert.equal(await page.locator("#conversations-content tbody tr").count(), 10);
           assert.equal(await page.locator(".capacity-group").count(), 1);
           const capacity = await page.locator("#capacity-summary").textContent();
           assert.match(capacity, /25 intended requests\/min; 2 qualified calibration cohort/);
@@ -275,7 +290,11 @@ try {
   await page.locator("#theme-toggle").waitFor({ state: "visible" });
   assert.equal(await page.locator("html").getAttribute("data-theme"), "light", "invalid theme falls back to system");
   await page.emulateMedia({ media: "print" });
-  assert.equal(await page.locator("main > section:visible").count(), 6, "print includes every section");
+  await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+  assert.equal(await page.locator("main > section:visible").count(), sectionIds.length, "print includes every section");
+  assert.equal(await page.locator("details:not([open])").count(), 0, "print expands detailed evidence");
+  await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+  assert.equal(await page.locator("details[open]").count(), 0, "after print restores collapsed state");
   await page.emulateMedia({ media: "screen", forcedColors: "active", reducedMotion: "reduce" });
   assert.equal(await page.locator(".hero-gradient").evaluate((element) => getComputedStyle(element).backgroundImage), "none");
   await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
@@ -291,13 +310,38 @@ try {
   assert.equal(await page.locator(":focus").evaluate((element) => getComputedStyle(element).outlineWidth), "3px");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await page.locator("#response-time").waitFor({ state: "visible" });
+  await page.locator('.section-nav a[href="#observations"]').click();
+  await page.getByLabel("Search stage or model").fill("standalone-100");
+  assert.equal(await page.locator("#stages-content tbody tr").count(), 1);
+  assert.match(await page.locator("#stages-content tbody").textContent(), /12 \/ 21 \(57\.143%\).*Generic invocation-error safety threshold/);
+  await page.getByLabel("Search stage or model").fill("no-such-stage");
+  assert.match(await page.locator("#stages-content").textContent(), /No matching stages/);
+  assert.equal(await page.locator("#stages-content tbody tr").count(), 0);
+  await page.getByLabel("Search stage or model").fill("");
+  await page.getByLabel("Surface", { exact: true }).selectOption("published_microsoft365_copilot");
+  await page.getByLabel("Outcomes", { exact: true }).selectOption("failed");
+  assert.equal(await page.locator("#stages-content tbody tr").count(), 4);
+  await page.getByLabel("Sort stages").selectOption("failures");
+  assert.match(await page.locator("#stages-content tbody tr").first().textContent(), /m365-native-burst-100/);
+  await page.locator('.section-nav a[href="#throughput"]').click();
+  await page.getByLabel("Dispatch timeline / choose a cohort").selectOption("paced-standalone-100-stopped");
+  assert.equal(await page.locator(".timeline-chart [data-chart-key]").count(), 1);
+  assert.match(await page.locator(".timeline-chart").textContent(), /12\.613 s partial bucket/);
+  await page.getByLabel("Dispatch timeline / choose a cohort").selectOption("paced-spread-25-completed");
+  assert.equal(await page.locator(".timeline-chart [data-chart-key]").count(), 2);
+  assert.match(await page.locator("#timeline-content [role=status]").textContent(), /full window.*qualified.*0 unoffered \/ 0 skipped/);
+  await page.locator('.section-nav a[href="#overview"]').click();
+  await page.locator("#campaign-details > summary").focus();
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator("#campaign-details").getAttribute("open"), "");
   await page.goto(`${origin}/synthetic#overview`);
   await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "REVIEWED AGGREGATES");
   assert.match(await page.locator("#run-ledger").textContent(), /Published Teams/);
   assert.match(await page.locator("#run-ledger").textContent(), /Studio Preview/);
-  for (const id of ["overview", "response-time", "throughput", "observations", "costs"]) {
+  for (const id of sectionIds) {
     await page.locator(`.section-nav a[href="#${id}"]`).click();
     await page.locator(`#${id}`).waitFor({ state: "visible" });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
@@ -322,7 +366,7 @@ try {
   assert.match(await page.locator("#overview-summary").textContent(), /585 unoffered client slots/);
   assert.match(await page.locator("#overview-summary").textContent(), /9\.333 achieved client dispatches\/min/);
   assert.match(await page.locator("#overview-summary").textContent(), /WorkIQ MCP HTTP transport 429; GitHub Copilot Harness attribution unknown/);
-  for (const id of ["overview", "response-time", "throughput", "observations", "costs"]) {
+  for (const id of sectionIds) {
     await page.locator(`.section-nav a[href="#${id}"]`).click();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await page.addScriptTag({ path: axePath });
@@ -338,6 +382,8 @@ try {
   assert.equal(await page.locator("#publication-status").textContent(), "DATA REJECTED");
   assert.equal(await page.locator(".metric-value").count(), 0);
   assert.equal(await page.locator("#native-response-content").textContent(), "");
+  assert.equal(await page.locator(".benchmark-chart").count(), 0);
+  for (const id of ["benchmark-kpis", "overview-charts", "latency-charts", "concurrency-charts", "concurrency-content", "stages-content", "timeline-content", "answers-content", "conversations-content", "failure-charts"]) assert.equal(await page.locator(`#${id}`).textContent(), "");
   for (const id of ["capacity-summary", "reliability-content", "failure-summary"]) assert.equal(await page.locator(`#${id}`).textContent(), "");
   await context.close();
   const offline = await browser.newContext({ offline: true });
