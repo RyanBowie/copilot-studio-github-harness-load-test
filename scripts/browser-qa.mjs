@@ -13,6 +13,7 @@ import { syntheticMinuteRetest } from "../tests/fixtures/synthetic-minute-retest
 import { syntheticCountRetest } from "../tests/fixtures/synthetic-count-retest.mjs";
 import { syntheticCountBaseline } from "../tests/fixtures/synthetic-count-baseline.mjs";
 import { syntheticCapacityReport } from "../tests/fixtures/synthetic-capacity-report.mjs";
+import { syntheticContinuousRamp } from "../tests/fixtures/synthetic-continuous-ramp.mjs";
 
 const require = createRequire(import.meta.url);
 const focused = process.argv.includes("--focused");
@@ -60,6 +61,23 @@ const minutePages = new Map(await Promise.all(minuteCases.map(async ({ path, rep
 const capacityCases = ["two-hours", "one-hour", "no-candidate", "fallback", "hour-failure", "safety-stop"];
 const capacityPages = new Map(await Promise.all(capacityCases.map(async (scenario) => [`capacity-${scenario}`,
   (await renderHtml(syntheticCapacityReport(scenario), schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC CAPACITY FIXTURE - NOT OBSERVED RESULTS</aside>')])));
+const rampCases = [
+  ["ramp", {}], ["ramp-clean", { failed: 0 }], ["ramp-pending", { pending: 3 }],
+  ["ramp-stopped", { arrivalSeconds: 650, failed: 1, stopReason: "explicit_throttle" }],
+  ["ramp-disconnected", { arrivalSeconds: 2, failed: 1, disconnected: 1, stopReason: "safety" }],
+  ["ramp-partial", { arrivalSeconds: 615, failed: 0, pending: 2, stopReason: "observation_cutoff" }]
+].map(([path, options]) => ({ path, report: syntheticContinuousRamp(options) }));
+const unknownRamp = syntheticContinuousRamp();
+Object.assign(unknownRamp.runs[0].rampMeasurement, {
+  clockStatus: "unknown", evidenceStatus: "unknown", successfulWithinArrivalWindow: null, successfulAfterArrivalWindow: null,
+  peakOutstanding: null, concurrencyVerification: null
+});
+for (const segment of unknownRamp.runs[0].rampMeasurement.segments) segment.outstandingAtStart = segment.outstandingAtEnd = null;
+rampCases.push({ path: "ramp-unknown", report: unknownRamp });
+const rampPages = new Map(await Promise.all(rampCases.map(async ({ path, report }) => [path,
+  (await renderHtml(report, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC RAMP FIXTURE - NOT OBSERVED RESULTS</aside>')])));
+rampPages.set("ramp-mixed", (await renderHtml({ ...report, runs: [...report.runs, syntheticContinuousRamp().runs[0]] }, schema, evidence))
+  .replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE MIXED RAMP QA - SYNTHETIC ROW IS NOT AN OBSERVATION</aside>'));
 const rejectedHtml = html.replace('"schemaVersion":1', '"schemaVersion":999');
 const rejectedWindowHtml = html.replace('"newAgentCalls":0', '"newAgentCalls":1');
 const server = createServer((request, response) => {
@@ -71,7 +89,7 @@ const server = createServer((request, response) => {
     response.end(JSON.stringify(json));
     return;
   }
-  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/paced" ? pacedHtml : path === "/rejected" ? rejectedHtml : path === "/rejected-window" ? rejectedWindowHtml : minutePages.get(path.slice(1)) ?? capacityPages.get(path.slice(1)) ?? null;
+  const content = path === "/" ? html : path === "/empty" ? emptyHtml : path === "/synthetic" ? syntheticHtml : path === "/paced" ? pacedHtml : path === "/rejected" ? rejectedHtml : path === "/rejected-window" ? rejectedWindowHtml : minutePages.get(path.slice(1)) ?? capacityPages.get(path.slice(1)) ?? rampPages.get(path.slice(1)) ?? null;
   if (content === null) { response.writeHead(404); response.end(); return; }
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(content);
@@ -194,7 +212,7 @@ try {
           assert.match(capacity, /25 intended requests\/min; 2 qualified calibration cohort/);
           assert.match(capacity, /8 minutes \/ 200 \/ 200 \(100%\) eventual replies/);
           assert.match(capacity, /Longest completed paced trial5\.051 minutes/);
-          assert.match(capacity, /Full hourly arrival trialNOT ESTABLISHED/);
+          assert.match(capacity, /Full fixed-rate hourly arrival trialNOT ESTABLISHED/);
           assert.match(capacity, /not arbitrary rolling maxima/);
           const capacityRows = await page.locator("#capacity-summary tbody tr").evaluateAll((rows) =>
             rows.map((row) => [row.cells[0].textContent, ...[1, 2].map((index) => row.cells[index].querySelector("strong")?.textContent ?? row.cells[index].textContent)]));
@@ -619,6 +637,73 @@ try {
     }
     assert.doesNotMatch(await page.locator("main").textContent(), /NaN|Infinity/);
   }
+  const rampErrors = [];
+  const captureRampError = (error) => rampErrors.push(error.message);
+  page.on("pageerror", captureRampError);
+  for (const { path, report: rampReport } of rampCases) {
+    const run = rampReport.runs[0], ramp = run.rampMeasurement;
+    await page.goto(`${origin}/${path}#overview`);
+    await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "REVIEWED AGGREGATES");
+    assert.equal(await page.locator("#data-error").isVisible(), false);
+    assert.equal(await page.locator("#overview-charts [data-load-shape=ramp]").count(), 1);
+    assert.equal(await page.locator("#overview-charts [data-load-shape=burst], .paced-summary").count(), 0);
+    const card = page.locator("#overview-charts [data-ramp-run]");
+    assert.equal(await card.locator("h3").textContent(), `${run.counts.completed.toLocaleString("en")} greetings / ${run.counts.attempted.toLocaleString("en")} ramp attempts`);
+    assert.match(await card.textContent(), /No rate is validated by this ramp/);
+    assert.match(await card.textContent(), /not attempts, failures, pending traffic or permission to resume/);
+    assert.equal(await page.locator("#benchmark-kpis .metric-value, [data-capacity-study]").count(), 0);
+    assert.equal(await page.locator("#native-response-content tbody tr").count(), 3);
+    assert.match(await page.locator("#reliability-content").textContent(), /25-50 nominal RPM ramp/);
+    assert.match(await page.locator("#stages-content").textContent(), /Continuous 25-50 nominal RPM ramp/);
+    assert.equal(await page.locator("[data-ramp-segments] tbody tr").count(), ramp.segments.length);
+    assert.equal(await page.locator("[data-ramp-segments] [data-chart-key]").count(), ramp.segments.length);
+    assert.deepEqual(await page.locator("[data-ramp-segments] [data-series=completed]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), ramp.segments.map((segment) => segment.counts.completed));
+    assert.match(await page.locator("#costs-content").textContent(), /PENDING/);
+    assert.doesNotMatch(await page.locator("main").textContent(), /NaN|Infinity/);
+    if (path === "ramp-disconnected") {
+      assert.equal(await page.locator("#latency-charts rect").count(), 0);
+      assert.match(await page.locator("#conversations-content").textContent(), /0 \/ distinct/);
+      assert.equal(await page.locator("#failure-charts [data-series=disconnected]").getAttribute("data-value"), "1");
+    }
+    if (path === "ramp-unknown") {
+      assert.equal(await page.locator("#concurrency-charts rect").count(), 0);
+      assert.match(await card.textContent(), /Clock: Unknown; evidence: Unknown/);
+      assert.match(await card.textContent(), /not separately measured/);
+    }
+    for (const id of ["overview", "throughput", "response-time", "failures"]) {
+      await page.locator(`.section-nav a[href="#${id}"]`).click();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+      await page.addScriptTag({ path: axePath });
+      assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
+    }
+  }
+  for (const width of [320, 390, 1440]) for (const theme of ["light", "dark"]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`${origin}/ramp-mixed?scoutTheme=${theme}#overview`);
+    assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
+    assert.equal(await page.locator("#data-error").isVisible(), false);
+    assert.equal(await page.locator(".ramp-summary").count(), 1);
+    assert.equal(await page.locator(".paced-summary").count(), 10);
+    assert.equal(await page.locator(".burst-summary").count(), 1);
+    assert.equal(await page.locator("#run-ledger .card").count(), 15);
+    assert.match(await page.locator("#benchmark-kpis").textContent(), /Excludes.*offline-continuous-ramp/);
+    assert.equal(await page.getByLabel("Window cohort", { exact: true }).locator("option").count(), 8);
+    for (const id of sectionIds) {
+      await page.locator(`.section-nav a[href="#${id}"]`).click();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+      await page.addScriptTag({ path: axePath });
+      assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
+    }
+    await page.locator('.section-nav a[href="#throughput"]').click();
+    await page.locator("[data-ramp-segments]").screenshot({ path: resolve(artifacts, `synthetic-ramp-segments-${width}-${theme}.png`) });
+    snapshots++;
+    await page.locator('.section-nav a[href="#overview"]').click();
+    await page.locator("#overview-charts [data-ramp-run]").screenshot({ path: resolve(artifacts, `synthetic-ramp-summary-${width}-${theme}.png`) });
+    snapshots++;
+  }
+  assert.deepEqual(rampErrors, [], "no ramp browser exceptions");
+  page.off("pageerror", captureRampError);
+  await page.setViewportSize({ width: 390, height: 900 });
   for (const scenario of capacityCases) {
     await page.goto(`${origin}/capacity-${scenario}#overview`);
     await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "REVIEWED AGGREGATES");
@@ -661,7 +746,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, ten sections, eight charts, fourteen actual records with prior thirteen preserved, actual125 denominator/duration/first-disconnect/completion boundaries, strict screen/two-hour and baseline synthetic states, four downloads, axe, keyboard, print, forced colors/reduced motion, dark default/explicit theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, ten sections, eight published charts, fourteen actual records preserved, actual125 denominator/duration/first-disconnect/completion boundaries, strict screen/two-hour/baseline synthetic states, continuous-ramp full/partial/stopped/pending/unknown and six-theme/viewport mixed-record checks, four downloads, axe, keyboard, print, forced colors/reduced motion, dark default/explicit theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));

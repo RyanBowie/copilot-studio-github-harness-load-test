@@ -36,7 +36,7 @@ const node = (tag, text, className) => {
   return element;
 };
 const paragraph = (text, className) => node("p", text, className);
-const nativeMeasurement = (run) => run.pacedMeasurement ?? run.nativeInvocation;
+const nativeMeasurement = (run) => run.rampMeasurement ?? run.pacedMeasurement ?? run.nativeInvocation;
 const nativeFirst = (runs) => orderRunsByRate(runs);
 const scopedContext = (report, run) => report.studyContext?.runKeys.includes(run.runKey) ? report.studyContext : null;
 const seconds = (milliseconds) => `${(milliseconds / 1000).toFixed(3)} s`;
@@ -234,18 +234,27 @@ function renderCharts(runs) {
         key: row.runKey, label: cohortName(row), values: row.percentages,
         summary: `${row.counts.completed} successful / ${row.counts.attempted} attempts; ${row.counts.failed} failed; ${row.counts.pending} pending`,
         summaryLines: [`${row.counts.completed} / ${row.counts.attempted} replies`, row.percentages[0] === null ? "No attempt ratio" : `${number(row.percentages[0])}% success`],
-        detail: `${row.counts.failed} failed; ${row.counts.pending} pending. ${byKey.get(row.runKey).pacedMeasurement ? `${number(byKey.get(row.runKey).pacedMeasurement.arrivalSeconds)} s arrivals + drain` : "Burst; not a paced minute"}.`
+        detail: `${row.counts.failed} failed; ${row.counts.pending} pending. ${row.loadShape === "ramp" ? "Continuous variable-rate run" : byKey.get(row.runKey).pacedMeasurement ? `${number(byKey.get(row.runKey).pacedMeasurement.arrivalSeconds)} s arrivals + drain` : "Burst; not a paced minute"}.`
       }))
     });
     const overview = byId("overview-charts");
     overview.replaceChildren();
+    const ramps = ordered.filter((run) => run.rampMeasurement);
+    if (ramps.length) overview.append(rampSummaryCard(ramps.at(-1)));
     const latestBaseline = ordered.filter(isCountBaseline).sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
     if (latestBaseline) overview.append(boundedCohortCard(latestBaseline));
     for (const study of summarizeCapacityStudies(runs)) overview.append(capacityStudyCard(study));
     const latestRetest = ordered.filter(isRetest).at(-1);
     if (latestRetest) overview.append(boundedCohortCard(latestRetest));
     const paced = rows.filter((row) => row.targetRpm !== null);
-    const bursts = rows.filter((row) => row.targetRpm === null);
+    const bursts = rows.filter((row) => row.loadShape === "burst");
+    const rampRows = rows.filter((row) => row.loadShape === "ramp");
+    if (rampRows.length) {
+      const chart = outcomeChart(rampRows, "Continuous ramps / variable sending rates",
+        "Each bar is one run across changing nominal rates, including final drain. It is not a burst, six independent trials, a fixed-rate hour or a capacity qualification.");
+      chart.dataset.loadShape = "ramp";
+      overview.append(chart);
+    }
     if (paced.length) {
       const chart = outcomeChart(paced, "Paced load / success by intended sending rate",
         "Rows increase from lower to higher requests/minute; equal-rate cohorts retain chronological order. Bar width is eventual successful replies divided by actual attempts, including drain, not the sending rate or a capacity guarantee. Different durations and campaigns remain separate.");
@@ -273,7 +282,7 @@ function renderCharts(runs) {
     }
     byId("latency-charts").replaceChildren(barChart({
       title: "Successful reply duration / median and tail",
-      description: "Native invocation completion, measured separately for successful replies in each cohort. Paced rows increase by intended rate; the burst is last and is not an RPM trial. No pooled percentiles, failure durations, backend TTFA or invented distribution.",
+      description: "Native invocation completion, measured separately for successful replies in each run. Fixed-rate rows increase by intended rate, followed by any variable-rate ramps; the burst is last. No pooled percentiles, failure durations, backend TTFA or invented distribution.",
       unit: " s", series: [
         { key: "p50", label: "p50 / median", className: "series-primary" },
         { key: "p95", label: "p95 / tail", className: "series-secondary" }
@@ -287,7 +296,7 @@ function renderCharts(runs) {
     }));
     byId("concurrency-charts").replaceChildren(barChart({
       title: "Observed peak outstanding client calls",
-      description: "Client calls whose measured lifetimes overlapped, ordered by intended paced rate with the burst last. This is not a worker setting, agent admission count or simultaneous backend/model execution. The 25/min follow-up still had a configured client cap of 100, not five.",
+      description: "Client calls whose measured lifetimes overlapped: fixed-rate cohorts, any separate ramps, then burst. This is not a worker setting, agent admission count or simultaneous backend/model execution. The 25/min follow-up still had a configured client cap of 100, not five.",
       series: [{ key: "peak", label: "Observed client peak", className: "series-primary" }],
       rows: rows.map((row) => ({
         key: row.runKey, label: cohortName(row), values: [row.peakOutstanding],
@@ -386,7 +395,7 @@ function renderStages(runs) {
     table(results, "Reviewed stage explorer", ["Stage / surface", "Load shape", "Actual arrival or observation", "Success / attempts", "Failed / pending", "Result"],
       selection.map((run) => [
         `${run.runKey} / ${label(run.surface)}`,
-        run.pacedMeasurement ? `${number(run.pacedMeasurement.targetRpm)} intended/min` : run.nativeInvocation ? `${run.counts.attempted}-request burst; not RPM` : "Single visible turn",
+        run.rampMeasurement ? "Continuous 25-50 nominal RPM ramp" : run.pacedMeasurement ? `${number(run.pacedMeasurement.targetRpm)} intended/min` : run.nativeInvocation ? `${run.counts.attempted}-request burst; not RPM` : "Single visible turn",
         run.pacedMeasurement ? `${number(run.pacedMeasurement.arrivalSeconds)} s arrivals + ${postCloseSummary(run)}` : run.windowSeconds === null ? "Not measured" : `${number(run.windowSeconds)} s observation`,
         outcomeRatio(run.counts), `${run.counts.failed} / ${run.counts.pending}`,
         nativeMeasurement(run) ? loadStatus(run) : "Visible requested-operation outcome; not a load calibration."
@@ -437,7 +446,7 @@ function renderCapacity(report, evidence = null) {
   byId("benchmark-kpis").replaceChildren();
   const groups = summarizeCapacity(report.runs);
   if (!groups.length) {
-    empty("capacity-summary", "No paced capacity windows measured.", "Individual turns or a simultaneous burst cannot establish a successful per-minute, hourly or daily rate.");
+    empty("capacity-summary", "No fixed-rate capacity windows measured.", "Individual turns, a simultaneous burst or a variable-rate ramp cannot qualify a fixed-rate hourly capacity claim.");
     return;
   }
   for (const group of groups) {
@@ -452,7 +461,7 @@ function renderCapacity(report, evidence = null) {
       ["Best dispatch minute", bestMinute ? `${bestMinute.counts.completed} / ${bestMinute.counts.attempted}` : "Not measured", "Eventual replies from a complete 60-second dispatch bucket."],
       ["Best five minutes", bestFive ? `${bestFive.counts.completed} / ${bestFive.counts.attempted}` : "Not measured", "Eventual replies; not necessarily completed inside five minutes."],
       ["Longest clean segment", longestClean ? windowLabel(longestClean.windowSeconds) : "Not measured", longestClean ? `${longestClean.counts.completed}/${longestClean.counts.attempted} eventual replies. A segment, not a separate endurance test.` : "No eligible error-free segment."],
-      ["Full hourly trial", fullHour ? "Completed" : "Not measured", "No projection of shorter trials into an hour."],
+      ["Full fixed-rate hourly trial", fullHour ? "Completed" : "Not measured", "No projection of shorter trials or variable-rate ramps into fixed-rate capacity."],
       ["Cost per success", group.runs.every((run) => run.cost.status === "pending") ? "Pending" : "Not derived", "Unsettled or shared evidence is not zero cost."]
     ]) {
       const card = node("article", undefined, "card");
@@ -467,7 +476,7 @@ function renderCapacity(report, evidence = null) {
       ["Highest qualified calibration", highestQualifiedRpm === null ? "NOT ESTABLISHED" : `${number(highestQualifiedRpm)} intended requests/min; ${highestQualifiedRuns.length} qualified calibration cohort(s), each ${windowLabel(highestQualifiedRuns[0].pacedMeasurement.arrivalSeconds)}. Not a sustained safe rate or service ceiling.`],
       ["Longest clean dispatch segment", longestClean ? `${windowLabel(longestClean.windowSeconds)} / ${outcomeRatio(longestClean.counts)} eventual replies. ${sourceWindow(longestClean)}. A segment, not a separately completed endurance test.` : "NOT ESTABLISHED"],
       ["Longest completed paced trial", longestCompleted ? `${windowLabel(longestCompleted.pacedMeasurement.arrivalSeconds)} of arrivals plus drain (${longestCompleted.runKey}). Complete does not mean error-free.` : "NOT ESTABLISHED"],
-      ["Full hourly arrival trial", group.runs.some((run) => isHourly(run) && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete")
+      ["Full fixed-rate hourly arrival trial", group.runs.some((run) => isHourly(run) && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete")
         ? "Completed; inspect its counts, skipped slots and qualification separately below." : "NOT ESTABLISHED; do not extrapolate shorter trials into an hourly result."]
     ]));
     section.append(barChart({
@@ -502,7 +511,7 @@ function renderCapacity(report, evidence = null) {
   const fullHour = groups.some((group) => group.runs.some((run) => isHourly(run)
     && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete"));
   gaps.append(node("h3", "Still not established"),
-    paragraph(`${evidence ? "Exact burst completion-window maxima; " : "Exact rolling-window and completion-window maxima; "}${fullHour ? "daily capacity" : "a completed hourly/daily endurance result"}; failure recovery/reset; quota scope; backend concurrency; representative knowledge/workflow throughput. See Costs for separately reviewed billing evidence; no unit cost is derived here.`),
+    paragraph(`${evidence ? "Exact burst completion-window maxima; " : "Exact rolling-window and completion-window maxima; "}${fullHour ? "daily capacity" : "a completed fixed-rate hourly/daily endurance result"}; failure recovery/reset; quota scope; backend concurrency; representative knowledge/workflow throughput. Variable-rate ramps remain separate. See Costs for separately reviewed billing evidence; no unit cost is derived here.`),
     paragraph("The same rate can pass a short calibration and later encounter a transport stop. Repeated small clean samples do not establish a 99% service guarantee. Check the rate, duration, stop reason and failure layer together."));
   target.append(gaps);
 }
@@ -552,7 +561,7 @@ function renderReviewedWindows(report, evidence) {
       ["Peak 60 s dispatch", minute.dispatch ? `${minute.dispatch.successes} / ${minute.dispatch.snapshot.dispatchCohort.dispatched}` : "Not measured", "Eventual successes of a selected dispatch cohort; errors stay in the denominator."],
       ["Peak 60 s completions", minute.completion ? number(minute.completion.successes) : "Not measured", "Replies completed inside a separately selected 60-second window."],
       ["Peak 5 min completions", five.completion ? number(five.completion.successes) : "Not measured", "Finite-window peak, not sustained hourly capacity."],
-      ["Full hourly trial", group.runs.some((run) => isHourly(run) && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete") ? "Completed" : "Not measured", "No hourly/daily extrapolation."],
+      ["Full fixed-rate hourly trial", group.runs.some((run) => isHourly(run) && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete") ? "Completed" : "Not measured", "No hourly/daily extrapolation; variable-rate ramps are separate."],
       ["Cost per success", group.runs.every((run) => run.cost.status === "pending") ? "Pending" : "Not derived", "Client outcomes do not settle remote work, retries or billing."]
     ]) {
       const card = node("article", undefined, "card");
@@ -640,7 +649,58 @@ function renderErrorTimeline(evidence, report) {
   target.append(stops, paragraph("The dispatch-close assignment was not separately timestamped; synchronous callback order supplies inclusive bounds. Post-trigger outcomes may arrive before the observed arrival end or during the separately measured drain. Final failures include calls already in flight. Zero client pending is not proof that remote work, retries, admission or cost have settled.", "fine"));
 }
 
+function rampSummaryCard(run) {
+  const ramp = run.rampMeasurement;
+  const card = node("article", undefined, "note block");
+  card.dataset.rampRun = run.runKey;
+  card.append(paragraph("REVIEWED CONTINUOUS RAMP / ONE VARIABLE-RATE RUN", "eyebrow"),
+    node("h3", `${number(run.counts.completed)} greetings / ${number(run.counts.attempted)} ramp attempts`),
+    paragraph(`${number(run.counts.failed)} failed / ${number(run.counts.pending)} pending at the final cutoff. ${outcomeRatio(run.counts)} eventual greeting success. Ordinary invocation failures remain in the denominator and do not automatically end this protocol.`),
+    paragraph(`Plan: 25 / 30 / 35 / 40 / 45 / 50 nominal RPM, ten minutes each, one fixed 3,600-second arrival horizon. Recorded coverage: ${number(ramp.arrivalSeconds)} s; arrival status: ${label(ramp.arrivalStatus)}. Actual end marker: ${number(ramp.arrivalEndObservedSeconds)} s; final post-close observation: ${number(ramp.drainSeconds)} s (${label(ramp.drainStatus)}).`),
+    paragraph(`Pacing rebases from the prior actual dispatch using the currently active rate. No intermediate drain, quiet interval, warm-up, backlog replay or runner retries. Existing calls may cross rate boundaries. ${number(ramp.unusedRequestBudget)} unused requests of the 2,250 ceiling are not attempts, failures, pending traffic or permission to resume.`),
+    paragraph(ramp.successfulWithinArrivalWindow === null
+      ? "Successful returns inside versus after the fixed arrival window were not separately measured; eventual outcomes cannot supply hourly completion counts."
+      : `${number(ramp.successfulWithinArrivalWindow)} successful returns inside the arrival window; ${number(ramp.successfulAfterArrivalWindow)} afterward. These completion-time counts are not outcomes grouped by dispatch segment.`),
+    paragraph(`Clock: ${label(ramp.clockStatus)}; evidence: ${label(ramp.evidenceStatus)}. ${ramp.stopReason ? `Stop: ${label(ramp.stopReason)}.` : "No arrival stop recorded."} Client peak: ${ramp.peakOutstanding === null ? "not measured" : number(ramp.peakOutstanding)}; remote admission and backend/model concurrency remain unknown. Costs: ${run.cost.status}.`, "fine"),
+    paragraph("Even a full variable-rate hour is not a fixed-rate validation hour, zero-error qualification, sustainable maximum or platform-wide capacity. No rate is validated by this ramp."));
+  return card;
+}
+
+function renderRampSegments(run, target) {
+  const ramp = run.rampMeasurement;
+  const article = node("article", undefined, "stack");
+  article.dataset.rampSegments = run.runKey;
+  article.append(node("h3", `${run.runKey} / continuous rate segments`),
+    paragraph("These are contiguous dispatch segments of one run, not independent cohorts. Counts are eventual outcomes at the final cutoff of calls started in each segment, not replies completed during that segment. A partial last segment is not normalized or extrapolated. Unobserved later segments have no result rows.", "fine"),
+    barChart({
+      title: "Ramp dispatch segments / eventual outcomes",
+      description: "Changing nominal rates within one continuous arrival horizon. Bar lengths show actual counts, not rate ceilings or completion throughput. Outstanding calls can carry across segment boundaries.",
+      stacked: true, series: outcomeSeries,
+      rows: ramp.segments.map((segment) => ({
+        key: `${run.runKey}-${segment.offsetSeconds}`,
+        label: `${number(segment.targetRpm)}/min target`,
+        values: [segment.counts.completed, segment.counts.failed, segment.counts.pending],
+        summary: `${segment.counts.completed} successful / ${segment.counts.attempted} dispatched; ${segment.counts.failed} failed; ${segment.counts.pending} pending`,
+        summaryLines: [`${segment.counts.completed} / ${segment.counts.attempted} replies`],
+        detail: `${number(segment.offsetSeconds)}-${number(segment.offsetSeconds + segment.durationSeconds)} s; ${segment.durationSeconds === 600 ? "full segment" : "partial segment"}`
+      }))
+    }));
+  const container = node("div");
+  table(container, `${run.runKey} / dispatch segment evidence`,
+    ["Offsets / coverage (s)", "Nominal RPM / ten-minute allocation", "Actual attempts", "Successful / failed / pending", "Client outstanding at start / end"],
+    ramp.segments.map((segment) => [
+      `${number(segment.offsetSeconds)}-${number(segment.offsetSeconds + segment.durationSeconds)} / ${number(segment.durationSeconds)} s`,
+      `${number(segment.targetRpm)} / ${number(segment.nominalRequests)}`,
+      number(segment.counts.attempted),
+      ["completed", "failed", "pending"].map((key) => number(segment.counts[key])).join(" / "),
+      `${segment.outstandingAtStart ?? "Unknown"} / ${segment.outstandingAtEnd ?? "Unknown"}`
+    ]));
+  article.append(container);
+  target.append(article);
+}
+
 function loadStatus(run) {
+  if (run.rampMeasurement) return `Variable-rate arrival ${label(run.rampMeasurement.arrivalStatus)}; final drain ${label(run.rampMeasurement.drainStatus)}${run.rampMeasurement.stopReason ? `; ${label(run.rampMeasurement.stopReason)}` : ""}. No fixed-rate qualification.`;
   const paced = run.pacedMeasurement;
   if (!paced) return "Finished burst; not a sustained arrival rate.";
   if (paced.stopReason) return `Arrival ${label(paced.arrivalStatus)}: ${pacedStopLabel(run)}; drain ${label(paced.drainStatus)}.`;
@@ -659,8 +719,8 @@ function renderReliability(runs) {
     native.map((run) => {
       const measurement = nativeMeasurement(run);
       return [
-        `${run.runKey} / ${run.pacedMeasurement ? `${number(measurement.targetRpm)} intended RPM; ${measurement.campaignKey}` : `${number(run.counts.attempted)}-request burst`}`,
-        run.pacedMeasurement ? `${number(measurement.arrivalSeconds)} s arrivals + ${postCloseSummary(run)}` : `${number(run.windowSeconds)} s batch, not an arrival-rate trial`,
+        `${run.runKey} / ${run.rampMeasurement ? `25-50 nominal RPM ramp; ${measurement.campaignKey}` : run.pacedMeasurement ? `${number(measurement.targetRpm)} intended RPM; ${measurement.campaignKey}` : `${number(run.counts.attempted)}-request burst`}`,
+        run.rampMeasurement ? `${number(measurement.arrivalSeconds)} s variable-rate arrivals + ${number(measurement.drainSeconds)} s final post-close observation` : run.pacedMeasurement ? `${number(measurement.arrivalSeconds)} s arrivals + ${postCloseSummary(run)}` : `${number(run.windowSeconds)} s batch, not an arrival-rate trial`,
         outcomeRatio(run.counts), `${number(run.counts.failed)} / ${number(run.counts.pending)}`,
         measurement.success ? seconds(measurement.success.p95Ms) : "No successful samples",
         measurement.peakOutstanding === null ? "Not measured" : `${number(measurement.peakOutstanding)} outstanding client calls`,
@@ -704,7 +764,9 @@ function renderFailureSummary(runs) {
     ["Cohort", "Failed invocations / evidence", "First affected dispatch bucket", "Observed arrival end / terminal status", "Attribution and recovery"],
     failures.map((run) => {
       const paced = run.pacedMeasurement;
-      const first = paced?.minutes.find((minute) => minute.failed > 0);
+      const ramp = run.rampMeasurement;
+      const first = paced?.minutes.find((minute) => minute.failed > 0)
+        ?? ramp?.segments.map((segment) => ({ ...segment, ...segment.counts })).find((segment) => segment.failed > 0);
       const transport = run.errors.some((error) => error.evidence === "workiq_mcp_transport_429");
       const disconnected = run.errors.some((error) => error.evidence === "native_disconnected_no_conversation");
       const generic = run.errors.every((error) => error.evidence === "unclassified_invocation_failure");
@@ -712,7 +774,7 @@ function renderFailureSummary(runs) {
         run.runKey,
         run.errors.map((error) => `${number(error.count)} ${label(error.evidence)}`).join("; "),
         first ? `${number(first.offsetSeconds)}-${number(first.offsetSeconds + first.durationSeconds)} s: ${number(first.failed)} eventual failure${first.failed === 1 ? "" : "s"} among ${number(first.attempted)} dispatches. Not the time the first error returned.` : "Not bucketed; exact first-error return time not available.",
-        paced ? (paced.stopReason ? `${number(paced.arrivalEndObservedSeconds)} s observed arrival end / ${pacedStopLabel(run)}. Final error count includes calls already in flight, not the guard's trigger count.`
+        ramp ? loadStatus(run) : paced ? (paced.stopReason ? `${number(paced.arrivalEndObservedSeconds)} s observed arrival end / ${pacedStopLabel(run)}. Final error count includes calls already in flight, not the guard's trigger count.`
           : `${isCountBound(run) ? "Count-bound" : "Full"} ${number(paced.arrivalSeconds)} s arrival window; ${label(paced.qualification)}. No arrival stop.`)
           : `${number(run.windowSeconds)} s batch observation; not a measured failure-onset time.`,
         transport ? "WorkIQ MCP HTTP transport 429 observed. Harness attribution, quota key/window/reset and backend reach unknown; no retry interval exposed. Recovery not measured."
@@ -804,6 +866,14 @@ function renderOverview(report) {
     if (isCapacityCohort(run)) feature.append(paragraph(`Zero-error protocol only, not the historical 99% rule. Clock: ${label(paced.capacityEvidence.clockStatus)}; evidence: ${label(paced.capacityEvidence.evidenceStatus)}. Qualification of this one cohort is not validation of the complete two-hour study.`, "fine"));
     overview.append(feature);
   }
+  for (const run of report.runs.filter((item) => item.rampMeasurement)) {
+    const feature = node("article", undefined, "note boundary ramp-summary");
+    feature.dataset.runKey = run.runKey;
+    feature.append(node("h3", `${run.runKey} / one continuous variable-rate run`),
+      outcomeCards([run], true, "This continuous ramp only"),
+      paragraph(`${number(run.rampMeasurement.arrivalSeconds)} s recorded arrival coverage; ${loadStatus(run)} Separate campaign ${run.rampMeasurement.campaignKey}. Segment details retain carry-over and actual dispatch denominators.`));
+    overview.append(feature);
+  }
   for (const run of report.runs.filter((item) => item.nativeInvocation)) {
     const invocation = run.nativeInvocation;
     const feature = node("article", undefined, "note boundary burst-summary");
@@ -872,6 +942,7 @@ function renderResponses(runs) {
         .map(([name, timing]) => [name, timing ? number(timing.sampleCount) : "No samples", ...["minMs", "p50Ms", "p95Ms", "maxMs"].map((field) => timing?.[field] == null ? "Not reported" : seconds(timing[field]))]));
     article.append(tableContainer, paragraph(`Percentiles: ${words(invocation.percentileMethod)} within each population, never averaged or pooled with Teams timing. Display rounded to milliseconds; reviewed raw milliseconds remain in the public JSON.`, "fine"));
     if (run.pacedMeasurement) article.append(paragraph(`${pacedPhase(invocation)} only, using calibrated native RPC completion timing. Do not pool this cohort's percentiles with calibration stages, another hourly cohort or the earlier burst. Arrival window excludes the separately recorded drain.`, "fine"));
+    else if (run.rampMeasurement) article.append(paragraph("One continuous variable-rate run, not six independent latency populations. Whole-run percentiles cannot be reconstructed by averaging segment percentiles. No pooled comparison with fixed-rate cohorts; final pending calls have no settled duration.", "fine"));
     else {
       const calibration = invocation.calibration;
       article.append(paragraph(`Completion timing was independently calibrated: ${number(calibration.shortRequestedMs)} ms and ${number(calibration.longRequestedMs)} ms local native RPC operations returned in ${seconds(calibration.shortObservedMs)} and ${seconds(calibration.longObservedMs)}. Ordinary CLI event/hook timestamps were coalesced and excluded; calibration demonstrates distinct completion measurements, not backend timing or eliminated client overhead.`, "fine"));
@@ -904,11 +975,13 @@ function renderThroughput(report) {
   else table("throughput-content", "Observed windows, not platform capacity", ["Run / surface", "Observation window / outcomes", "Launch or arrival observation", "Maximum outstanding"],
     nativeFirst(report.runs).map((run) => [
       `${run.runKey} / ${label(run.surface)}`,
+      run.rampMeasurement ? `${number(run.rampMeasurement.arrivalSeconds)} s variable-rate coverage; observed end offset ${number(run.rampMeasurement.arrivalEndObservedSeconds)} s + ${number(run.rampMeasurement.drainSeconds)} s final post-close observation; ${loadStatus(run)}` :
       run.pacedMeasurement ? `${pacedPhase(run.pacedMeasurement)}: ${number(run.pacedMeasurement.arrivalSeconds)} s offer window; observed end offset ${number(run.pacedMeasurement.arrivalEndObservedSeconds)} s + ${postCloseSummary(run)}; ${label(run.pacedMeasurement.arrivalStatus)} / ${label(run.pacedMeasurement.drainStatus)}` :
       run.nativeInvocation ? `${number(run.counts.completed)} replies / ${number(run.counts.attempted)} invocation outcomes in ${number(run.windowSeconds)} s; not a sustained capacity result` :
       run.windowSeconds === null ? "Not measured" : run.counts.attempted === 1
         ? `${number(run.windowSeconds)} s; one sent message, not a throughput trial`
         : `${number(run.counts.completed / run.windowSeconds * 60)} completed/min over ${number(run.windowSeconds)} s`,
+      run.rampMeasurement ? "25 / 30 / 35 / 40 / 45 / 50 nominal RPM; actual segment counts below. No single sustained-rate claim." :
       run.pacedMeasurement ? `${number(run.pacedMeasurement.targetRpm)} intended RPM / ${observedPacedRpm(run) === null ? "observed rate not measured; no partial-minute normalization" : `${achievedRpm(run)} achieved client dispatches/min`}; no network/server arrival claim` :
       run.nativeInvocation ? `${run.nativeInvocation.dispatchWindowMs} ms client RPC launch spread only; network/server arrival spread unmeasured` :
       run.arrival === null ? "Not measured" : `${number(run.arrival.attempts / run.arrival.windowSeconds * 60)} attempts/min (${number(run.arrival.attempts)} over ${number(run.arrival.windowSeconds)} s)`,
@@ -927,6 +1000,7 @@ function renderThroughput(report) {
     section.append(container);
     byId("throughput-content").append(section);
   }
+  for (const run of report.runs.filter((item) => item.rampMeasurement)) renderRampSegments(run, byId("throughput-content"));
   if (!report.documentedLimits.length) {
     const note = node("article", undefined, "note");
     note.append(node("h3", "No numerical entries in this dataset"), paragraph("This does not mean unlimited capacity. Separately cited documentation below is not an observed capacity result."));

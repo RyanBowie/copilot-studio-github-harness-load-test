@@ -456,6 +456,30 @@ Like the 100-request count retest, `genericErrorPolicy: count_without_early_stop
 
 The baseline uses its own single-cohort campaign, always `qualification: not_evaluated` and a null qualifying reference. Even 125/125 **cannot qualify the zero-error study's hours**, resume its consumed gate, authorize a 7125-call campaign, or establish a capacity ceiling. Historical 100-request and zero-error phases retain their own exact plans and guard semantics. Optional legacy `pacedCampaigns` context is not reused: no invented Monitor snapshot is required. Separate connectivity checks are not added to the load counts. Synthetic examples remain confined to `tests/fixtures/synthetic-count-baseline.mjs`, with publication-rejected `offline-*` keys.
 
+### Separate continuous variable-rate hour
+
+**Offline reporting support only until a reviewed final handoff is ingested.** `rampMeasurement` is a separate optional, closed measurement object on one run, mutually exclusive with `pacedMeasurement` and `nativeInvocation`. It does not add a synthetic result, resume an older campaign or authorize traffic. All fourteen existing records and the seven-cohort window supplement remain unchanged.
+
+The `continuous_hour_ramp_25_to_50` protocol plans one fixed **3600-second arrival horizon**, six contiguous **600-second levels at 25 / 30 / 35 / 40 / 45 / 50 nominal RPM**, and a **2250-request total ceiling**. The corresponding **250 / 300 / 350 / 400 / 450 / 500** segment allocations are nominal, not observed counts. Dispatch eligibility rebases from the actual prior dispatch plus the interval for the **currently active level**, with no catch-up, intermediate drain, quiet period or extra warm-up. Ordinary invocation failures count and continue; explicit provider/backoff, authentication/identity, action, local-clock/evidence and other safety stops remain terminal. Configured client cap 100 and request/drain guards 180 seconds are intent, not observed concurrency or durations.
+
+| Ramp evidence | Contract |
+| --- | --- |
+| `campaignKey` | One separate run per namespace; cannot collide with fixed-rate campaign membership |
+| `arrivalSeconds` | Observed covered prefix of the fixed horizon, at most 3600 seconds; a complete hour need not dispatch 2250 requests |
+| `arrivalEndObservedSeconds`, `drainSeconds` | Actual timer-end offset and final post-close interval; their sum equals `windowSeconds`. Timer overshoot does not extend the planned arrival horizon |
+| `arrivalStatus`, `stopReason`, `drainStatus` | Full/partial/stopped arrival coverage stays separate from complete/bounded final drain; zero pending is required for complete drain. No `count_complete`, ordinary-error cutoff or qualification field |
+| `unusedRequestBudget` | `2250 - actual attempted`; neither failed traffic, outstanding work, a planned failed denominator nor reusable authorization |
+| `segments` | Only the contiguous observed prefix. Each row preserves exact offset/duration, target RPM, nominal ten-minute allocation and actual attempted/completed/failed/pending at the same final cutoff. No fabricated later segment rows |
+| `segmentBasis` | `elapsed_dispatch_segment_outcomes_at_final_cutoff`: requests grouped by where they started, even if replies returned in another segment or after the hour |
+| `outstandingAtStart`, `outstandingAtEnd` | Nullable client counts at each exact segment boundary. Adjacent known boundaries agree; calls may carry across rate changes. These are not remote admission or backend concurrency |
+| `successfulWithinArrivalWindow`, `successfulAfterArrivalWindow` | Nullable paired completion-time populations summing to eventual successes. The first uses half-open `[0, arrivalSeconds)`, exactly 3600 seconds for a full hour; the second includes timer overshoot and drain. Never derived from segment dispatch outcomes |
+| `clockStatus`, `evidenceStatus` | Explicit reviewed attestations or unknowns. Unknown is not a fault or a clean result; no inferred validity |
+| Native outcomes, timings, IDs and costs | Existing exact-population/null-zero-sample and transport-no-ID rules apply. Successful/failed/all-settled nearest-rank summaries stay distinct, never averages of segment percentiles. Costs remain pending/unknown without attributable settlement evidence |
+
+The renderer gives ramps their own outcome chart and segment evidence, while including them in latency, reliability, classified-error, conversation and pending-cost views. A ramp is **not** a burst or a single scalar intended rate. The fixed-rate qualification summaries and original rolling-window supplement exclude it. Even a clean variable-rate hour is neither a fixed-rate validation hour, two-hour zero-error qualification, maximum supported rate nor a platform-wide capacity finding. Partial segments are not normalized into full minutes or hours.
+
+`tests/fixtures/synthetic-continuous-ramp.mjs` exercises only offline full, partial, stopped, pending and unknown-evidence cases. The publication loader rejects its `offline-*` keys; actual ingestion still requires the testing owner's explicitly authorized sanitized aggregate and checksum. No raw ledgers, accounts, source runners or private evidence are read by this report.
+
 ### Distinct zero-error capacity study
 
 `capacity_screen` and `capacity_hour` implement a **separate protocol**, never a relaxation of the historical 99% calibration / single-hour rules above. Each study has its own `campaignKey`; records from older campaigns cannot supply its candidate. The grouping and qualification summary derive only from nonempty reviewed cohorts, not placeholder runs or invented Monitor/history checks. No runtime or authority to send traffic exists in this report.
