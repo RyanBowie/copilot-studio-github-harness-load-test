@@ -311,6 +311,25 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
   if (!capacityStage && Object.hasOwn(paced, "capacityEvidence")) {
     fail(path, "capacity evidence belongs only to the distinct zero-error study, not historical calibration or retests.");
   }
+  if (countBaseline) {
+    const evidence = paced.baselineEvidence;
+    if (!evidence) {
+      fail(path, "count baseline requires explicit reviewed measurement evidence; unknown stays unknown.");
+    } else {
+      const before = evidence.successfulWithinArrivalWindow, after = evidence.successfulAfterArrivalWindow;
+      if ((before === null) !== (after === null) || (before !== null && before + after !== completed)) {
+        fail(path, "baseline before/after-arrival successful counts must be paired and partition eventual successes.");
+      }
+      const first = evidence.firstFailedAttempt, callback = evidence.firstFailureCallbackFromArrivalStartMs;
+      if ((first === null) !== (callback === null) || (first !== null && (failed === 0 || first + failed - 1 > attempted
+        || callback > run.windowSeconds * 1000 || callback < paced.failure?.minMs
+        || (pacing.observedMinIntervalMs !== null && callback < (first - 1) * pacing.observedMinIntervalMs)))) {
+        fail(path, "baseline first failure needs paired actual-attempt/callback evidence within observed timing and failed populations.");
+      }
+    }
+  } else if (Object.hasOwn(paced, "baselineEvidence")) {
+    fail(path, "baseline evidence cannot relabel a historical or zero-error study.");
+  }
   if (paced.minutes.length !== Math.ceil(paced.arrivalSeconds / 60)) fail(path, "minute buckets must cover exactly the observed arrival duration.");
   const totals = { attempted: 0, completed: 0, failed: 0, pending: 0 };
   paced.minutes.forEach((minute, index) => {

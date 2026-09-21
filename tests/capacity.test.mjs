@@ -44,7 +44,8 @@ test("sub-minute and unobserved endurance windows stay null rather than extrapol
   }
   assert.equal(group.highestQualifiedRpm, 25);
   assert.deepEqual(group.highestQualifiedRuns.map((run) => run.runKey), ["paced-calibration-25", "paced-spread-25-completed"]);
-  assert.equal(group.longestCompleted.pacedMeasurement.arrivalSeconds, 120);
+  assert.equal(group.longestCompleted.runKey, "paced-125-25-baseline");
+  assert.equal(group.longestCompleted.pacedMeasurement.arrivalSeconds, 303.08066709999997);
   assert.equal(group.longestClean.windowSeconds, 480);
   assert.equal(group.longestClean.counts.completed, 200);
   assert.equal(group.longestClean.runKey, "paced-hour-25-stopped");
@@ -54,7 +55,7 @@ test("capacity derivation leaves every reviewed record unchanged and needs no ra
   const before = structuredClone(report);
   summarizeCapacity(report.runs);
   assert.deepEqual(report, before);
-  assert.equal(report.runs.length, 13);
+  assert.equal(report.runs.length, 14);
   assert.deepEqual(summarizeCapacity([]), []);
   assert.deepEqual(summarizeCapacity(report.runs.filter((run) => !run.pacedMeasurement)), []);
 });

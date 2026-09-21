@@ -8,7 +8,12 @@ export function syntheticCountBaseline(options = {}) {
   run.runKey = "offline-count-baseline";
   Object.assign(paced, {
     phase: "count_baseline", campaignKey: "offline-baseline-campaign",
-    targetRpm: 25, plannedArrivalSeconds: 300, plannedSlots: 125, unofferedSlots: 125 - run.counts.attempted
+    targetRpm: 25, plannedArrivalSeconds: 300, plannedSlots: 125, unofferedSlots: 125 - run.counts.attempted,
+    baselineEvidence: {
+      clockStatus: "unknown", evidenceStatus: "unknown",
+      successfulWithinArrivalWindow: null, successfulAfterArrivalWindow: null,
+      firstFailedAttempt: null, firstFailureCallbackFromArrivalStartMs: null
+    }
   });
   Object.assign(paced.pacing, {
     intervalMs: 2400, observedMinIntervalMs: run.counts.attempted > 1 ? 2400 : null,

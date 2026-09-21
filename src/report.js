@@ -121,7 +121,8 @@ const cohortNames = {
   "paced-minute-100-retest": "100/min retest",
   "paced-minute-100-local-stop": "100/min local stop",
   "paced-elastic-100-completed": "100/min target retest",
-  "capacity-25-transport-stop": "25/min screen stopped"
+  "capacity-25-transport-stop": "25/min screen stopped",
+  "paced-125-25-baseline": "25/min target baseline"
 };
 const cohortName = (run) => cohortNames[run.runKey] ?? run.runKey;
 const outcomeSeries = [
@@ -202,6 +203,13 @@ function boundedCohortCard(run) {
     ? "Count completion is not proof of sustained 25/min or a clean five-minute capacity screen; this baseline cannot qualify either validation hour."
     : "Count completion is not proof of 100 starts inside one minute or sustained capacity; this is not a fixed-minute calibration."}`));
   if (baseline) card.append(paragraph("This is neither a resumed zero-error study nor a new 7,125-call campaign. Separate connectivity checks are not instrumented load cohorts and are never added to these counts.", "fine"));
+  if (baseline) {
+    const evidence = paced.baselineEvidence;
+    card.append(paragraph(`${number(run.counts.completed / run.counts.attempted * 100)}% greeting success across all ${number(run.counts.attempted)} actual attempts. The failure denominator is never reduced by dropping an initial disconnect. Arrival extension beyond the nominal plan: ${number(Math.max(0, paced.arrivalSeconds - paced.plannedArrivalSeconds))} s.`));
+    if (evidence.successfulWithinArrivalWindow !== null) card.append(paragraph(`${number(evidence.successfulWithinArrivalWindow)} successful replies completed before the observed arrival end; ${number(evidence.successfulAfterArrivalWindow)} completed afterward during drain. These are completion-time populations, not outcomes grouped by dispatch minute.`));
+    if (evidence.firstFailedAttempt !== null) card.append(paragraph(`First failed attempt: ${number(evidence.firstFailedAttempt)}. Its native failure callback was ${number(evidence.firstFailureCallbackFromArrivalStartMs)} ms after arrival start${run.counts.failed === 1 && run.counts.pending === 0 && evidence.firstFailedAttempt === 1 ? `; all subsequent ${number(run.counts.completed)} requests returned successful greetings` : ""}. This does not establish a warm-up effect or a failure cause.`));
+    card.append(paragraph(`Reviewed controller clock: ${label(evidence.clockStatus)}; evidence: ${label(evidence.evidenceStatus)}. Client peak: ${number(paced.peakOutstanding)} outstanding native invocations, not backend/model execution. Cost: ${label(run.cost.status)}. No settled zero cost is inferred.`, "fine"));
+  }
   const disconnected = run.errors.find((error) => error.evidence === "native_disconnected_no_conversation");
   if (disconnected) {
     const generic = run.errors.filter((error) => error.evidence === "unclassified_invocation_failure").reduce((sum, error) => sum + error.count, 0);
