@@ -153,7 +153,11 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
   const minuteRetest = paced.phase === "minute_retest";
   const countRetest = paced.phase === "count_retest";
   const retest = minuteRetest || countRetest;
-  const plannedSeconds = retest ? 60 : paced.phase === "hour" ? 3600 : 120;
+  const capacityStage = ["capacity_screen", "capacity_hour"].includes(paced.phase);
+  const plannedSeconds = retest ? 60 : paced.phase === "capacity_screen" ? 300 : ["hour", "capacity_hour"].includes(paced.phase) ? 3600 : 120;
+  if (!(capacityStage ? [25, 30, 35, 40, 45, 50] : [10, 25, 50, 100, 150]).includes(paced.targetRpm)) {
+    fail(path, "intended rate must belong to this phase's protocol, not another study.");
+  }
   if (paced.plannedArrivalSeconds !== plannedSeconds || paced.plannedSlots !== paced.targetRpm * plannedSeconds / 60) {
     fail(path, "planned slots must match the phase duration and intended rate.");
   }
@@ -235,7 +239,60 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     && attempted === paced.plannedSlots && completed * 100 >= attempted * 99
     && pacing.observedMinIntervalMs !== null && pacing.violatingIntervals === 0
     && !run.errors.some((error) => ["authentication", "throttling"].includes(error.category));
-  if (retest) {
+  if (capacityStage) {
+    const evidence = paced.capacityEvidence;
+    if (!evidence) {
+      fail(path, "capacity stages require explicit clock and evidence verification; no success-shaped defaults.");
+    } else {
+      const before = evidence.successfulWithinArrivalWindow;
+      const after = evidence.successfulAfterArrivalWindow;
+      if ((before === null) !== (after === null) || (before !== null && before + after !== completed)) {
+        fail(path, "inside/after-window successful-completion counts must be paired and partition eventual successes.");
+      }
+      if ((evidence.pendingAtClose === null) !== (evidence.postCloseNativeReturns === null)
+        || evidence.pendingAtClose > attempted || evidence.postCloseNativeReturns > evidence.pendingAtClose
+        || (evidence.pendingAtClose !== null && evidence.pendingAtClose !== evidence.postCloseNativeReturns + pending)
+        || (evidence.postCloseActivity === "local_bookkeeping_only" && (evidence.pendingAtClose !== 0 || evidence.postCloseNativeReturns !== 0))
+        || (evidence.postCloseActivity === "draining_requests" && !(evidence.pendingAtClose > 0))) {
+        fail(path, "post-close activity must reconcile pending calls and native returns; local bookkeeping is not request drain.");
+      }
+      if (evidence.stopTiming) {
+        const timing = evidence.stopTiming;
+        const offsets = ["stageStartOffsetMs", "firstDispatchOffsetMs", "firstNonSuccessReturnOffsetMs", "stageDispatchCloseOffsetMs", "arrivalObservationLoopEndOffsetMs", "observationEndOffsetMs", "campaignFinishedOffsetMs"].map((key) => timing[key]);
+        if (failed === 0 || paced.stopReason === null || offsets.some((value, index) => index > 0 && value < offsets[index - 1])
+          || Math.abs((timing.stageDispatchCloseOffsetMs - timing.stageStartOffsetMs) / 1000 - paced.arrivalEndObservedSeconds) > 0.000001
+          || Math.abs((timing.observationEndOffsetMs - timing.stageDispatchCloseOffsetMs) / 1000 - paced.drainSeconds) > 0.000001
+          || (attempted === 1 && (paced.failure === null || Math.abs(timing.firstNonSuccessReturnOffsetMs - timing.firstDispatchOffsetMs - paced.failure.maxMs) > 0.000001))
+          || (timing.globalSafetyStopTriggered && paced.stopReason === "native_error")) {
+          fail(path, "reviewed stop clocks must order and reconcile native return, dispatch close and post-close observation; ordinary screen failure is not a global safety stop.");
+        }
+        for (const key of ["firstDispatchAt", "firstNonSuccessReturnAt"]) {
+          const instant = new Date(timing[key]);
+          if (Number.isNaN(instant.valueOf()) || instant.toISOString() !== timing[key] || timing[key] < paced.startedAt || timing[key] > paced.arrivalEndedAt) {
+            fail(path, "stop wall-clock markers must be real ordered instants inside stage arrival metadata.");
+          }
+        }
+        if (timing.firstDispatchAt > timing.firstNonSuccessReturnAt) fail(path, "first dispatch cannot follow the first non-success return.");
+      }
+      const strictlyQualified = canQualify && completed === paced.plannedSlots && failed === 0 && pending === 0
+        && paced.skippedSlots === 0 && paced.unofferedSlots === 0 && paced.stopReason === null
+        && paced.arrivalEndObservedSeconds >= plannedSeconds
+        && run.units.conversations === attempted && paced.conversationEvidence === "returned_ids_checked_unique"
+        && paced.failedConversations === 0 && paced.drainSeconds <= 180 && paced.allOutcomes?.maxMs <= 180000
+        && evidence.clockStatus === "verified_clean" && evidence.evidenceStatus === "verified_complete";
+      if (paced.qualification !== (strictlyQualified ? "qualified" : "not_qualified")) {
+        fail(path, "capacity qualification requires every planned greeting, zero failures/pending/skips/unoffered/retries, unique returned conversations, full coverage and verified clean clock/evidence.");
+      }
+    }
+    if ((paced.phase === "capacity_screen") !== (paced.qualifyingRunKey === null)) {
+      fail(path, "capacity screens have no qualifying reference; capacity hours reference their own study's clean screen.");
+    }
+    if (paced.stopReason === "generic_error_threshold"
+      || (failed > 0 && !paced.stopReason)
+      || (paced.stopReason === "native_error" && (failed === 0 || run.errors.some((error) => ["authentication", "throttling"].includes(error.category))))) {
+      fail(path, "capacity stages close on first non-success; ordinary native errors cannot disguise a whole-study safety stop.");
+    }
+  } else if (retest) {
     if (paced.qualification !== "not_evaluated" || paced.qualifyingRunKey !== null) {
       fail(path, "retest is not a two-minute calibration or qualification for an hour.");
     }
@@ -246,6 +303,9 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     }
   } else if (paced.qualification !== "not_evaluated" || paced.qualifyingRunKey === null) {
     fail(path, "hour cohorts reference a prior qualified calibration, not their own qualification.");
+  }
+  if (!capacityStage && Object.hasOwn(paced, "capacityEvidence")) {
+    fail(path, "capacity evidence belongs only to the distinct zero-error study, not historical calibration or retests.");
   }
   if (paced.minutes.length !== Math.ceil(paced.arrivalSeconds / 60)) fail(path, "minute buckets must cover exactly the observed arrival duration.");
   const totals = { attempted: 0, completed: 0, failed: 0, pending: 0 };
@@ -260,6 +320,67 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
   checkInvocationTimings(paced, run.counts, run.windowSeconds, path, fail);
 }
 
+function checkCapacityStudy(cohorts, fail) {
+  const path = "report.runs";
+  const ordered = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt));
+  const screens = ordered.filter((run) => run.pacedMeasurement.phase === "capacity_screen");
+  const hours = ordered.filter((run) => run.pacedMeasurement.phase === "capacity_hour");
+  if (screens.length + hours.length !== cohorts.length || screens.length > 6 || hours.length > 2 || !screens.length
+    || cohorts.reduce((sum, run) => sum + run.pacedMeasurement.plannedSlots, 0) > 7125
+    || cohorts.reduce((sum, run) => sum + run.counts.attempted, 0) > 7125) {
+    fail(path, "a capacity study contains only up to six screens and two hours within 7125 planned/new attempts.");
+  }
+  const context = (run) => JSON.stringify([
+    run.surface, run.environmentType, run.model, run.agentVersion, run.authenticatedAccounts,
+    run.memory, run.workload, run.workflow, run.connectors, run.pacedMeasurement.path, run.pacedMeasurement.endpoint
+  ]);
+  if (cohorts.some((run) => context(run) !== context(ordered[0]))) {
+    fail(path, "capacity qualification cannot cross changes in recorded target configuration.");
+  }
+  if (Date.parse(ordered.at(-1).pacedMeasurement.observedThroughAt) - Date.parse(ordered[0].pacedMeasurement.startedAt) > 12600000) {
+    fail(path, "capacity stage coverage must fit the bounded 12600-second study.");
+  }
+  const rates = [25, 30, 35, 40, 45, 50];
+  screens.forEach((run, index) => {
+    if (run.pacedMeasurement.targetRpm !== rates[index]
+      || (index > 0 && screens[index - 1].pacedMeasurement.qualification !== "qualified")
+      || (hours.length && run.pacedMeasurement.startedAt >= hours[0].pacedMeasurement.startedAt)) {
+      fail(path, "capacity screens must follow the ordered rate prefix and stop escalation after any nonqualifying screen, before hours.");
+    }
+  });
+  const eligible = screens.filter((run) => run.pacedMeasurement.qualification === "qualified");
+  const selected = eligible.at(-1);
+  if (hours.length && screens.length < 6 && screens.at(-1)?.pacedMeasurement.qualification === "qualified") {
+    fail(path, "hours follow all six screens or an ordinary screen failure, not an unfinished clean screening sequence.");
+  }
+  hours.forEach((run, index) => {
+    if (!selected || run.pacedMeasurement.qualifyingRunKey !== selected.runKey
+      || run.pacedMeasurement.targetRpm !== selected.pacedMeasurement.targetRpm
+      || selected.pacedMeasurement.observedThroughAt >= run.pacedMeasurement.startedAt
+      || (index > 0 && hours[index - 1].pacedMeasurement.qualification !== "qualified")) {
+      fail(path, "both capacity hours must use this study's highest prior clean screen; the second requires a strictly qualified first hour.");
+    }
+  });
+  ordered.slice(0, -1).forEach((run, index) => {
+    const paced = run.pacedMeasurement;
+    const next = ordered[index + 1];
+    if (Date.parse(next.pacedMeasurement.startedAt) - Date.parse(paced.observedThroughAt) < 60000) {
+      fail(path, "capacity stages require at least 60 seconds of quiet after the preceding drain, not a claimed quota reset.");
+    }
+    const ordinaryScreenClose = paced.phase === "capacity_screen" && paced.stopReason === "native_error"
+      && run.counts.failed > 0 && next.pacedMeasurement.phase === "capacity_hour";
+    if (paced.drainStatus !== "complete" || paced.skippedSlots !== 0
+      || (run.counts.attempted > 1 && paced.pacing.violatingIntervals !== 0)
+      || paced.drainSeconds > 180 || paced.allOutcomes?.maxMs > 180000
+      || paced.capacityEvidence?.clockStatus !== "verified_clean" || paced.capacityEvidence?.evidenceStatus !== "verified_complete"
+      || run.errors.some((error) => ["authentication", "throttling"].includes(error.category))
+      || (paced.qualification !== "qualified" && !ordinaryScreenClose)
+      || (paced.stopReason !== null && !ordinaryScreenClose)) {
+      fail(path, "no capacity stage may follow a whole-study safety/evidence/pacing stop or failed hour; only an ordinary screen failure can fall back to an earlier clean screen.");
+    }
+  });
+}
+
 function checkPacedCampaigns(runs, fail) {
   const campaigns = new Map();
   for (const run of runs.filter((item) => item.pacedMeasurement)) {
@@ -268,6 +389,10 @@ function checkPacedCampaigns(runs, fail) {
     campaigns.get(key).push(run);
   }
   for (const cohorts of campaigns.values()) {
+    if (cohorts.some((run) => ["capacity_screen", "capacity_hour"].includes(run.pacedMeasurement.phase))) {
+      checkCapacityStudy(cohorts, fail);
+      continue;
+    }
     const calibrations = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration");
     const hours = cohorts.filter((run) => run.pacedMeasurement.phase === "hour");
     if (cohorts.some((run) => ["minute_retest", "count_retest"].includes(run.pacedMeasurement.phase)) && cohorts.length !== 1) {
@@ -333,6 +458,9 @@ export function validateReport(report, schema) {
     checkDate(run.observedOn, `${path}.observedOn`);
     const { attempted, completed, failed, pending } = run.counts;
     if (attempted !== completed + failed + pending) fail(`${path}.counts`, "attempted must equal completed + failed + pending.");
+    if (run.units.conversations === 0 && (!run.pacedMeasurement || completed > 0 || run.pacedMeasurement.conversationEvidence !== "returned_ids_checked_unique")) {
+      fail(`${path}.units.conversations`, "zero returned conversations requires reviewed paced native evidence with no successful greetings; unknown remains null.");
+    }
     if (report.studyContext?.runKeys.includes(run.runKey) && report.studyContext.conversationUse === "one_existing_reused" && run.units.conversations !== 1) {
       fail(`${path}.units.conversations`, "a shared single-conversation study requires one reused conversation per run.");
     }

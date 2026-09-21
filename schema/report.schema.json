@@ -189,8 +189,40 @@
       ],
       "properties": {
         "campaignKey": { "$ref": "#/$defs/key" },
-        "phase": { "enum": ["calibration", "hour", "minute_retest", "count_retest"] },
+        "phase": { "enum": ["calibration", "hour", "minute_retest", "count_retest", "capacity_screen", "capacity_hour"] },
         "genericErrorPolicy": { "const": "count_without_early_stop" },
+        "capacityEvidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["protocol", "clockStatus", "evidenceStatus", "successfulWithinArrivalWindow", "successfulAfterArrivalWindow", "postCloseActivity", "pendingAtClose", "postCloseNativeReturns"],
+          "properties": {
+            "protocol": { "const": "zero_error_screens_two_hours" },
+            "clockStatus": { "enum": ["verified_clean", "compromised", "unknown"] },
+            "evidenceStatus": { "enum": ["verified_complete", "incomplete", "unknown"] },
+            "successfulWithinArrivalWindow": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+            "successfulAfterArrivalWindow": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+            "postCloseActivity": { "enum": ["draining_requests", "local_bookkeeping_only", "unknown"] },
+            "pendingAtClose": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+            "postCloseNativeReturns": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+            "stopTiming": {
+              "type": "object", "additionalProperties": false,
+              "required": ["basis", "stageStartOffsetMs", "firstDispatchOffsetMs", "firstNonSuccessReturnOffsetMs", "stageDispatchCloseOffsetMs", "arrivalObservationLoopEndOffsetMs", "observationEndOffsetMs", "campaignFinishedOffsetMs", "firstDispatchAt", "firstNonSuccessReturnAt", "globalSafetyStopTriggered"],
+              "properties": {
+                "basis": { "const": "single_campaign_monotonic_milliseconds" },
+                "stageStartOffsetMs": { "$ref": "#/$defs/duration" },
+                "firstDispatchOffsetMs": { "$ref": "#/$defs/duration" },
+                "firstNonSuccessReturnOffsetMs": { "$ref": "#/$defs/duration" },
+                "stageDispatchCloseOffsetMs": { "$ref": "#/$defs/duration" },
+                "arrivalObservationLoopEndOffsetMs": { "$ref": "#/$defs/duration" },
+                "observationEndOffsetMs": { "$ref": "#/$defs/duration" },
+                "campaignFinishedOffsetMs": { "$ref": "#/$defs/duration" },
+                "firstDispatchAt": { "$ref": "#/$defs/millisecondInstant" },
+                "firstNonSuccessReturnAt": { "$ref": "#/$defs/millisecondInstant" },
+                "globalSafetyStopTriggered": { "type": "boolean" }
+              }
+            }
+          }
+        },
         "path": { "const": "workiq_ask_via_native_tool_rpc" },
         "endpoint": { "const": "invocation_completion" },
         "requestKind": { "const": "greeting_only" },
@@ -198,8 +230,8 @@
         "startedAt": { "$ref": "#/$defs/millisecondInstant" },
         "arrivalEndedAt": { "$ref": "#/$defs/millisecondInstant" },
         "observedThroughAt": { "$ref": "#/$defs/millisecondInstant" },
-        "targetRpm": { "enum": [10, 25, 50, 100, 150] },
-        "plannedArrivalSeconds": { "enum": [60, 120, 3600] },
+        "targetRpm": { "enum": [10, 25, 30, 35, 40, 45, 50, 100, 150] },
+        "plannedArrivalSeconds": { "enum": [60, 120, 300, 3600] },
         "arrivalSeconds": { "$ref": "#/$defs/duration" },
         "arrivalEndObservedSeconds": { "$ref": "#/$defs/duration" },
         "plannedSlots": { "type": "integer", "minimum": 1, "maximum": 9000 },
@@ -290,7 +322,7 @@
           "additionalProperties": false,
           "required": ["conversations", "sessions"],
           "properties": {
-            "conversations": { "$ref": "#/$defs/nullableCount" },
+            "conversations": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
             "sessions": { "$ref": "#/$defs/nullableCount" }
           }
         },

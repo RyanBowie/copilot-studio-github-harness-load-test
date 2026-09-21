@@ -2,7 +2,9 @@
 
 A separate, aggregate-only report for single-account observations of **Copilot Studio agents powered by the GitHub Copilot Harness**. This is not the Standard Harness study, GitHub coding agent, or Copilot SDK.
 
-**Current state: twelve reviewed runs, published on [GitHub Pages](https://ryanbowie.github.io/copilot-studio-github-harness-load-test/).** The latest fresh count-bound retest completed **all 100 attempts: 60 greetings, 40 native invocation failures and 0 pending**. Failures comprise **39 generic server errors and 1 disconnected call**; these are not 40 proven agent/backend failures. Actual arrivals lasted **63.522 seconds, about 94.455 offered requests/minute**, so this answers the full-100 denominator question but is **not a full 100/minute result**. No retries, skipped or unsent calls; 99 returned conversations were verified. Every prior eleven-record result and campaign context is unchanged, including the earlier locally stopped 41-request attempt and its 59 unsent slots. **No full hour completed and no GitHub Copilot Harness capacity ceiling is established.** All costs remain **pending**, not zero. No Standard Harness data or images are imported. This repository is an offline report, not a cloud test runner. The separate email-to-workflow-to-agent scenario is not implemented.
+**Current state: thirteen reviewed runs, published on [GitHub Pages](https://ryanbowie.github.io/copilot-studio-github-harness-load-test/).** The newest zero-error capacity study ended on its **first native attempt: 0 greetings, 1 disconnected invocation, 0 pending**. The 25 RPM screen never completed; **124 screen slots were unoffered**, with no clean candidate, higher screens or hours. This is **1 failure / 1 actual attempt**, not 1/7125, a measured rate limit or evidence of 25 RPM agent capacity. No conversation identifier returned; remote admission is unknown. No rate or spacing estimate is manufactured from the single call.
+
+All twelve prior records and their campaign contexts remain unchanged. The earlier full-100 count-bound retest still reports **60 greetings / 40 native failures / 0 pending**, with **39 generic server errors and 1 disconnected call**, **63.522 seconds of arrivals / about 94.455 offered RPM**, and 99 distinct returned conversations. That was not a full 100/minute result or 40 proven backend failures. **No full hour completed and no GitHub Copilot Harness capacity ceiling is established.** Costs remain **pending**, not zero. No Standard Harness data or images are imported. This repository is an offline report, not a cloud test runner; the separate email-to-workflow-to-agent scenario is not implemented.
 
 First published on **2026-09-21** through the existing GitHub Actions Pages workflow. Deployment remains manual, explicitly opted in, restricted to `main`, and gated by the `github-pages` environment's required reviewer. The published HTML, aggregate JSON and schema were verified against the reviewed source; publication performed no new live load tests.
 
@@ -16,7 +18,7 @@ Charts show separate-cohort success/failure shares, successful native p50/p95 du
 
 ### Reviewed exact rolling windows / existing evidence only
 
-This supplement still covers only the **seven earlier native cohorts**. It excludes both the locally stopped minute retest and the completed count-bound retest pending separately reviewed window analysis; its peaks must not be presented as maxima across all nine native cohorts. Both newer runs' observed totals and native duration populations are available separately. The primary fixed-minute-bucket view includes the new run's measured 55 eventual successes among 95 first-minute dispatches; that is not a newly reviewed rolling maximum or 55 completions inside that minute.
+This supplement still covers only the **seven earlier native cohorts**. It excludes the locally stopped minute retest, completed count-bound retest and first-dispatch capacity-study stop; its peaks must not be presented as maxima across all ten native cohorts. The newer runs' observed totals and native duration populations are available separately. The capacity study has no eligible full-minute coverage. The primary fixed-minute-bucket view includes the count-bound retest's measured 55 eventual successes among 95 first-minute dispatches; that is not a newly reviewed rolling maximum or 55 completions inside that minute.
 
 An independently reviewed **2026-09-21 supplement** analyzes the existing seven native cohorts / 555 attempts, not new traffic. The original ten records, their precision and documented limits are unchanged. It contains **46 eligible run/coverage/duration pairs and 90 independently selected representative maxima**. It does not include the three Teams records or two native preflights.
 
@@ -77,6 +79,20 @@ The [separate Standard Harness report](https://ryanbowie.github.io/copilot-studi
 | Representative workloads and cost | Separately approved knowledge/workflow scenarios with requested-operation success and latency; settled, attributable billing evidence, not stale Monitor counts or zero-credit assumptions |
 
 Further additions require a reviewed closed-schema extension before ingestion, not arbitrary metadata or raw transcripts. This change does not run experiments, grant a new request budget, access private ledgers, or settle costs. All ten original records and existing documented limits remain unchanged.
+
+## Zero-error capacity study / first-attempt transport stop on 2026-09-21
+
+One separately bounded study proposed six 5-minute zero-error screens at 25/30/35/40/45/50 RPM and up to two full-hour validations at its highest earlier clean screen. The **7125-call ceiling was a maximum, not dispatched or failed traffic**. The first screen planned 125 slots at 25 RPM, with 2400 ms absolute slots / 2280 ms minimum gaps and no retries, backlog replay or warm-up calls.
+
+**Actual outcome: 1 attempted native invocation, 0 greetings, 1 failure, 0 pending.** The first call returned normalized `disconnected/invoke`; the reviewed diagnostic was **"MCP request failed: Transport closed"**. No HTTP status, explicit throttle/backoff or provider stop was exposed. Zero conversation identifiers returned, so remote agent admission remains unknown. This is not a generic `server_error`, a proven backend failure or evidence that 25 RPM exceeds capacity.
+
+The ordinary first-non-success policy closed the screen. It had **124 unoffered / 0 skipped / 0 retried** slots. No earlier clean screen existed **in this study**, so termination was `no_clean_screen`, not a global safety stop. Screens 30-50 RPM and both hours were never attempted; no empty result records are created. The remaining **7124 of the overall ceiling** are neither planned outstanding requests nor failures nor reusable authorization. No restart followed.
+
+Campaign start / first actual dispatch / campaign finish were **16:59:58.550Z / 17:00:01.656Z / 17:00:02.812Z**. The stage began at **17:00:01.646Z**, returned its failure at **17:00:01.692Z**, closed dispatch at **17:00:01.696Z**, and ended local observation at **17:00:02.745Z**. Native failure duration was **36.30919999999605 ms**, the only sample in failure/all-outcome nearest-rank populations. Successful latency has zero samples and is null.
+
+Arrival coverage was **0.04990869999999995 s**. The subsequent **1.0497488000000013 s** was **local observation-loop/bookkeeping**, not pending server drain or failure-response latency: no native requests remained at close, and none returned afterward. Total stage observation was **1.099657500000001 s**. The public `stopTiming` object preserves the independently reviewed campaign-monotonic offsets, including return, dispatch close, later observation-loop end and final observation end. Wall-clock rounding is not substituted for those durations.
+
+There were **zero spacing samples**, so observed spacing and offered rate remain **not measured**; the partial bucket is not normalized to a minute. No full-minute/hour or rolling maximum follows from this run. Peak one is client outstanding only. The current aggregate explicitly verifies evidence completeness but does not supply a separate positive clean-clock attestation; `clockStatus` stays `unknown`, never silently passing qualification. Costs remain pending; there is no new Monitor/history supplement or settled billing claim. The gate is disabled/consumed and its permanent lock remains intact.
 
 ## Count-bound 100-request retest / completed on 2026-09-21
 
@@ -388,7 +404,7 @@ All fields below are required inside `pacedMeasurement`; the schema provides the
 
 | Fields | Contract |
 | --- | --- |
-| `campaignKey`, `phase` | Public nonidentifying grouping slug; `calibration`, `hour`, `minute_retest` or `count_retest`. Never a source ID |
+| `campaignKey`, `phase` | Public nonidentifying grouping slug; `calibration`, `hour`, `minute_retest`, `count_retest`, `capacity_screen` or `capacity_hour`. Never a source ID |
 | `path`, `endpoint`, `requestKind`, `timingBasis` | `workiq_ask_via_native_tool_rpc`, `invocation_completion`, `greeting_only`, `calibrated_native_rpc_completion` |
 | `startedAt`, `arrivalEndedAt`, `observedThroughAt` | Ordered millisecond UTC metadata; cutoff date matches `observedOn`. Do not derive monotonic duration from wall-clock subtraction |
 | `targetRpm`, `plannedArrivalSeconds`, `plannedSlots` | Protocol intent, not observation: 10/25/50/100/150 RPM; 120 s calibration or 3600 s hourly arrivals. Both separate retest phases are restricted to 100 RPM / nominal 60 s / 100 slots; count-bound arrivals may extend. Planned slots equal rate times planned minutes |
@@ -409,6 +425,34 @@ All fields below are required inside `pacedMeasurement`; the schema provides the
 The bounded protocol supports distinct calibration rates (at most 670 planned calibration calls) and at most one hour cohort (at most 9000 planned calls), capped at 9670 requests per campaign. Those numbers are protocol constraints, **not executed counts, spending evidence or future authorization**. Private account/consent checks remain the testing owner's responsibility; this report makes no authenticated calls. A generic calibration error can leave an earlier rate qualified, but does not establish a harness limit. No further cohort in the same campaign may follow a terminal guard or pacing violation. Safety/authentication/explicit-throttle/client-pacing stops are not automatic-retry opportunities. Stale Monitor counts, budget acknowledgment and absent posted credits cannot settle cost; keep pending/null until reviewed billing evidence exists.
 
 For ingestion, supply observed slot accounting, UTC markers and monotonic windows/arrival-end offsets, per-dispatch-minute outcomes, distinct verified conversation counts, outcome-specific latency summaries and classification evidence. The offline fixture factory illustrates full, stopped, partial and calibration-only shapes but is not a source of public values. Rerun responsive UI QA when reviewed actual cohorts change.
+
+### Distinct zero-error capacity study
+
+`capacity_screen` and `capacity_hour` implement a **separate protocol**, never a relaxation of the historical 99% calibration / single-hour rules above. Each study has its own `campaignKey`; records from older campaigns cannot supply its candidate. The grouping and qualification summary derive only from nonempty reviewed cohorts, not placeholder runs or invented Monitor/history checks. No runtime or authority to send traffic exists in this report.
+
+Screens follow the ordered prefix **25 / 30 / 35 / 40 / 45 / 50 intended RPM**, each **300 s**, planning **125 / 150 / 175 / 200 / 225 / 250** slots. Absolute not-before slots, `skip_without_replay`, and the exact 5% minimum-gap allowance apply: the floor is `60000 / rate * 0.95` ms (including unrounded fractional values at 35 and 45 RPM). No backlog burst, replay, or runner retry is permitted. The first ordinary non-success closes that screen, drains existing requests and stops escalation. Only the highest *earlier clean screen from this study* can then supply the hour candidate. No clean screen means no hours.
+
+Explicit throttling/provider-busy/backoff, authentication/identity, unexpected action, evidence/persistence, local clock/scheduling, request/runtime deadline and other safety stops end the **whole study**, with no lower fallback. Public stop enums preserve that distinction: `native_error` is ordinary first non-success, never a disguise for an explicit safety signal; `safety`, `client_pacing`, `account_guard` and the other specific guards remain terminal. `generic_error_threshold` and count-through-generic-errors are invalid for these phases. Final failures may include outcomes already outstanding at stop.
+
+At most two `capacity_hour` cohorts use the same highest earlier clean screen via `qualifyingRunKey`, each **3600 s** with `rate * 60` slots (at most 3000 each). Any failed hour ends validation; a second hour requires a strictly qualifying first. Stages cannot overlap, must retain the same recorded target configuration, and require at least **60 s quiet after the preceding drain**, not an assumed quota reset. The study cap is **7125 new greetings**, with **180 s request/drain** and **12600 s campaign** bounds. An observed request/drain overrun cannot qualify. The aggregate validator checks recorded bounds and reviewed attestations; it cannot reconstruct unpublished runner decisions or authorize traffic.
+
+Strict qualification is exact, not a rounded percentage: full observed window, all planned greetings, **zero failures / pending / skipped / unoffered / retries**, unique returned conversations covering every attempt, healthy measured minimum spacing and verified clean clock/evidence. The only labels are `qualified` and `not_qualified`; unknown prerequisites cannot silently pass. Both the selected screen **and both hours** must qualify before the UI derives a validated rate. Same-session hours are not different-day replication. Passing the top tested 50 RPM leaves the maximum unbracketed and establishes only a configuration-specific tested lower bound, never a platform ceiling or universal 100% reliability.
+
+Both phases require the closed `capacityEvidence` object (forbidden on historical phases):
+
+| Field | Reviewed evidence |
+| --- | --- |
+| `protocol` | `zero_error_screens_two_hours` |
+| `clockStatus` | `verified_clean`, `compromised`, or `unknown`; only verified clean can qualify |
+| `evidenceStatus` | `verified_complete`, `incomplete`, or `unknown`; only verified complete can qualify |
+| `successfulWithinArrivalWindow` | Successful callbacks inside half-open elapsed `[0, arrivalSeconds)`. For a full hour this is exactly 3600 s, not a slightly later timer-end marker. Null when not independently counted |
+| `successfulAfterArrivalWindow` | Successful callbacks outside that window but by final cutoff, including timer overshoot and drain. Paired with the inside count: both null, or integers whose sum equals eventual successful cohort outcomes |
+| `postCloseActivity`, `pendingAtClose`, `postCloseNativeReturns` | `draining_requests`, `local_bookkeeping_only`, or `unknown`; paired nullable counts reconcile close-pending to later returns plus final pending. Bookkeeping-only requires both zero, and its elapsed interval must not be labelled server-drain latency |
+| Optional `stopTiming` | Closed single-campaign-monotonic offsets distinguish first dispatch, native return, actual dispatch close, later observation-loop end and observation/campaign end, with separate millisecond UTC dispatch/return markers and a global-safety-stop flag. Durations reconcile to the stage; for one attempt, return minus dispatch equals its native failure timing |
+
+Those completion counts are not derivable from dispatch-minute buckets. In-window completions remain distinct from eventual successes after drain. A partial window cannot become an hourly result by normalizing its one or few attempts to RPM.
+
+Known **zero returned conversations** is allowed only for reviewed paced native evidence without successful greetings and with `conversationEvidence: returned_ids_checked_unique`; it is distinct from unknown/null and from zero remote activity. A disconnected invocation can fail before an identifier is exposed, with remote admission unknown. Failure denominators use actual attempts, not the 7125 cap or unoffered screen slots. All synthetic cases are isolated in `tests/fixtures/synthetic-capacity-report.mjs` and cannot load as publication input.
 
 ### Costs from the first run
 
