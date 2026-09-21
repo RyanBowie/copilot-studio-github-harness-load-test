@@ -14,6 +14,7 @@ const labels = {
   teams_connector: "Teams connector only",
   workiq_mcp_transport_429: "WorkIQ MCP HTTP transport 429; GitHub Copilot Harness attribution unknown",
   generic_error_threshold: "Generic invocation-error safety threshold; not confirmed throttling",
+  client_pacing: "Local client pacing/admission stop; not provider throttling",
   turn_serialization_observed: "Turn serialization observed in this run; not a platform capacity finding.",
   manual_timing: "Manual visible-response timing.",
   partial_observation: "The initial timing window was partial; later outcome evidence is shown separately when available.",
@@ -38,7 +39,8 @@ const nativeMeasurement = (run) => run.pacedMeasurement ?? run.nativeInvocation;
 const nativeFirst = (runs) => orderRunsByRate(runs);
 const scopedContext = (report, run) => report.studyContext?.runKeys.includes(run.runKey) ? report.studyContext : null;
 const seconds = (milliseconds) => `${(milliseconds / 1000).toFixed(3)} s`;
-const pacedPhase = (measurement) => measurement.phase === "hour" ? "Hourly arrival cohort" : "Rate calibration cohort";
+const pacedPhase = (measurement) => measurement.phase === "minute_retest" ? "One-minute 100-request retest"
+  : measurement.phase === "hour" ? "Hourly arrival cohort" : "Rate calibration cohort";
 const achievedRpm = (run) => number(run.counts.attempted / run.pacedMeasurement.arrivalSeconds * 60);
 const pacedStopLabel = (run) => run.pacedMeasurement.stopReason === "explicit_throttle" && run.errors.some((error) => error.evidence === "workiq_mcp_transport_429")
   ? label("workiq_mcp_transport_429") : label(run.pacedMeasurement.stopReason);
@@ -98,8 +100,10 @@ const cohortNames = {
   "paced-calibration-25": "25/min calibration",
   "paced-calibration-50": "50/min calibration",
   "paced-hour-25-stopped": "25/min hour attempt",
-  "paced-standalone-100-stopped": "100/min early stop",
-  "paced-spread-25-completed": "25/min follow-up"
+  "paced-standalone-100-stopped": "100/min aborted",
+  "paced-spread-25-completed": "25/min follow-up",
+  "paced-minute-100-retest": "100/min retest",
+  "paced-minute-100-local-stop": "100/min local stop"
 };
 const cohortName = (run) => cohortNames[run.runKey] ?? run.runKey;
 const outcomeSeries = [
@@ -107,6 +111,27 @@ const outcomeSeries = [
   { key: "failed", label: "Failed invocations", className: "series-failure" },
   { key: "pending", label: "Pending", className: "series-pending" }
 ];
+
+function minuteRetestCard(run) {
+  const paced = run.pacedMeasurement;
+  const allDispatched = run.counts.attempted === paced.plannedSlots;
+  const settled = run.counts.pending === 0;
+  const complete = allDispatched && settled && paced.arrivalStatus === "full_window";
+  const card = node("article", undefined, "note block");
+  card.dataset.minuteRetest = run.runKey;
+  card.append(
+    paragraph(complete ? "REVIEWED 100-REQUEST COHORT / FULL MINUTE AND DRAIN" : "REVIEWED RETEST / INCOMPLETE OR UNRESOLVED", "eyebrow"),
+    node("h3", allDispatched && settled ? `100-request retest: ${number(run.counts.failed)} failed out of 100`
+      : `Retest incomplete: ${number(run.counts.failed)} failures / ${number(run.counts.attempted)} attempts`),
+    paragraph(`${number(run.counts.completed)} successful greetings / ${number(run.counts.failed)} failed invocations / ${number(run.counts.pending)} pending. ${allDispatched ? "All 100 planned requests were sent." : `${number(paced.unofferedSlots)} unoffered and ${number(paced.skippedSlots)} skipped slots were not sent and are not failures.`}`),
+    paragraph(`Target: 100 requests/minute for 60 seconds, not a 100-request burst. Actual arrival window: ${number(paced.arrivalSeconds)} s; drain: ${number(paced.drainSeconds)} s (${label(paced.drainStatus)}). ${paced.stopReason ? `Dispatch stop: ${pacedStopLabel(run)}.` : "No early dispatch stop recorded."}`),
+    paragraph("For this separately authorized retest, ordinary generic invocation errors were counted without the earlier three-error cutoff. Explicit throttle, backoff, authentication and other safety guards still applied. No retries or automatic continuation.", "fine"),
+    paragraph("Completing this 100-request cohort does not establish an hourly rate, a two-minute calibration qualification, a failure cause or a service quota. Outcomes include drain; costs are reported separately.", "fine")
+  );
+  if (!allDispatched) card.append(paragraph(`The full 100-request denominator was not observed. Failure rate is ${number(run.counts.failed / run.counts.attempted * 100)}% of the ${number(run.counts.attempted)} actual attempts, not ${number(run.counts.failed)}/100. Nothing is inferred about the requests that were never sent.`));
+  if (run.runKey === "paced-minute-100-local-stop") card.append(paragraph("The local runner missed the admission deadline for planned request 42. The 15 generic invocation errors did not stop dispatch; the local timing guard did. This run therefore does not establish agent capacity at 100/min.", "fine"));
+  return card;
+}
 
 function renderCharts(runs) {
   const ordered = nativeFirst(runs).filter((run) => nativeMeasurement(run));
@@ -127,6 +152,8 @@ function renderCharts(runs) {
     });
     const overview = byId("overview-charts");
     overview.replaceChildren();
+    const latestRetest = ordered.filter((run) => run.pacedMeasurement?.phase === "minute_retest").at(-1);
+    if (latestRetest) overview.append(minuteRetestCard(latestRetest));
     const paced = rows.filter((row) => row.targetRpm !== null);
     const bursts = rows.filter((row) => row.targetRpm === null);
     if (paced.length) {
@@ -142,6 +169,7 @@ function renderCharts(runs) {
       explanation.id = "rate-success-explanation";
       explanation.append(node("h3", "Sending rate and success rate are different"),
         paragraph(`${slower.pacedMeasurement.targetRpm}/min schedules a call about every ${number(60 / slower.pacedMeasurement.targetRpm)} seconds; ${faster.pacedMeasurement.targetRpm}/min schedules one every ${number(60 / faster.pacedMeasurement.targetRpm)} seconds. The slower follow-up returned ${slower.counts.completed}/${slower.counts.attempted} greetings. The faster trial stopped early after only ${faster.counts.attempted} dispatches, with ${faster.counts.completed} eventual greetings and ${faster.counts.failed} generic invocation errors after dispatched calls settled. It did not complete a full minute.`));
+      if (latestRetest) explanation.append(paragraph(`This comparison describes the earlier ${faster.observedOn} aborted attempt and ${slower.observedOn} slower follow-up, not the new 100-request retest above.`, "fine"));
       const hour = byKey.get("paced-hour-25-stopped");
       if (hour) explanation.append(paragraph(`The longer ${hour.pacedMeasurement.targetRpm}/min attempt was not 100% successful: ${hour.counts.completed}/${hour.counts.attempted} eventual greetings, ending on WorkIQ transport HTTP 429. Passing a short lower-rate trial does not guarantee a higher-rate or longer trial will pass.`));
       explanation.append(paragraph("These trials happened at different times with different observed client overlap. They do not isolate the cause of the generic errors or establish a GitHub Copilot Harness quota; cooldown and background conditions could also contribute.", "fine"));
@@ -421,6 +449,8 @@ function renderReviewedWindows(report, evidence) {
   }
   const headline = byId("benchmark-kpis");
   headline.replaceChildren();
+  const missing = report.runs.filter((run) => nativeMeasurement(run) && !evidence.runs.some((item) => item.runKey === run.runKey));
+  if (missing.length) headline.append(paragraph(`Rolling-window scope: ${evidence.runs.length} reviewed native cohorts only. Excludes ${missing.map(cohortName).join(", ")} pending a reviewed window supplement; these are not maxima across every displayed run. The excluded cohort's actual totals remain in its own result.`, "fine"));
   for (const group of summarizeReviewedWindows(evidence, report)) {
     const minute = group.windows.find((window) => window.seconds === 60);
     const five = group.windows.find((window) => window.seconds === 300);
@@ -445,7 +475,7 @@ function renderReviewedWindows(report, evidence) {
   const basis = labelledControl("Window coverage", "window-coverage", [
     ["observed_through_drain", "Observed through drain"], ["observed_arrival_only", "Observed arrival interval only"]
   ]);
-  const cohort = labelledControl("Window cohort", "window-cohort", [["all", "All compatible native cohorts"], ...nativeFirst(report.runs).filter((run) => evidence.runs.some((item) => item.runKey === run.runKey)).map((run) => [run.runKey, cohortName(run)])]);
+  const cohort = labelledControl("Window cohort", "window-cohort", [["all", "All reviewed window cohorts"], ...nativeFirst(report.runs).filter((run) => evidence.runs.some((item) => item.runKey === run.runKey)).map((run) => [run.runKey, cohortName(run)])]);
   controls.append(basis.field, cohort.field);
   const results = node("div", undefined, "reviewed-window-results");
   const status = paragraph(undefined, "fine");
@@ -496,6 +526,7 @@ function renderErrorTimeline(evidence, report) {
   const ordered = nativeFirst(report.runs).filter((run) => byKey.has(run.runKey)).map((run) => byKey.get(run.runKey));
   const errors = ordered.filter((run) => run.firstError);
   if (!errors.length) return;
+  target.append(paragraph(`These callback and trigger tables use only the ${number(evidence.runs.length)}-cohort window supplement. Newer cohorts are not included; their primary results and methodology remain separate.`, "fine"));
   const first = node("div");
   table(first, "When the first error returned / client callback evidence",
     ["Cohort", "First error offset", "Counts just after processing that error", "Observed evidence"],
@@ -522,6 +553,7 @@ function loadStatus(run) {
   const paced = run.pacedMeasurement;
   if (!paced) return "Finished burst; not a sustained arrival rate.";
   if (paced.stopReason) return `Arrival ${label(paced.arrivalStatus)}: ${pacedStopLabel(run)}; drain ${label(paced.drainStatus)}.`;
+  if (paced.phase === "minute_retest") return `${number(run.counts.attempted)} / 100 planned dispatches; arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}. Not a two-minute calibration.`;
   return `Arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}; ${label(paced.qualification)}.`;
 }
 
@@ -617,6 +649,14 @@ function renderOverview(report) {
   overview.replaceChildren();
   for (const campaign of report.pacedCampaigns ?? []) {
     const cohorts = report.runs.filter((run) => campaign.runKeys.includes(run.runKey));
+    if (campaign.status === "standalone_minute_retest") {
+      const card = minuteRetestCard(cohorts[0]);
+      card.classList.add("campaign-summary");
+      card.dataset.campaignKey = campaign.campaignKey;
+      card.append(paragraph(`Campaign markers: ${campaign.startedAt} to ${campaign.endedAt}. ${number(campaign.distinctReturnedConversations)} distinct returned conversations; peak ${number(campaign.clientPeakOutstanding)} outstanding client invocations, not backend/model concurrency.`, "fine"));
+      overview.append(card);
+      continue;
+    }
     const totals = cohorts.reduce((sum, run) => {
       for (const key of Object.keys(sum)) sum[key] += run.counts[key];
       return sum;

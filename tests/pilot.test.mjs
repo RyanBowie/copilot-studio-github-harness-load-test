@@ -10,7 +10,7 @@ const pilotRuns = report.runs.filter((item) => report.studyContext.runKeys.inclu
 
 test("reviewed pilot preserves sent-message outcomes and one reused conversation", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.publication.reviewedOn, "2026-09-20");
+  assert.ok(report.publication.reviewedOn >= "2026-09-20");
   assert.equal(pilotRuns.length, 3);
   assert.deepEqual(report.studyContext.runKeys, ["greeting-pilot", "public-knowledge-pilot", "compliance-review-pilot"]);
   assert.deepEqual(pilotRuns.reduce((total, item) => {
@@ -23,6 +23,7 @@ test("reviewed pilot preserves sent-message outcomes and one reused conversation
   assert.equal(report.studyContext.volumeRamp, "not_performed");
   assert.equal(report.studyContext.configurationChanges, "none_by_tester");
   for (const item of pilotRuns) {
+    assert.equal(item.observedOn, "2026-09-20");
     assert.deepEqual(item.units, { conversations: 1, sessions: null });
     assert.equal(item.surface, "published_teams");
     assert.equal(item.environmentType, "developer");

@@ -150,9 +150,21 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
   if (paced.startedAt >= paced.arrivalEndedAt || paced.arrivalEndedAt > paced.observedThroughAt || paced.observedThroughAt.slice(0, 10) !== run.observedOn) {
     fail(path, "UTC arrival and observation markers must be ordered and end on the run observation date.");
   }
-  const plannedSeconds = paced.phase === "hour" ? 3600 : 120;
+  const minuteRetest = paced.phase === "minute_retest";
+  const plannedSeconds = minuteRetest ? 60 : paced.phase === "hour" ? 3600 : 120;
   if (paced.plannedArrivalSeconds !== plannedSeconds || paced.plannedSlots !== paced.targetRpm * plannedSeconds / 60) {
     fail(path, "planned slots must match the phase duration and intended rate.");
+  }
+  if (minuteRetest) {
+    if (paced.targetRpm !== 100 || paced.genericErrorPolicy !== "count_without_early_stop"
+      || ["generic_error_threshold", "native_error"].includes(paced.stopReason)) {
+      fail(path, "minute retest is a bounded 100-request plan that counts generic errors without an early generic-error stop.");
+    }
+    if (paced.arrivalStatus === "full_window" && paced.arrivalEndObservedSeconds < 60) {
+      fail(path, "a full minute retest requires at least 60 seconds of observed arrival coverage, not merely 100 dispatches.");
+    }
+  } else if (Object.hasOwn(paced, "genericErrorPolicy")) {
+    fail(path, "the count-through-generic-errors policy belongs only to the separate minute retest, not historical calibrations or hours.");
   }
   if (paced.arrivalSeconds > plannedSeconds || attempted + paced.skippedSlots + paced.unofferedSlots !== paced.plannedSlots) {
     fail(path, "attempted, skipped and unoffered slots must partition the bounded plan.");
@@ -202,7 +214,11 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     && attempted === paced.plannedSlots && completed * 100 >= attempted * 99
     && pacing.observedMinIntervalMs !== null && pacing.violatingIntervals === 0
     && !run.errors.some((error) => ["authentication", "throttling"].includes(error.category));
-  if (paced.phase === "calibration") {
+  if (minuteRetest) {
+    if (paced.qualification !== "not_evaluated" || paced.qualifyingRunKey !== null) {
+      fail(path, "minute retest is not a two-minute calibration or qualification for an hour.");
+    }
+  } else if (paced.phase === "calibration") {
     if (paced.qualifyingRunKey !== null || (paced.qualification === "qualified" && !canQualify)
       || (paced.qualification === "not_qualified" && canQualify)) {
       fail(path, "calibration qualification requires all slots, >=99% greetings, complete drain and healthy observed pacing.");
@@ -233,6 +249,9 @@ function checkPacedCampaigns(runs, fail) {
   for (const cohorts of campaigns.values()) {
     const calibrations = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration");
     const hours = cohorts.filter((run) => run.pacedMeasurement.phase === "hour");
+    if (cohorts.some((run) => run.pacedMeasurement.phase === "minute_retest") && cohorts.length !== 1) {
+      fail("report.runs", "a minute retest must be a separate single-cohort campaign; no continuation or pooled calibration.");
+    }
     if (cohorts.reduce((sum, run) => sum + run.counts.attempted, 0) > 9670 || hours.length > 1
       || new Set(calibrations.map((run) => run.pacedMeasurement.targetRpm)).size !== calibrations.length) {
       fail("report.runs", "paced campaign permits distinct calibration rates and at most one hour cohort within 9670 requests.");
@@ -451,10 +470,14 @@ export function validateReport(report, schema) {
     if (knownConversations.some((count) => count === null) || campaign.distinctReturnedConversations > knownConversations.reduce((sum, count) => sum + count, 0)
       || campaign.distinctReturnedConversations < Math.max(...knownConversations)) fail(path, "verified campaign distinct conversations must fit the reviewed cohort counts.");
     if (campaign.clientPeakOutstanding !== Math.max(...cohorts.map((run) => run.pacedMeasurement.peakOutstanding ?? 0))) fail(path, "campaign peak must match non-overlapping cohort peaks.");
-    const measuredRates = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration").map((run) => run.pacedMeasurement.targetRpm);
+    const measuredRates = cohorts.filter((run) => run.pacedMeasurement.phase !== "hour").map((run) => run.pacedMeasurement.targetRpm);
     if (campaign.notAttemptedCalibrationRpm.some((rate) => measuredRates.includes(rate))) fail(path, "unattempted calibration rates cannot have observed cohorts.");
     const last = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
-    if (campaign.status === "completed_standalone_calibration") {
+    if (campaign.status === "standalone_minute_retest") {
+      if (cohorts.length !== 1 || last.pacedMeasurement.phase !== "minute_retest") {
+        fail(path, "standalone minute context must reference exactly one minute retest; completion is determined from actual dispatch and drain evidence.");
+      }
+    } else if (campaign.status === "completed_standalone_calibration") {
       if (cohorts.length !== 1 || last.pacedMeasurement.phase !== "calibration" || last.pacedMeasurement.arrivalStatus !== "full_window"
         || last.pacedMeasurement.drainStatus !== "complete" || last.pacedMeasurement.qualification !== "qualified"
         || last.pacedMeasurement.stopReason !== null || last.counts.attempted !== last.pacedMeasurement.plannedSlots) {

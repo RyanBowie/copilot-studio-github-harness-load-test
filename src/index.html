@@ -477,6 +477,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           </article>
           <article class="note">
             <h3>Pilot workload definitions</h3>
+            <p>These earlier pilot definitions are separate from the greeting-only minute retest below.</p>
             <p>Greeting: <code>Hello!</code></p>
             <p>Public knowledge: <code>Using Microsoft Learn, define a Power Platform environment in two sentences and cite the source.</code></p>
             <p>Compliance review: a hypothetical internal app using synthetic device-request data; ask for DLP and environment-governance considerations, configured sources, and a concise human-review submission. No internal source content or identifiers are reproduced.</p>
@@ -491,6 +492,14 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           <article class="note boundary">
             <h3>Executed runs are not open-ended authorization</h3>
             <p>The 100-call burst, original bounded paced campaign, stopped standalone 100 RPM calibration and completed 25 RPM follow-up were each executed once under separate bounds. The original campaign ended on its transport stop; the 100 RPM calibration ended on its generic-error safety threshold; the 25 RPM follow-up completed its two-minute window and drain without continuing to an hour. This reporting repository contains no live runner. None permits an automatic restart or further requests, including unused slots. Any future work needs separate explicit authorization and bounds, excludes review/email workloads, and must stop on throttle or ambiguous side effects without automatic retry. Sequential turns in one chat and client RPC overlap are not backend/model concurrency.</p>
+          </article>
+          <article class="note">
+            <h3>2026-09-21 minute retest / local runner stopped after 41 of 100 requests</h3>
+            <p>A fresh greeting-only authorization targeted 100 requests over 60 seconds, with 600 ms slots, a 570 ms floor and client cap 100. Ordinary generic invocation errors were counted without the earlier three-error cutoff. Explicit throttling/backoff, authentication/identity and local timing/evidence guards remained. One in-run identity check verified the same account; no extra agent preflights or retries occurred.</p>
+            <p><strong>41 actual attempts produced 26 eventual greetings and 15 generic failures, with zero pending. Failure rate is 15/41 (36.585%), not 15/100.</strong> One skipped slot and 58 unoffered slots were never sent. The local admission deadline for planned request 42 was missed; no native call was made for that slot. The controller continued through ordinary errors and stopped on local timing, not provider throttling. This is an incomplete test-generator result, not a GitHub Copilot Harness capacity ceiling.</p>
+            <p>UTC start / dispatch close / drain cutoff: 11:05:54.897Z / 11:06:20.182Z / 11:06:28.382Z. The measured close was 25.284633200000002 s after arrival start; the later observation-loop end was 25.291318000000004 s. Drain from the actual close was 8.200922099999996 s, giving 33.485555299999994 s total observation. Eighteen greetings completed before close and eight during drain.</p>
+            <p>The first-error callback occurred at 13.826682000000004 s; its decision observation at 13.8319117 s recorded 24 dispatched, 7 successful, 1 failed and 16 outstanding. At the local stop, 18 had succeeded, 15 had failed and 8 were outstanding; all eight later succeeded. Forty-one returned conversations were verified distinct. Peak 17 is client outstanding, not backend execution. Minimum dispatch gap was 576.8838000000032 ms, above the floor.</p>
+            <p>A combined pre-invocation logging/check span of 319.63380000000325 ms crossed the local slot deadline; abandonment was 662.1854999999996 ms after the scheduled slot. This does not isolate a disk, OS or service delay. The generic failures exposed no HTTP status/backoff signal; their cause remains unknown. Costs remain pending. The consumed authorization did not permit resuming the remaining 59 or automatically starting another cohort.</p>
           </article>
         </div>
         <p class="fine">Future scope: email &rarr; workflow &rarr; agent. That scenario is not implemented or measured by this scaffold.</p>
