@@ -90,8 +90,190 @@ function table(target, caption, headers, rows) {
 const windowLabel = (value) => value < 60 ? `${number(value)} seconds`
   : value < 3600 ? `${number(value / 60)} minute${value === 60 ? "" : "s"}`
     : value < 86400 ? `${number(value / 3600)} hour${value === 3600 ? "" : "s"}` : `${number(value / 86400)} day`;
-const outcomeRatio = (counts) => `${number(counts.completed)} / ${number(counts.attempted)} (${number(counts.completed / counts.attempted * 100)}%)`;
+const outcomeRatio = (counts) => counts.attempted ? `${number(counts.completed)} / ${number(counts.attempted)} (${number(counts.completed / counts.attempted * 100)}%)` : "No attempts";
 const sourceWindow = (candidate) => `${candidate.runKey}; ${number(candidate.targetRpm)} intended RPM; dispatch offsets ${number(candidate.offsetSeconds)}-${number(candidate.offsetSeconds + candidate.windowSeconds)} s`;
+const cohortNames = {
+  "m365-native-burst-100": "100-request burst",
+  "paced-calibration-10": "10/min calibration",
+  "paced-calibration-25": "25/min calibration",
+  "paced-calibration-50": "50/min calibration",
+  "paced-hour-25-stopped": "25/min hour attempt",
+  "paced-standalone-100-stopped": "100/min early stop",
+  "paced-spread-25-completed": "25/min follow-up"
+};
+const cohortName = (run) => cohortNames[run.runKey] ?? run.runKey;
+const outcomeSeries = [
+  { key: "completed", label: "Successful greetings", className: "series-success" },
+  { key: "failed", label: "Failed invocations", className: "series-failure" },
+  { key: "pending", label: "Pending", className: "series-pending" }
+];
+
+function renderCharts(runs) {
+  const ordered = nativeFirst(runs).filter((run) => nativeMeasurement(run));
+  const rows = nativeChartRows(ordered);
+  if (!rows.length) {
+    for (const id of ["overview-charts", "latency-charts", "concurrency-charts"]) empty(id, "No native load chart yet.", "No eligible native measurements; visible Teams turns are reported separately.");
+  } else {
+    byId("overview-charts").replaceChildren(barChart({
+      title: "The whole native-load result in one chart",
+      description: "Share of attempted calls with eventual greetings, failures or pending outcomes at each cohort's final cutoff, including drain. Intended rates label separate trials, not a fitted capacity curve. The burst is not 100 RPM.",
+      domain: 100, unit: "%", stacked: true, series: outcomeSeries,
+      rows: rows.map((row, index) => ({
+        key: row.runKey, label: cohortName(row), values: row.percentages,
+        summary: `${row.counts.completed} successful / ${row.counts.attempted} attempts; ${row.counts.failed} failed; ${row.counts.pending} pending`,
+        summaryLines: [`${row.counts.completed} / ${row.counts.attempted} replies`, row.percentages[0] === null ? "No attempt ratio" : `${number(row.percentages[0])}% success`],
+        detail: `${row.counts.failed} failed; ${row.counts.pending} pending. ${ordered[index].pacedMeasurement ? `${number(ordered[index].pacedMeasurement.arrivalSeconds)} s arrivals + drain` : "Burst; not a paced minute"}.`
+      }))
+    }));
+    byId("latency-charts").replaceChildren(barChart({
+      title: "Successful reply duration / median and tail",
+      description: "Native invocation completion, measured separately for successful replies in each cohort. No pooled percentiles, failure durations, backend TTFA or invented distribution.",
+      unit: " s", series: [
+        { key: "p50", label: "p50 / median", className: "series-primary" },
+        { key: "p95", label: "p95 / tail", className: "series-secondary" }
+      ],
+      rows: rows.map((row) => ({
+        key: row.runKey, label: cohortName(row), values: row.latencySeconds,
+        summary: row.successfulSamples ? `p50 ${number(row.latencySeconds[0])} s; p95 ${number(row.latencySeconds[1])} s; n=${row.successfulSamples}` : "No successful timing samples",
+        summaryLines: row.successfulSamples ? [`p50 ${number(row.latencySeconds[0])} s`, `p95 ${number(row.latencySeconds[1])} s`] : ["No samples"],
+        detail: `n=${row.successfulSamples} successful invocation durations`
+      }))
+    }));
+    byId("concurrency-charts").replaceChildren(barChart({
+      title: "Observed peak outstanding client calls",
+      description: "Client calls whose measured lifetimes overlapped. This is not a worker setting, agent admission count or simultaneous backend/model execution. The 25/min follow-up still had a configured client cap of 100, not five.",
+      series: [{ key: "peak", label: "Observed client peak", className: "series-primary" }],
+      rows: rows.map((row) => ({
+        key: row.runKey, label: cohortName(row), values: [row.peakOutstanding],
+        summary: row.peakOutstanding === null ? "Not measured" : `${row.peakOutstanding} outstanding client calls`,
+        summaryLines: [row.peakOutstanding === null ? "Not measured" : `${row.peakOutstanding} calls`],
+        detail: `${row.counts.completed} / ${row.counts.attempted} eventual greetings; ${row.counts.failed} failed`
+      }))
+    }));
+  }
+  const content = byId("concurrency-content");
+  content.replaceChildren();
+  if (ordered.length) table(content, "Client overlap and outcomes / not a concurrency quota",
+    ["Cohort", "Observed peak", "Eventual success", "Boundary"],
+    ordered.map((run) => [cohortName(run), nativeMeasurement(run).peakOutstanding ?? "Not measured", outcomeRatio(run.counts), loadStatus(run)]));
+  if (runs.some((run) => run.runKey === "paced-spread-25-completed") && runs.some((run) => run.runKey === "paced-standalone-100-stopped")) content.append(paragraph("The later spread-out 25/min cohort returned 50/50 greetings with peak five, versus 12/21 with peak 18 in the separate 100/min attempt. Time, cooldown and background conditions also changed. This is not proof of causality, a five-call configuration, or a twelve-call service limit.", "fine"));
+}
+
+function labelledControl(labelText, id, options) {
+  const field = node("div", undefined, "control-field");
+  const caption = node("label", labelText);
+  caption.htmlFor = id;
+  const control = node(options ? "select" : "input");
+  control.id = id;
+  if (options) for (const [value, text] of options) {
+    const option = node("option", text);
+    option.value = value;
+    control.append(option);
+  }
+  else control.type = "search";
+  field.append(caption, control);
+  return { field, control };
+}
+
+function renderTimeline(runs) {
+  const paced = runs.filter((run) => run.pacedMeasurement);
+  if (!paced.length) {
+    empty("timeline-content", "No dispatch-minute series.", "A burst or individual visible turn is not a full offered-load minute.");
+    return;
+  }
+  const target = byId("timeline-content");
+  const controls = node("div", undefined, "searchbar");
+  const choice = labelledControl("Dispatch timeline / choose a cohort", "timeline-run", paced.map((run) => [run.runKey, cohortName(run)]));
+  choice.control.value = paced.find((run) => run.pacedMeasurement.phase === "hour")?.runKey ?? paced.at(-1).runKey;
+  controls.append(choice.field);
+  const chart = node("div", undefined, "timeline-chart");
+  const status = paragraph(undefined, "fine");
+  status.setAttribute("role", "status");
+  const draw = () => {
+    const run = paced.find((item) => item.runKey === choice.control.value);
+    const measurement = run.pacedMeasurement;
+    chart.replaceChildren(barChart({
+      title: `${cohortName(run)} / outcomes by dispatch window`,
+      description: "Bars group requests by when they were dispatched, with their eventual outcomes at the final cutoff. They are not completions occurring in each minute. Partial buckets remain partial; no hourly extrapolation.",
+      stacked: true, series: outcomeSeries,
+      rows: measurement.minutes.map((minute) => ({
+        key: `${run.runKey}-${minute.offsetSeconds}`,
+        label: `${number(minute.offsetSeconds)}-${number(minute.offsetSeconds + minute.durationSeconds)} s`,
+        values: [minute.completed, minute.failed, minute.pending],
+        summary: `${minute.completed} greetings / ${minute.attempted} attempts; ${minute.failed} failed; ${minute.pending} pending`,
+        summaryLines: [`${minute.completed} / ${minute.attempted} replies`, `${minute.failed} failed`],
+        detail: `${minute.durationSeconds === 60 ? "Full dispatch minute" : `${number(minute.durationSeconds)} s partial bucket`}; ${minute.pending} pending`
+      }))
+    }));
+    status.textContent = `${run.runKey}: ${number(measurement.arrivalSeconds)} s arrivals + ${number(measurement.drainSeconds)} s drain. ${loadStatus(run)} ${number(measurement.unofferedSlots)} unoffered / ${number(measurement.skippedSlots)} skipped; neither is an agent failure. The affected dispatch bucket does not identify the time an error returned.`;
+  };
+  choice.control.addEventListener("change", draw);
+  target.replaceChildren(controls, chart, status);
+  draw();
+}
+
+function renderStages(runs) {
+  if (!runs.length) {
+    empty("stages-content", "No reviewed stages.", "Nothing has been measured or inferred.");
+    return;
+  }
+  const target = byId("stages-content");
+  const controls = node("div", undefined, "searchbar");
+  const search = labelledControl("Search stage or model", "stage-search");
+  const surface = labelledControl("Surface", "stage-surface", [["all", "All surfaces"], ...[...new Set(runs.map((run) => run.surface))].map((value) => [value, label(value)])]);
+  const outcome = labelledControl("Outcomes", "stage-outcome", [["all", "All outcomes"], ["failed", "Stages with failures"], ["clean", "No failed or pending outcomes"]]);
+  const sort = labelledControl("Sort stages", "stage-sort", [["recorded", "Recorded order"], ["failures", "Most failures"], ["success", "Lowest success percentage"]]);
+  for (const item of [search, surface, outcome, sort]) controls.append(item.field);
+  const results = node("div");
+  const status = paragraph(undefined, "fine");
+  status.id = "stage-match-count";
+  status.setAttribute("role", "status");
+  const draw = () => {
+    const query = search.control.value.trim().toLowerCase();
+    const selection = runs.filter((run) => `${run.runKey} ${run.model ?? ""} ${cohortName(run)}`.toLowerCase().includes(query)
+      && (surface.control.value === "all" || surface.control.value === run.surface)
+      && (outcome.control.value === "all" || (outcome.control.value === "failed" ? run.counts.failed > 0 : run.counts.failed === 0 && run.counts.pending === 0)));
+    if (sort.control.value === "failures") selection.sort((a, b) => b.counts.failed - a.counts.failed);
+    if (sort.control.value === "success") selection.sort((a, b) => a.counts.completed / a.counts.attempted - b.counts.completed / b.counts.attempted);
+    status.textContent = `${selection.length} of ${runs.length} reviewed stages. Counts are requested-operation outcomes; separate campaigns are not pooled.`;
+    table(results, "Reviewed stage explorer", ["Stage / surface", "Load shape", "Actual arrival or observation", "Success / attempts", "Failed / pending", "Result"],
+      selection.map((run) => [
+        `${run.runKey} / ${label(run.surface)}`,
+        run.pacedMeasurement ? `${number(run.pacedMeasurement.targetRpm)} intended/min` : run.nativeInvocation ? `${run.counts.attempted}-request burst; not RPM` : "Single visible turn",
+        run.pacedMeasurement ? `${number(run.pacedMeasurement.arrivalSeconds)} s arrivals + ${number(run.pacedMeasurement.drainSeconds)} s drain` : run.windowSeconds === null ? "Not measured" : `${number(run.windowSeconds)} s observation`,
+        outcomeRatio(run.counts), `${run.counts.failed} / ${run.counts.pending}`,
+        nativeMeasurement(run) ? loadStatus(run) : "Visible requested-operation outcome; not a load calibration."
+      ]));
+    if (!selection.length) results.append(paragraph("No matching stages. This filter result is not zero measured capacity.", "fine"));
+  };
+  for (const item of [search, surface, outcome, sort]) item.control.addEventListener(item === search ? "input" : "change", draw);
+  target.replaceChildren(controls, status, results);
+  draw();
+}
+
+function renderAnswerAndConversationViews(report) {
+  if (!report.runs.length) {
+    empty("answers-content", "No reviewed answer outcomes.", "No answer quality, length or content distribution is inferred.");
+    empty("conversations-content", "No reviewed conversation counts.", "A run, conversation and runtime session are different units.");
+    return;
+  }
+  table("answers-content", "Requested-operation outcomes / no raw answer content",
+    ["Run", "Workload / endpoint", "Successful requested outcomes", "Failed / pending"],
+    nativeFirst(report.runs).map((run) => [
+      run.runKey, `${label(run.workload)} / ${nativeMeasurement(run) ? "native invocation completion" : "visible channel observation"}`,
+      outcomeRatio(run.counts), `${run.counts.failed} / ${run.counts.pending}`
+    ]));
+  byId("answers-content").append(paragraph("Native load requests asked for a brief greeting. Success here is a returned greeting, not tool execution, knowledge-grounding accuracy or production workload capacity. No answer-length distribution, fabricated example answers or raw transcripts are published. The earlier public-knowledge and workflow turns are separately labelled.", "fine"));
+  table("conversations-content", "Reviewed conversation counts / identifiers deliberately excluded",
+    ["Run", "Attempts", "Verified conversation count", "Failure conversations", "Runtime sessions"],
+    nativeFirst(report.runs).map((run) => [
+      run.runKey, number(run.counts.attempted),
+      run.units.conversations === null ? "Unknown" : `${number(run.units.conversations)}${scopedContext(report, run)?.conversationUse === "one_existing_reused" ? " / same reused Teams conversation" : " / distinct within this cohort"}`,
+      nativeMeasurement(run)?.failedConversations ?? "Not measured", run.units.sessions ?? "Unknown"
+    ]));
+  byId("conversations-content").append(paragraph("A returned conversation identifier can accompany an invocation failure. Do not equate attempts, successful replies, conversations and runtime sessions. Partial Studio history pages do not prove missing records never reached the agent.", "fine"));
+  if (report.pacedCampaigns?.some((campaign) => campaign.campaignKey === "m365-paced-campaign")) byId("conversations-content").append(paragraph("The original paced campaign has 383 verified distinct returned conversations for 384 attempts: its transport-429 attempt returned no identifier.", "fine"));
+}
 
 function capacityCell(candidate) {
   if (!candidate) return "NOT ESTABLISHED";
@@ -105,6 +287,7 @@ function capacityCell(candidate) {
 function renderCapacity(report) {
   const target = byId("capacity-summary");
   target.replaceChildren();
+  byId("benchmark-kpis").replaceChildren();
   const groups = summarizeCapacity(report.runs);
   if (!groups.length) {
     empty("capacity-summary", "No paced capacity windows measured.", "Individual turns or a simultaneous burst cannot establish a successful per-minute, hourly or daily rate.");
@@ -113,6 +296,23 @@ function renderCapacity(report) {
   for (const group of groups) {
     const section = node("article", undefined, "stack capacity-group");
     const { context, highestQualifiedRpm, highestQualifiedRuns, longestClean, longestCompleted } = group;
+    const bestMinute = group.windows.find((window) => window.seconds === 60).best;
+    const bestFive = group.windows.find((window) => window.seconds === 300).best;
+    const fullHour = group.runs.some((run) => run.pacedMeasurement.phase === "hour" && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete");
+    const kpis = node("div", undefined, "cards benchmark-kpis");
+    for (const [title, value, detail] of [
+      ["Qualified short rate", highestQualifiedRpm === null ? "Not measured" : `${number(highestQualifiedRpm)}/min`, "Completed calibration only; not a service ceiling."],
+      ["Best dispatch minute", bestMinute ? `${bestMinute.counts.completed} / ${bestMinute.counts.attempted}` : "Not measured", "Eventual replies from a complete 60-second dispatch bucket."],
+      ["Best five minutes", bestFive ? `${bestFive.counts.completed} / ${bestFive.counts.attempted}` : "Not measured", "Eventual replies; not necessarily completed inside five minutes."],
+      ["Longest clean segment", longestClean ? windowLabel(longestClean.windowSeconds) : "Not measured", longestClean ? `${longestClean.counts.completed}/${longestClean.counts.attempted} eventual replies. A segment, not a separate endurance test.` : "No eligible error-free segment."],
+      ["Full hourly trial", fullHour ? "Completed" : "Not measured", "No projection of shorter trials into an hour."],
+      ["Cost per success", group.runs.every((run) => run.cost.status === "pending") ? "Pending" : "Not derived", "Unsettled or shared evidence is not zero cost."]
+    ]) {
+      const card = node("article", undefined, "card");
+      card.append(paragraph(title, "metric-label"), paragraph(value, "metric-value"), paragraph(detail, "metric-help"));
+      kpis.append(card);
+    }
+    byId("benchmark-kpis").append(kpis, paragraph(`${label(context.surface)} / ${label(context.environmentType)} / ${context.model ?? "unknown model"} / ${context.authenticatedAccounts} account. Each maximum comes from one cohort; whole dispatch-minute buckets, not rolling or completion-window maxima.`, "fine"));
     section.append(node("h3", `${label(context.surface)} / ${label(context.environmentType)} / ${context.model ?? "unknown model"}`),
       paragraph(`Greeting-only native invocation completion; ${context.authenticatedAccounts} account; memory ${label(context.memory)}; published revision ${context.agentVersion ?? "unknown"}. Configuration-specific observations, not a controlled harness comparison.`, "fine"));
     const summary = node("div", undefined, "note boundary");
@@ -123,7 +323,20 @@ function renderCapacity(report) {
       ["Full hourly arrival trial", group.runs.some((run) => run.pacedMeasurement.phase === "hour" && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete")
         ? "Completed; inspect its counts, skipped slots and qualification separately below." : "NOT ESTABLISHED; do not extrapolate shorter trials into an hourly result."]
     ]));
-    section.append(summary,
+    section.append(barChart({
+      title: "How many successful requests per window?",
+      description: "Most eventual successes and best error-free alternative among complete contiguous dispatch-minute buckets within one cohort. Not arbitrary rolling maxima or service ceilings. Sub-minute, hourly and daily windows are not inferred.",
+      series: [{ key: "best", label: "Most eventual successes", className: "series-primary" }, { key: "clean", label: "Best error-free alternative", className: "series-secondary" }],
+      rows: group.windows.filter((window) => window.best).map((window) => ({
+        key: `capacity-${window.seconds}`, label: windowLabel(window.seconds),
+        values: [window.best.counts.completed, window.clean?.counts.completed ?? null],
+        summary: `${window.best.counts.completed}/${window.best.counts.attempted} best; ${window.clean ? `${window.clean.counts.completed}/${window.clean.counts.attempted} clean` : "no clean window"}`,
+        summaryLines: [`${window.best.counts.completed}/${window.best.counts.attempted} best`, window.clean ? `${window.clean.counts.completed}/${window.clean.counts.attempted} clean` : "No clean window"],
+        detail: `${window.best.targetRpm}/min best source; dispatch ${window.best.offsetSeconds}-${window.best.offsetSeconds + window.seconds} s`
+      }))
+    }));
+    const details = node("details", undefined, "block");
+    details.append(node("summary", "Window counts, exact source cohorts and evidence boundaries"), summary,
       paragraph("Best counts among available whole dispatch-minute windows, not arbitrary rolling maxima. Each numerator is eventual successful invocations from requests sent in that window; replies may finish later during drain. Error-free means no failed or pending outcomes, not guaranteed future reliability.", "fine"));
     const container = node("div");
     table(container, `Observed dispatch-window successes / ${label(context.surface)} / ${context.model ?? "unknown model"}`,
@@ -134,7 +347,8 @@ function renderCapacity(report) {
           : window.best ? "Complete contiguous minute buckets in one cohort. Offered load can limit the count; not a service ceiling."
             : "No eligible full window within one measured cohort. Not zero capacity."
       ]));
-    section.append(container);
+    details.append(container);
+    section.append(details);
     target.append(section);
   }
   const gaps = node("article", undefined, "note");
@@ -177,10 +391,32 @@ function renderReliability(runs) {
 
 function renderFailureSummary(runs) {
   const failures = nativeFirst(runs).filter((run) => nativeMeasurement(run) && run.counts.failed);
+  byId("failure-charts").replaceChildren();
   if (!failures.length) {
     empty("failure-summary", "No native load-failure observations.", "An empty failure table is not evidence that the route has no limits. Visible workflow failures, if any, remain separate below.");
     return;
   }
+  byId("failure-charts").append(barChart({
+    title: "Failures by observed evidence / separate cohorts",
+    description: "Counts of failed native invocations, not rate-limit thresholds. Generic server_error results do not identify a throttling layer. The one explicit HTTP 429 belongs to the WorkIQ MCP transport; harness attribution is unknown.",
+    stacked: true,
+    series: [
+      { key: "generic", label: "Generic invocation error / cause unknown", className: "series-failure" },
+      { key: "transport", label: "WorkIQ transport HTTP 429", className: "series-pending" },
+      { key: "other", label: "Other classified native failure", className: "series-secondary" }
+    ],
+    rows: failures.map((run) => {
+      const generic = run.errors.filter((error) => error.evidence === "unclassified_invocation_failure").reduce((sum, error) => sum + error.count, 0);
+      const transport = run.errors.filter((error) => error.evidence === "workiq_mcp_transport_429").reduce((sum, error) => sum + error.count, 0);
+      const other = run.counts.failed - generic - transport;
+      return {
+        key: run.runKey, label: cohortName(run), values: [generic, transport, other],
+        summary: `${generic} generic errors; ${transport} transport HTTP 429; ${other} other classified failures`,
+        summaryLines: [`${run.counts.failed} / ${run.counts.attempted} failed`],
+        detail: `${generic} generic; ${transport} transport 429; ${other} other`
+      };
+    })
+  }));
   table("failure-summary", "Where failures were observed / dispatch cohorts are not failure timestamps",
     ["Cohort", "Failed invocations / evidence", "First affected dispatch bucket", "Arrival stop / observation end", "Attribution and recovery"],
     failures.map((run) => {
@@ -550,6 +786,15 @@ function navigate() {
 }
 window.addEventListener("hashchange", navigate);
 navigate();
+let printDetails = [];
+window.addEventListener("beforeprint", () => {
+  printDetails = [...document.querySelectorAll("details")].filter((details) => !details.open);
+  for (const details of printDetails) details.open = true;
+});
+window.addEventListener("afterprint", () => {
+  for (const details of printDetails) details.open = false;
+  printDetails = [];
+});
 
 try {
   const report = JSON.parse(byId("report-data").textContent);
@@ -557,6 +802,10 @@ try {
   assertReport(report, schema);
   renderCapacity(report);
   renderOverview(report);
+  renderCharts(report.runs);
+  renderTimeline(report.runs);
+  renderStages(report.runs);
+  renderAnswerAndConversationViews(report);
   renderReliability(report.runs);
   renderResponses(report.runs);
   renderThroughput(report);
@@ -568,7 +817,7 @@ try {
   byId("publication-status").classList.toggle("reviewed", reviewed);
   byId("review-status").textContent = reviewed ? `Public aggregate review: ${report.publication.reviewedOn}. Run dates and cost settlement may differ.` : "Awaiting pilot / no measured results published";
 } catch {
-  for (const id of ["capacity-summary", "overview-summary", "run-ledger", "reliability-content", "failure-summary", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
+  for (const id of ["benchmark-kpis", "overview-charts", "concurrency-charts", "concurrency-content", "latency-charts", "timeline-content", "stages-content", "answers-content", "conversations-content", "capacity-summary", "overview-summary", "run-ledger", "reliability-content", "failure-charts", "failure-summary", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
   byId("publication-status").textContent = "DATA REJECTED";
   byId("publication-status").classList.add("rejected");
   byId("review-status").textContent = "No metrics displayed.";

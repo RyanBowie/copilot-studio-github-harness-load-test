@@ -8,7 +8,9 @@ First published on **2026-09-21** through the existing GitHub Actions Pages work
 
 ## Capacity summary / successes per measured dispatch window
 
-The overview now leads with derived capacity evidence rather than requiring readers to combine individual run cards. Throughput adds one rate/reliability table; observations adds failure location and stop context. These are deterministic views of the existing ten reviewed records, **not new measurements or rewritten historical data**.
+The report follows the Standard report's **Summary, Concurrency, Response time, Throughput and limits, Stages, Answers, Refusals/failures, Every conversation, How it was tested** navigation, plus **Costs**. Headline cards and accessible, dependency-free SVG charts lead the report; detailed evidence and tables remain available in expandable sections. The conversation view is deliberately aggregate-only, not a public transcript or identifier browser.
+
+Charts show separate-cohort success/failure shares, successful native p50/p95 durations, observed client-outstanding peaks, best complete dispatch-window counts with error-free alternatives, selectable dispatch-minute outcomes, and classified failures. Stage search, surface/outcome filters and sorting support detailed comparison. These are deterministic views of the existing ten reviewed records, **not new measurements or rewritten historical data**. The burst is not labelled 100 RPM, partial minutes are not scaled up, failure durations never enter reply-percentile bars, and unsupported hourly/daily capacity or settled costs have no fabricated chart. Horizontal chart scrolling keeps labels legible on small screens; all numeric evidence remains in text/tables and the JSON download. Printing expands the detailed evidence and includes every section.
 
 | Complete dispatch window | Most eventual successes / attempts | Best error-free observed window |
 | --- | --- | --- |
