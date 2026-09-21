@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "harness": "GitHub Copilot Harness",
+  "outcomeBasis": "requested_operation",
+  "publication": { "status": "reviewed", "reviewedOn": "2026-09-20" },
+  "studyContext": null,
+  "runs": [
+    {
+      "runKey": "offline-fixture-only",
+      "observedOn": "2026-09-19",
+      "surface": "published_teams",
+      "agentVersion": null,
+      "environmentType": "developer",
+      "model": null,
+      "authenticatedAccounts": 1,
+      "memory": "unknown",
+      "workload": "single_turn",
+      "workflow": "not_involved",
+      "connectors": "unknown",
+      "counts": { "attempted": 8, "completed": 5, "failed": 2, "pending": 1 },
+      "units": { "conversations": 1, "sessions": null },
+      "windowSeconds": 120,
+      "firstVisibleActivity": {
+        "kind": "visible_activity",
+        "start": "message_send",
+        "end": "first_status_or_answer",
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 8,
+        "p50Ms": 200,
+        "p95Ms": 400,
+        "maxMs": 400
+      },
+      "firstVisibleLatency": {
+        "kind": "visible_response",
+        "start": "message_send",
+        "end": "first_visible_answer",
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 5,
+        "p50Ms": 500,
+        "p95Ms": 1200,
+        "maxMs": 1200
+      },
+      "latency": {
+        "kind": "visible_response",
+        "start": "message_send",
+        "end": "feedback_controls_and_text_stable",
+        "stabilitySeconds": 0.5,
+        "percentileMethod": "nearest_rank",
+        "sampleCount": 5,
+        "p50Ms": 1200,
+        "p95Ms": 2500,
+        "maxMs": 2500
+      },
+      "concurrency": { "maxInFlight": 2, "basis": "observed_message_overlap" },
+      "arrival": { "attempts": 8, "windowSeconds": 60 },
+      "errors": [
+        { "category": "throttling", "count": 1, "evidence": "visible_error" },
+        { "category": "unknown", "count": 1, "evidence": "unclassified_failure" }
+      ],
+      "clientIssues": [{ "category": "unsent_draft", "count": 1, "observedWaitSeconds": 20 }],
+      "workflowState": null,
+      "followUp": null,
+      "nativeInvocation": null,
+      "observations": ["manual_timing", "partial_observation"],
+      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+    }
+  ],
+  "documentedLimits": []
+}

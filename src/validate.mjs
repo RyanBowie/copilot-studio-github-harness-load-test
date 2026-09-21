@@ -1,0 +1,487 @@
+// A deliberately small, fail-closed JSON Schema interpreter shared by Node and the report.
+const supportedKeywords = new Set([
+  "$schema", "$id", "$defs", "$ref", "title", "description", "type", "const", "enum",
+  "properties", "required", "additionalProperties", "items", "minItems", "maxItems",
+  "uniqueItems", "minimum", "maximum", "minLength", "maxLength", "pattern", "anyOf"
+]);
+
+function inspectSchema(schema, root = schema) {
+  for (const key of Object.keys(schema)) {
+    if (!supportedKeywords.has(key)) throw new Error(`Unsupported schema keyword: ${key}`);
+  }
+  if (schema.$ref && (!schema.$ref.startsWith("#/$defs/") || !root.$defs?.[schema.$ref.slice(8)])) {
+    throw new Error("Only existing local $defs references are supported.");
+  }
+  for (const child of Object.values(schema.$defs ?? {})) inspectSchema(child, root);
+  for (const child of Object.values(schema.properties ?? {})) inspectSchema(child, root);
+  if (schema.items) inspectSchema(schema.items, root);
+  for (const child of schema.anyOf ?? []) inspectSchema(child, root);
+}
+
+function matchesType(value, type) {
+  if (type === "null") return value === null;
+  if (type === "array") return Array.isArray(value);
+  if (type === "object") return value !== null && typeof value === "object" && !Array.isArray(value);
+  if (type === "integer") return Number.isSafeInteger(value);
+  if (type === "number") return typeof value === "number" && Number.isFinite(value);
+  return typeof value === type;
+}
+
+function checkShape(value, rule, root, path, errors) {
+  const fail = (message) => errors.push(`${path}: ${message}`);
+  if (rule.$ref) return checkShape(value, root.$defs[rule.$ref.slice(8)], root, path, errors);
+  if (rule.anyOf) {
+    const valid = rule.anyOf.some((choice) => {
+      const choiceErrors = [];
+      checkShape(value, choice, root, path, choiceErrors);
+      return choiceErrors.length === 0;
+    });
+    if (!valid) fail("does not match an allowed shape (including nested fields).");
+    return;
+  }
+  if (rule.type && !matchesType(value, rule.type)) {
+    fail(`must be ${rule.type}.`);
+    return;
+  }
+  if ("const" in rule && value !== rule.const) fail("must match the contract constant.");
+  if (rule.enum && !rule.enum.includes(value)) fail("is not an allowed value.");
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) fail("must be finite.");
+    if (rule.minimum !== undefined && value < rule.minimum) fail(`must be >= ${rule.minimum}.`);
+    if (rule.maximum !== undefined && value > rule.maximum) fail(`must be <= ${rule.maximum}.`);
+  }
+  if (typeof value === "string") {
+    if (rule.minLength !== undefined && value.length < rule.minLength) fail("is too short.");
+    if (rule.maxLength !== undefined && value.length > rule.maxLength) fail("is too long.");
+    if (rule.pattern && !new RegExp(rule.pattern).test(value)) fail("has an unsupported format.");
+  }
+  if (Array.isArray(value)) {
+    if (rule.minItems !== undefined && value.length < rule.minItems) fail("has too few items.");
+    if (rule.maxItems !== undefined && value.length > rule.maxItems) fail("has too many items.");
+    if (rule.uniqueItems && new Set(value.map((item) => JSON.stringify(item))).size !== value.length) fail("has duplicates.");
+    if (rule.items) value.forEach((item, index) => checkShape(item, rule.items, root, `${path}[${index}]`, errors));
+  }
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    for (const key of rule.required ?? []) {
+      if (!Object.hasOwn(value, key)) fail(`missing required field ${key}.`);
+    }
+    for (const [key, item] of Object.entries(value)) {
+      if (Object.hasOwn(rule.properties ?? {}, key)) checkShape(item, rule.properties[key], root, `${path}.${key}`, errors);
+      // Do not echo unknown keys: they may themselves contain private content.
+      else if (rule.additionalProperties === false) fail("contains an unknown field.");
+    }
+  }
+}
+
+function checkPublicStrings(value, path, errors) {
+  if (typeof value === "string") {
+    const isDocumentationUrl = /^report\.documentedLimits\[\d+\]\.sourceUrl$/.test(path);
+    const identifiers = /@|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32}|\b(?:gh[pousr]_|github_pat_|Bearer\b)|(?:sharepoint|onmicrosoft)\.com|\b(?:token|password|secret)\s*[=:]/i;
+    const webAddress = /(?:https?:|www\.|[a-z0-9-]+\.(?:com|org|net|io|dev|co|uk)\b)/i;
+    const placeholder = /^(?:n\/?a|tbd|todo|test|example|placeholder|synthetic|pending|unknown|not measured)$/i;
+    const publicLabel = /\.(?:model|agentVersion)$/.test(path);
+    if (identifiers.test(value) || (!isDocumentationUrl && webAddress.test(value)) || (publicLabel && placeholder.test(value))) {
+      errors.push(`${path}: potential private content or placeholder; use null for unknown labels.`);
+    }
+  } else if (value !== null && typeof value === "object") {
+    for (const [key, item] of Object.entries(value)) {
+      checkPublicStrings(item, Array.isArray(value) ? `${path}[${key}]` : `${path}.${key}`, errors);
+    }
+  }
+}
+
+function checkInvocationTimings(invocation, counts, windowSeconds, path, fail) {
+  const groups = [["success", counts.completed], ["failure", counts.failed], ["allOutcomes", counts.completed + counts.failed]];
+  for (const [field, count] of groups) {
+    const summary = invocation[field];
+    const summaryPath = `${path}.${field}`;
+    if (count === 0) {
+      if (summary !== null) fail(summaryPath, "no outcomes must use null, not a fabricated sample.");
+      continue;
+    }
+    if (summary === null) { fail(summaryPath, "requires timing for the observed outcome group."); continue; }
+    if (summary.sampleCount !== count) fail(summaryPath, "samples must match this outcome group's count exactly.");
+    if ((summary.minMs !== null && summary.minMs > summary.p50Ms) || summary.p50Ms > summary.p95Ms || summary.p95Ms > summary.maxMs) {
+      fail(summaryPath, "must satisfy min <= p50 <= p95 <= max where min is known.");
+    }
+    if (summary.maxMs > windowSeconds * 1000) fail(summaryPath, "invocation duration cannot exceed the calibrated batch window.");
+    if (summary.sampleCount === 1 && (summary.p50Ms !== summary.p95Ms || summary.p95Ms !== summary.maxMs || (summary.minMs !== null && summary.minMs !== summary.maxMs))) {
+      fail(summaryPath, "one sample requires equal timing values.");
+    }
+    if (invocation.percentileMethod === "nearest_rank" && Math.ceil(summary.sampleCount * 0.95) === summary.sampleCount && summary.p95Ms !== summary.maxMs) {
+      fail(summaryPath, "nearest-rank p95 must equal max for fewer than 20 samples.");
+    }
+  }
+  const presentGroups = [invocation.success, invocation.failure].filter((value) => value !== null);
+  if (invocation.allOutcomes && presentGroups.length) {
+    if (invocation.allOutcomes.maxMs !== Math.max(...presentGroups.map((group) => group.maxMs))) {
+      fail(`${path}.allOutcomes`, "all-outcome max must equal the maximum across outcome groups.");
+    }
+    if (invocation.allOutcomes.minMs !== null && presentGroups.every((group) => group.minMs !== null)
+      && invocation.allOutcomes.minMs !== Math.min(...presentGroups.map((group) => group.minMs))) {
+      fail(`${path}.allOutcomes`, "all-outcome min must match the outcome groups when all minima are known.");
+    }
+  }
+}
+
+function checkPacedMeasurement(run, path, fail, checkDate) {
+  const paced = run.pacedMeasurement;
+  const { attempted, completed, failed, pending } = run.counts;
+  if (run.nativeInvocation !== null || run.workload !== "single_turn" || run.workflow !== "not_involved" || run.clientIssues.length
+    || [run.workflowState, run.followUp, run.firstVisibleActivity, run.firstVisibleLatency, run.latency, run.arrival, run.concurrency].some((value) => value !== null)) {
+    fail(path, "paced greeting cohorts exclude burst records, workflow requests, unsent drafts and visible/UI measurements.");
+  }
+  if (run.windowSeconds === null || Math.abs(run.windowSeconds - paced.arrivalEndObservedSeconds - paced.drainSeconds) > 0.000001) {
+    fail(path, "full observation window must equal measured arrival-end offset plus drain seconds, not the scheduled offer window.");
+  }
+  for (const field of ["startedAt", "arrivalEndedAt", "observedThroughAt"]) {
+    const value = paced[field];
+    const instant = new Date(value);
+    if (Number.isNaN(instant.valueOf()) || instant.toISOString() !== value) fail(`${path}.${field}`, "must be a real millisecond UTC instant.");
+    checkDate(value.slice(0, 10), `${path}.${field}`);
+  }
+  if (paced.startedAt >= paced.arrivalEndedAt || paced.arrivalEndedAt > paced.observedThroughAt || paced.observedThroughAt.slice(0, 10) !== run.observedOn) {
+    fail(path, "UTC arrival and observation markers must be ordered and end on the run observation date.");
+  }
+  const plannedSeconds = paced.phase === "hour" ? 3600 : 120;
+  if (paced.plannedArrivalSeconds !== plannedSeconds || paced.plannedSlots !== paced.targetRpm * plannedSeconds / 60) {
+    fail(path, "planned slots must match the phase duration and intended rate.");
+  }
+  if (paced.arrivalSeconds > plannedSeconds || attempted + paced.skippedSlots + paced.unofferedSlots !== paced.plannedSlots) {
+    fail(path, "attempted, skipped and unoffered slots must partition the bounded plan.");
+  }
+  if (paced.arrivalStatus === "full_window") {
+    if (paced.arrivalSeconds !== plannedSeconds || paced.unofferedSlots !== 0 || paced.stopReason !== null) {
+      fail(path, "full arrival window requires its full duration, no unoffered slots and no stop reason.");
+    }
+  } else if (paced.stopReason === null || (paced.arrivalStatus === "partial" && (paced.arrivalSeconds >= plannedSeconds || paced.stopReason !== "observation_cutoff"))) {
+    fail(path, "stopped/partial arrivals require an explicit reason; partial is an early observation cutoff.");
+  }
+  if ((paced.drainStatus === "complete") !== (pending === 0)) fail(path, "complete drain requires no pending invocations; cutoff retains pending outcomes.");
+  const pacing = paced.pacing;
+  if (Math.abs(pacing.intervalMs - 60000 / paced.targetRpm) > 0.000001) fail(path, "absolute slot interval must match intended RPM.");
+  if ((pacing.observedMinIntervalMs === null) !== (pacing.violatingIntervals === null)
+    || (attempted < 2 && pacing.observedMinIntervalMs !== null) || pacing.violatingIntervals > attempted - 1) {
+    fail(path, "observed inter-dispatch evidence must be paired and bounded by actual intervals.");
+  }
+  const minAllowed = pacing.intervalMs * (1 - pacing.jitterAllowance);
+  if (pacing.observedMinIntervalMs !== null && ((pacing.observedMinIntervalMs < minAllowed) !== (pacing.violatingIntervals > 0))) {
+    fail(path, "pacing violations must agree with the measured minimum and 5% allowance.");
+  }
+  if ((paced.peakOutstanding === null) !== (paced.concurrencyVerification === null) || paced.peakOutstanding > attempted) {
+    fail(path, "client peak requires measured verification (interval-sweep or reviewed client peak) and cannot exceed attempts.");
+  }
+  if ((run.units.conversations === null) !== (paced.conversationEvidence === null)
+    || (paced.failedConversations !== null && (paced.failedConversations > failed || run.units.conversations === null || paced.failedConversations > run.units.conversations))) {
+    fail(path, "returned conversation evidence must match known counts; fresh-request policy is not an observed count.");
+  }
+  const transport429 = run.errors.filter((error) => error.evidence === "workiq_mcp_transport_429").reduce((sum, error) => sum + error.count, 0);
+  if ((run.units.conversations !== null && run.units.conversations > attempted - transport429)
+    || (paced.failedConversations !== null && paced.failedConversations > failed - transport429)) {
+    fail(path, "WorkIQ MCP transport 429 evidence has no returned conversation identifier; do not infer one from the attempt.");
+  }
+  if (paced.stopReason === "explicit_throttle" && !run.errors.some((error) => error.category === "throttling")) {
+    fail(path, "an explicit throttle stop needs classified throttle evidence, not a generic invocation error.");
+  }
+  if (paced.stopReason === "authentication" && !run.errors.some((error) => error.category === "authentication")) {
+    fail(path, "an authentication stop needs classified authentication evidence.");
+  }
+  if (paced.stopReason === "generic_error_threshold" && (paced.arrivalStatus !== "stopped"
+    || !run.errors.some((error) => error.evidence === "unclassified_invocation_failure")
+    || run.errors.some((error) => ["authentication", "throttling"].includes(error.category)))) {
+    fail(path, "a generic-error safety stop requires unclassified invocation failures, not an authentication or throttle claim.");
+  }
+  const canQualify = paced.arrivalStatus === "full_window" && paced.drainStatus === "complete"
+    && attempted === paced.plannedSlots && completed * 100 >= attempted * 99
+    && pacing.observedMinIntervalMs !== null && pacing.violatingIntervals === 0
+    && !run.errors.some((error) => ["authentication", "throttling"].includes(error.category));
+  if (paced.phase === "calibration") {
+    if (paced.qualifyingRunKey !== null || (paced.qualification === "qualified" && !canQualify)
+      || (paced.qualification === "not_qualified" && canQualify)) {
+      fail(path, "calibration qualification requires all slots, >=99% greetings, complete drain and healthy observed pacing.");
+    }
+  } else if (paced.qualification !== "not_evaluated" || paced.qualifyingRunKey === null) {
+    fail(path, "hour cohorts reference a prior qualified calibration, not their own qualification.");
+  }
+  if (paced.minutes.length !== Math.ceil(paced.arrivalSeconds / 60)) fail(path, "minute buckets must cover exactly the observed arrival duration.");
+  const totals = { attempted: 0, completed: 0, failed: 0, pending: 0 };
+  paced.minutes.forEach((minute, index) => {
+    if (minute.offsetSeconds !== index * 60 || Math.abs(minute.durationSeconds - Math.min(60, paced.arrivalSeconds - index * 60)) > 0.000001) {
+      fail(`${path}.minutes[${index}]`, "minute buckets must be contiguous, with only the final bucket partial.");
+    }
+    if (minute.attempted !== minute.completed + minute.failed + minute.pending) fail(path, "minute outcome counts must partition actual dispatches.");
+    for (const key of Object.keys(totals)) totals[key] += minute[key];
+  });
+  if (Object.keys(totals).some((key) => totals[key] !== run.counts[key])) fail(path, "minute dispatch-cohort totals must equal run outcomes at the same cutoff.");
+  checkInvocationTimings(paced, run.counts, run.windowSeconds, path, fail);
+}
+
+function checkPacedCampaigns(runs, fail) {
+  const campaigns = new Map();
+  for (const run of runs.filter((item) => item.pacedMeasurement)) {
+    const key = run.pacedMeasurement.campaignKey;
+    if (!campaigns.has(key)) campaigns.set(key, []);
+    campaigns.get(key).push(run);
+  }
+  for (const cohorts of campaigns.values()) {
+    const calibrations = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration");
+    const hours = cohorts.filter((run) => run.pacedMeasurement.phase === "hour");
+    if (cohorts.reduce((sum, run) => sum + run.counts.attempted, 0) > 9670 || hours.length > 1
+      || new Set(calibrations.map((run) => run.pacedMeasurement.targetRpm)).size !== calibrations.length) {
+      fail("report.runs", "paced campaign permits distinct calibration rates and at most one hour cohort within 9670 requests.");
+    }
+    const ordered = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt));
+    if (ordered.some((run, index) => index && ordered[index - 1].pacedMeasurement.observedThroughAt > run.pacedMeasurement.startedAt)) {
+      fail("report.runs", "paced cohorts in a campaign must not overlap their arrival/drain windows.");
+    }
+    for (const run of ordered.slice(0, -1)) {
+      const paced = run.pacedMeasurement;
+      if (paced.phase === "hour" || paced.arrivalStatus === "partial" || paced.drainStatus !== "complete"
+        || ["generic_error_threshold", "explicit_throttle", "authentication", "account_guard", "client_pacing", "client_outstanding_bound", "safety", "request_budget", "manual_stop"].includes(paced.stopReason)
+        || paced.pacing.violatingIntervals > 0 || run.errors.some((error) => ["authentication", "throttling"].includes(error.category))) {
+        fail("report.runs", "no further cohort may follow a terminal campaign guard, pacing violation, unresolved cutoff or hourly cohort.");
+      }
+    }
+    for (const run of hours) {
+      const paced = run.pacedMeasurement;
+      const eligible = calibrations.filter((item) => item.pacedMeasurement.qualification === "qualified"
+        && item.pacedMeasurement.observedThroughAt < paced.startedAt);
+      const selected = eligible.find((item) => item.runKey === paced.qualifyingRunKey);
+      if (!selected || selected.pacedMeasurement.targetRpm !== paced.targetRpm || paced.targetRpm !== Math.max(...eligible.map((item) => item.pacedMeasurement.targetRpm))) {
+        fail("report.runs", "hour rate must reference the highest prior qualified calibration in the same campaign.");
+      }
+    }
+  }
+}
+
+export function validateReport(report, schema) {
+  inspectSchema(schema);
+  const errors = [];
+  checkShape(report, schema, schema, "report", errors);
+  if (errors.length) return errors;
+  checkPublicStrings(report, "report", errors);
+  const fail = (path, message) => errors.push(`${path}: ${message}`);
+  const dates = [];
+  const checkDate = (date, path) => {
+    if (date === null) return;
+    const parsed = new Date(`${date}T00:00:00Z`);
+    if (Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== date || date < "2020-01-01") {
+      fail(path, "must be a real date on or after 2020-01-01.");
+    }
+    dates.push({ date, path });
+  };
+  checkDate(report.publication.reviewedOn, "report.publication.reviewedOn");
+  if (report.publication.status === "awaiting_pilot") {
+    if (report.runs.length || report.documentedLimits.length || report.publication.reviewedOn !== null || report.studyContext !== null || report.pacedCampaigns) {
+      fail("report.publication", "awaiting_pilot must contain no facts and no review date.");
+    }
+  } else if (report.publication.reviewedOn === null || (!report.runs.length && !report.documentedLimits.length)) {
+    fail("report.publication", "reviewed requires a review date and at least one fact.");
+  }
+  const runKeys = new Set();
+  report.runs.forEach((run, index) => {
+    const path = `report.runs[${index}]`;
+    if (runKeys.has(run.runKey)) fail(path, "runKey must be unique; replace snapshots, never append duplicates.");
+    runKeys.add(run.runKey);
+    checkDate(run.observedOn, `${path}.observedOn`);
+    const { attempted, completed, failed, pending } = run.counts;
+    if (attempted !== completed + failed + pending) fail(`${path}.counts`, "attempted must equal completed + failed + pending.");
+    if (report.studyContext?.runKeys.includes(run.runKey) && report.studyContext.conversationUse === "one_existing_reused" && run.units.conversations !== 1) {
+      fail(`${path}.units.conversations`, "a shared single-conversation study requires one reused conversation per run.");
+    }
+    for (const [unit, count] of Object.entries(run.units)) {
+      if (count !== null && count > attempted) fail(`${path}.units.${unit}`, "cannot exceed attempted messages.");
+    }
+    for (const field of ["firstVisibleActivity", "firstVisibleLatency", "latency"]) {
+      if (run[field] === null) continue;
+      const { sampleCount, p50Ms, p95Ms, maxMs } = run[field];
+      const eligibleCount = field === "firstVisibleActivity" ? attempted : completed;
+      if (sampleCount > eligibleCount) fail(`${path}.${field}`, `samples cannot exceed ${field === "firstVisibleActivity" ? "sent" : "completed"} messages.`);
+      if (p50Ms > p95Ms || p95Ms > maxMs) fail(`${path}.${field}`, "must satisfy p50 <= p95 <= max.");
+      if (sampleCount === 1 && (p50Ms !== p95Ms || p95Ms !== maxMs)) fail(`${path}.${field}`, "one sample requires equal p50, p95 and max.");
+      if (Math.ceil(sampleCount * 0.95) === sampleCount && p95Ms !== maxMs) fail(`${path}.${field}`, "nearest-rank p95 must equal max for fewer than 20 samples.");
+      if (run.windowSeconds !== null && maxMs > run.windowSeconds * 1000) fail(`${path}.${field}`, "latency cannot exceed the full observation window.");
+    }
+    if (run.latency && run.latency.p50Ms < run.latency.stabilitySeconds * 1000) {
+      fail(`${path}.latency`, "settled latency must include the stability interval.");
+    }
+    // Compare endpoints only when each summary covers every completed message.
+    if (run.firstVisibleLatency?.sampleCount === completed && run.latency?.sampleCount === completed) {
+      for (const key of ["p50Ms", "p95Ms", "maxMs"]) {
+        if (run.firstVisibleLatency[key] + run.latency.stabilitySeconds * 1000 > run.latency[key]) {
+          fail(`${path}.latency`, "settled endpoint cannot precede first answer plus the stability interval.");
+        }
+      }
+      if (completed === attempted && run.firstVisibleActivity?.sampleCount === attempted && run.firstVisibleLatency?.sampleCount === completed) {
+        for (const key of ["p50Ms", "p95Ms", "maxMs"]) {
+          if (run.firstVisibleActivity[key] > run.firstVisibleLatency[key]) {
+            fail(`${path}.firstVisibleActivity`, "first activity cannot follow first answer for the same full sample set.");
+          }
+        }
+      }
+    }
+    if (run.concurrency && run.concurrency.maxInFlight > attempted) fail(`${path}.concurrency`, "cannot exceed attempted messages.");
+    if (run.arrival) {
+      if (run.arrival.attempts > attempted) fail(`${path}.arrival`, "arrival attempts cannot exceed run attempts.");
+      if (run.windowSeconds !== null && run.arrival.windowSeconds > run.windowSeconds) fail(`${path}.arrival`, "arrival window cannot exceed observation window.");
+    }
+    if (run.errors.reduce((sum, error) => sum + error.count, 0) !== failed) fail(`${path}.errors`, "error counts must exactly cover failed messages.");
+    if (new Set(run.errors.map((error) => error.category)).size !== run.errors.length) fail(`${path}.errors`, "error categories must be unique.");
+    run.errors.forEach((error) => {
+      if ((error.category === "unknown") !== ["unclassified_failure", "unclassified_invocation_failure"].includes(error.evidence)) fail(`${path}.errors`, "unclassified evidence and unknown category must be paired.");
+      if (error.evidence === "unclassified_invocation_failure" && run.nativeInvocation === null && !run.pacedMeasurement) fail(`${path}.errors`, "invocation evidence requires a native invocation measurement.");
+      if (error.evidence === "agent_reported_timeout" && error.category !== "workflow") fail(`${path}.errors`, "an agent-reported workflow timeout is not a wire-status or throttling observation.");
+      if (error.evidence === "workiq_mcp_transport_429" && (error.category !== "throttling" || !run.pacedMeasurement)) {
+        fail(`${path}.errors`, "WorkIQ MCP HTTP 429 requires paced transport-throttling evidence; harness attribution remains unknown.");
+      }
+    });
+    if ((run.surface === "published_microsoft365_copilot") !== (run.nativeInvocation !== null || Boolean(run.pacedMeasurement))) {
+      fail(`${path}.nativeInvocation`, "this native invocation contract is exclusive to the published Microsoft 365 Copilot surface.");
+    }
+    if (run.pacedMeasurement) checkPacedMeasurement(run, `${path}.pacedMeasurement`, fail, checkDate);
+    if (run.nativeInvocation) {
+      const invocation = run.nativeInvocation;
+      if (run.windowSeconds === null || pending !== 0) fail(`${path}.nativeInvocation`, "requires a measured, finished invocation batch.");
+      if (run.workload !== "single_turn" || run.workflow !== "not_involved" || run.workflowState !== null || run.clientIssues.length) {
+        fail(`${path}.nativeInvocation`, "this greeting-only contract excludes workflow requests and unsent-draft client episodes.");
+      }
+      if ([run.firstVisibleActivity, run.firstVisibleLatency, run.latency, run.concurrency, run.arrival, run.followUp].some((value) => value !== null)) {
+        fail(`${path}.nativeInvocation`, "native invocation timing and client overlap cannot stand in for visible/UI timing, message concurrency, arrivals or follow-up outcomes.");
+      }
+      for (const field of ["startedAt", "endedAt"]) {
+        const value = invocation[field];
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.valueOf()) || parsed.toISOString() !== value) fail(`${path}.nativeInvocation.${field}`, "must be a real millisecond UTC instant.");
+        checkDate(value.slice(0, 10), `${path}.nativeInvocation.${field}`);
+      }
+      if (invocation.endedAt <= invocation.startedAt || invocation.endedAt.slice(0, 10) !== run.observedOn) {
+        fail(`${path}.nativeInvocation`, "wall-clock markers must be ordered and end on the run observation date.");
+      }
+      if (invocation.peakOutstanding > attempted || invocation.dispatchWindowMs > run.windowSeconds * 1000) {
+        fail(`${path}.nativeInvocation`, "client overlap and dispatch window must fit the observed invocation batch.");
+      }
+      if (run.units.conversations !== attempted || invocation.failedConversations !== failed) {
+        fail(`${path}.nativeInvocation`, "unique-conversation evidence must cover every invocation including failed payloads.");
+      }
+      checkInvocationTimings(invocation, run.counts, run.windowSeconds, `${path}.nativeInvocation`, fail);
+      if (run.errors.some((error) => error.category !== "unknown" || error.evidence !== "unclassified_invocation_failure")) {
+        fail(`${path}.nativeInvocation`, "generic server_error evidence cannot be labelled a confirmed throttle, quota or backend failure.");
+      }
+      const { calibration, history } = invocation;
+      if (calibration.longRequestedMs <= calibration.shortRequestedMs || calibration.longObservedMs <= calibration.shortObservedMs) {
+        fail(`${path}.nativeInvocation.calibration`, "independent short/long probes must retain their distinct ordered durations.");
+      }
+      if (history.completedConversations > completed || history.failedConversationsAbsent > failed || history.completedConversations > history.snapshotRows) {
+        fail(`${path}.nativeInvocation.history`, "snapshot counts cannot exceed the corresponding invocation outcomes.");
+      }
+      if (history.membership === "exact_intersection_verified" && history.completedConversations !== completed) {
+        fail(`${path}.nativeInvocation.history`, "verified full success membership must cover every successful invocation.");
+      }
+      const monitor = invocation.postRunMonitor;
+      const checkedAt = new Date(monitor.checkedAt);
+      if (Number.isNaN(checkedAt.valueOf()) || checkedAt.toISOString().replace(".000Z", "Z") !== monitor.checkedAt) {
+        fail(`${path}.nativeInvocation.postRunMonitor`, "must include a real UTC check instant.");
+      }
+      checkDate(monitor.checkedAt.slice(0, 10), `${path}.nativeInvocation.postRunMonitor.checkedAt`);
+      if (checkedAt.valueOf() < Date.parse(invocation.endedAt) || checkedAt.valueOf() - monitor.updatedMinutesAgo * 60000 >= Date.parse(invocation.startedAt)) {
+        fail(`${path}.nativeInvocation.postRunMonitor`, "stale preburst analytics must be checked after the burst and last updated before it.");
+      }
+    }
+    if (run.workflowState) {
+      if (run.workflow !== "involved") fail(`${path}.workflowState`, "requires an involved workflow; its running state is independent of the agent-call outcome.");
+      if (run.windowSeconds !== null && run.workflowState.invocationStatusFirstSeenMs > run.windowSeconds * 1000) {
+        fail(`${path}.workflowState`, "the visible invocation status must fall within the message observation window.");
+      }
+    }
+    if (run.followUp) {
+      const followUp = run.followUp;
+      const { atCutoff } = followUp;
+      const instant = new Date(followUp.observedAt);
+      if (Number.isNaN(instant.valueOf()) || instant.toISOString().replace(".000Z", "Z") !== followUp.observedAt) {
+        fail(`${path}.followUp.observedAt`, "must be a real UTC instant.");
+      }
+      checkDate(followUp.observedAt.slice(0, 10), `${path}.followUp.observedAt`);
+      if (followUp.observedAt.slice(0, 10) < run.observedOn) fail(`${path}.followUp`, "cannot precede the run date.");
+      if (atCutoff.attempted !== atCutoff.completed + atCutoff.failed + atCutoff.pending || attempted !== atCutoff.attempted) {
+        fail(`${path}.followUp.atCutoff`, "must partition the same sent attempts as the updated outcome counts.");
+      }
+      if (failed <= atCutoff.failed || pending >= atCutoff.pending || !run.errors.some((error) => error.category === "workflow" && error.evidence === "agent_reported_timeout")) {
+        fail(`${path}.followUp`, "requires a pending-to-failed workflow timeout outcome with agent-reported evidence.");
+      }
+      if (run.firstVisibleLatency !== null || run.latency !== null) {
+        fail(`${path}.followUp`, "late answer and settlement timing are unmeasured in this follow-up shape.");
+      }
+    }
+    const cost = run.cost;
+    checkDate(cost.recordedOn, `${path}.cost.recordedOn`);
+    if (cost.status === "settled") {
+      if ([cost.currency, cost.amount, cost.source, cost.scope, cost.recordedOn].some((value) => value === null)) fail(`${path}.cost`, "settled requires amount, currency, source, scope and date.");
+      if (cost.recordedOn !== null && cost.recordedOn < run.observedOn) fail(`${path}.cost`, "settlement date cannot precede observation.");
+    } else if ([cost.currency, cost.amount, cost.source, cost.scope, cost.recordedOn].some((value) => value !== null)) {
+      fail(`${path}.cost`, "pending/unknown must not contain settled values; do not encode unknown costs as zero.");
+    }
+  });
+  if (report.studyContext?.runKeys.some((key) => !runKeys.has(key))) fail("report.studyContext.runKeys", "context can only reference existing reviewed runs.");
+  checkPacedCampaigns(report.runs, fail);
+  const campaignKeys = new Set();
+  for (const campaign of report.pacedCampaigns ?? []) {
+    const path = "report.pacedCampaigns";
+    if (campaignKeys.has(campaign.campaignKey)) fail(path, "campaign context keys must be unique.");
+    campaignKeys.add(campaign.campaignKey);
+    const cohorts = report.runs.filter((run) => run.pacedMeasurement?.campaignKey === campaign.campaignKey);
+    if (campaign.runKeys.length !== cohorts.length || campaign.runKeys.some((key) => !cohorts.some((run) => run.runKey === key))) {
+      fail(path, "campaign context must reference exactly its measured cohorts.");
+    }
+    for (const field of ["startedAt", "endedAt"]) {
+      const parsed = new Date(campaign[field]);
+      if (Number.isNaN(parsed.valueOf()) || parsed.toISOString() !== campaign[field]) fail(path, "campaign markers must be real millisecond UTC instants.");
+      checkDate(campaign[field].slice(0, 10), path);
+    }
+    if (campaign.startedAt >= campaign.endedAt || cohorts.some((run) => run.pacedMeasurement.startedAt < campaign.startedAt || run.pacedMeasurement.observedThroughAt > campaign.endedAt)) {
+      fail(path, "campaign markers must contain the measured cohort windows.");
+    }
+    const knownConversations = cohorts.map((run) => run.units.conversations);
+    if (knownConversations.some((count) => count === null) || campaign.distinctReturnedConversations > knownConversations.reduce((sum, count) => sum + count, 0)
+      || campaign.distinctReturnedConversations < Math.max(...knownConversations)) fail(path, "verified campaign distinct conversations must fit the reviewed cohort counts.");
+    if (campaign.clientPeakOutstanding !== Math.max(...cohorts.map((run) => run.pacedMeasurement.peakOutstanding ?? 0))) fail(path, "campaign peak must match non-overlapping cohort peaks.");
+    const measuredRates = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration").map((run) => run.pacedMeasurement.targetRpm);
+    if (campaign.notAttemptedCalibrationRpm.some((rate) => measuredRates.includes(rate))) fail(path, "unattempted calibration rates cannot have observed cohorts.");
+    const last = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
+    if (campaign.status === "completed_standalone_calibration") {
+      if (cohorts.length !== 1 || last.pacedMeasurement.phase !== "calibration" || last.pacedMeasurement.arrivalStatus !== "full_window"
+        || last.pacedMeasurement.drainStatus !== "complete" || last.pacedMeasurement.qualification !== "qualified"
+        || last.pacedMeasurement.stopReason !== null || last.counts.attempted !== last.pacedMeasurement.plannedSlots) {
+        fail(path, "completed standalone calibration requires exactly one qualified full-window cohort, all planned dispatches and complete drain; not an hour or a stopped campaign.");
+      }
+    } else {
+      const transportStop = campaign.status === "stopped_on_workiq_mcp_transport_429";
+      const stopReason = transportStop ? "explicit_throttle" : "generic_error_threshold";
+      const evidence = transportStop ? "workiq_mcp_transport_429" : "unclassified_invocation_failure";
+      if (!last || last.pacedMeasurement.arrivalStatus !== "stopped" || last.pacedMeasurement.stopReason !== stopReason
+        || !last.errors.some((error) => error.evidence === evidence)) fail(path, "campaign stop context requires the corresponding terminal cohort evidence.");
+    }
+    const monitor = campaign.postCampaignMonitor;
+    const checked = new Date(monitor.checkedAt);
+    if (Number.isNaN(checked.valueOf()) || checked.toISOString().replace(".000Z", "Z") !== monitor.checkedAt
+      || checked.valueOf() < Date.parse(campaign.endedAt) || checked.valueOf() - monitor.updatedMinutesAgo * 60000 >= Date.parse(campaign.startedAt)) {
+      fail(path, "stale campaign Monitor must be checked after the campaign with a refresh preceding it.");
+    }
+    checkDate(monitor.checkedAt.slice(0, 10), path);
+  }
+  const limitKeys = new Set();
+  report.documentedLimits.forEach((limit, index) => {
+    if (limitKeys.has(limit.limitKey)) fail(`report.documentedLimits[${index}]`, "limitKey must be unique.");
+    limitKeys.add(limit.limitKey);
+    checkDate(limit.retrievedOn, `report.documentedLimits[${index}].retrievedOn`);
+  });
+  for (const { date, path } of dates) {
+    if (report.publication.reviewedOn !== null && date > report.publication.reviewedOn) fail(path, "cannot be later than the publication review.");
+  }
+  return errors;
+}
+
+export function assertReport(report, schema) {
+  const errors = validateReport(report, schema);
+  if (errors.length) throw new Error(`Public report rejected:\n${errors.join("\n")}`);
+  return report;
+}

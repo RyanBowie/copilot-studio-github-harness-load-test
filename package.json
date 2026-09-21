@@ -1,0 +1,19 @@
+{
+  "name": "copilot-studio-github-harness-load-test",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "validate": "node scripts/build.mjs --validate-only",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "qa": "node scripts/browser-qa.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "axe-core": "4.13.0"
+  }
+}

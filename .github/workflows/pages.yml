@@ -1,0 +1,56 @@
+name: Validate report and optionally publish Pages
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish reviewed aggregates to Pages (main only; explicit repository opt-in required)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Offline contract and build tests
+        run: npm test
+      - name: Build only the reviewed public input
+        run: npm run build
+      - name: Upload validated static report
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' && vars.ENABLE_PAGES_DEPLOY == 'true'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Refuse empty or unreviewed publication
+        run: node --input-type=module -e "import { loadPublicReport } from './scripts/build.mjs'; const {report} = await loadPublicReport(); if (report.publication.status !== 'reviewed' || !report.runs.length) throw new Error('Publication requires reviewed measured runs.');"
+      - name: Deploy reviewed report
+        id: deployment
+        uses: actions/deploy-pages@v4
