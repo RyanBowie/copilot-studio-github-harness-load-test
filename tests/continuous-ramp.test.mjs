@@ -117,6 +117,25 @@ test("ramp native timings, client evidence and transport identities remain separ
   reject((ramp) => { ramp.successfulWithinArrivalWindow = 0; }, /partition eventual successes/);
 });
 
+test("optional segment latency and overlap cannot invent samples, identities or whole-run percentiles", () => {
+  const report = syntheticContinuousRamp();
+  for (const segment of report.runs[0].rampMeasurement.segments) {
+    segment.nativeTimings = null;
+    segment.distinctReturnedConversations = null;
+    delete segment.dispatchCohortPeakOutstanding;
+  }
+  assert.deepEqual(validateReport(report, schema), []);
+  reject((ramp) => { ramp.segments[0].nativeTimings.success.sampleCount++; }, /samples must match/);
+  reject((ramp) => { ramp.segments[0].nativeTimings.failure = null; }, /requires timing/);
+  reject((ramp) => { ramp.segments[0].dispatchCohortPeakOutstanding = 7; }, /whole-run client peak/);
+  reject((ramp) => { ramp.segments[0].dispatchCohortPeakOutstanding = 0; }, /actual attempts/);
+  reject((ramp) => { ramp.segments[0].distinctReturnedConversations++; }, /all known segment conversation counts/);
+  reject((ramp) => { ramp.segments[0].distinctReturnedConversations = 1000; }, /cannot exceed/);
+  reject((ramp) => {
+    for (const field of ["success", "allOutcomes"]) ramp.segments[1].nativeTimings[field].maxMs = 2000;
+  }, /whole-run extrema/);
+});
+
 test("ramp contract rejects retries, ordinary-error termination, qualification, private fields and mixed phases", () => {
   reject((ramp) => { ramp.pacing.schedule = "absolute_slots"; }, /contract constant/);
   reject((ramp) => { ramp.pacing.intervalBasis = "previous_segment_rate"; }, /contract constant/);
@@ -140,7 +159,7 @@ test("ramp contract rejects retries, ordinary-error termination, qualification, 
 test("ramp charts explicitly distinguish variable-rate runs from fixed-rate cohorts and bursts", async () => {
   const report = JSON.parse(await readFile(new URL("../data/report.json", import.meta.url), "utf8"));
   const ramp = syntheticContinuousRamp().runs[0];
-  const runs = [...report.runs, ramp];
+  const runs = [...report.runs.filter((run) => !run.rampMeasurement), ramp];
   const ordered = orderRunsByRate(runs), rows = nativeChartRows(ordered);
   assert.equal(rows.filter((row) => row.loadShape === "ramp").length, 1);
   assert.equal(rows.filter((row) => row.loadShape === "burst").length, 1);

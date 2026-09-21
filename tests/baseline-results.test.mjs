@@ -16,7 +16,7 @@ const reject = (change, pattern) => {
 
 test("actual125 baseline retains first disconnect in the complete denominator and all returned ID evidence", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 14);
+  assert.equal(report.runs.length, 15);
   assert.deepEqual(run.counts, { attempted: 125, completed: 124, failed: 1, pending: 0 });
   assert.equal(run.counts.completed / run.counts.attempted * 100, 99.2);
   assert.deepEqual(run.errors, [{ category: "transport", count: 1, evidence: "native_disconnected_no_conversation" }]);

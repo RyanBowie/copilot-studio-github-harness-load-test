@@ -23,7 +23,17 @@ export function syntheticContinuousRamp({ arrivalSeconds = 3600, failed = 7, pen
   const transportStop = stopReason === "explicit_throttle";
   const noId = transportStop ? failed : disconnected;
   const after = Math.min(1, counts.completed);
-  segments.at(-1).outstandingAtEnd = after + pending;
+  segments.at(-1).outstandingAtEnd = segments.at(-1).durationSeconds === 600 ? after + pending : null;
+  for (const [index, segment] of segments.entries()) {
+    Object.assign(segment, {
+      nativeTimings: {
+        percentileMethod: "nearest_rank", success: syntheticTiming(segment.counts.completed),
+        failure: syntheticTiming(segment.counts.failed), allOutcomes: syntheticTiming(segment.counts.completed + segment.counts.failed)
+      },
+      distinctReturnedConversations: segment.counts.attempted - segment.counts.pending - (index === 0 ? noId : 0),
+      dispatchCohortPeakOutstanding: Math.min(6, segment.counts.attempted)
+    });
+  }
   Object.assign(run, {
     runKey: "offline-continuous-ramp", counts, windowSeconds: arrivalSeconds + 1.01,
     units: { conversations: counts.attempted - pending - noId, sessions: null },

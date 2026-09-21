@@ -142,6 +142,8 @@ function checkRampMeasurement(run, path, fail, checkDate) {
     || ramp.arrivalEndObservedSeconds + 0.000001 < ramp.arrivalSeconds) {
     fail(path, "ramp observation must retain its actual arrival-end offset and final drain, separate from the fixed horizon.");
   }
+  if (ramp.arrivalLoopEndObservedSeconds !== undefined && (ramp.arrivalLoopEndObservedSeconds < ramp.arrivalEndObservedSeconds
+    || ramp.arrivalLoopEndObservedSeconds > run.windowSeconds)) fail(path, "observation-loop end must stay between dispatch close and final cutoff, not extend arrivals.");
   for (const field of ["startedAt", "arrivalEndedAt", "observedThroughAt"]) {
     const instant = new Date(ramp[field]);
     if (Number.isNaN(instant.valueOf()) || instant.toISOString() !== ramp[field]) fail(`${path}.${field}`, "must be a real millisecond UTC instant.");
@@ -165,13 +167,28 @@ function checkRampMeasurement(run, path, fail, checkDate) {
     || (ramp.failedConversations !== null && (run.units.conversations === null || ramp.failedConversations > failed || ramp.failedConversations > run.units.conversations))) {
     fail(path, "ramp conversation counts require explicit returned-ID evidence; fresh-request intent is not a count.");
   }
-  const noId = run.errors.filter((error) => ["workiq_mcp_transport_429", "native_disconnected_no_conversation"].includes(error.evidence)).reduce((sum, error) => sum + error.count, 0);
+  const noId = run.errors.filter((error) => ["workiq_mcp_transport_429", "native_disconnected_no_conversation", "native_http_429_no_conversation"].includes(error.evidence)).reduce((sum, error) => sum + error.count, 0);
   if ((run.units.conversations !== null && run.units.conversations > attempted - noId)
     || (ramp.failedConversations !== null && ramp.failedConversations > failed - noId)) {
     fail(path, "ramp transport 429/disconnected evidence has no returned conversation identifier; remote admission is unknown.");
   }
   if (ramp.stopReason === "explicit_throttle" && !run.errors.some((error) => error.category === "throttling")) fail(path, "an explicit ramp throttle stop needs classified evidence.");
   if (ramp.stopReason === "authentication" && !run.errors.some((error) => error.category === "authentication")) fail(path, "an authentication ramp stop needs classified evidence.");
+  if (ramp.stopEvidence) {
+    const event = ramp.stopEvidence, atStop = event.countsAtDecision;
+    if (ramp.stopReason !== "explicit_throttle" || !run.errors.some((error) => error.evidence === "native_http_429_no_conversation")
+      || event.triggeringAttempt > attempted || event.callbackFromArrivalStartMs > event.decisionFromArrivalStartMs
+      || Math.abs(event.decisionFromArrivalStartMs - ramp.arrivalEndObservedSeconds * 1000) > 0.00001
+      || event.nativeDurationMs > event.callbackFromArrivalStartMs || !ramp.failure
+      || event.nativeDurationMs < ramp.failure.minMs || event.nativeDurationMs > ramp.failure.maxMs) {
+      fail(path, "native HTTP 429 stop evidence must match its failed attempt, native duration, callback and dispatch-close decision.");
+    }
+    if (atStop.attempted !== attempted || atStop.attempted !== atStop.completed + atStop.failed + atStop.pending
+      || atStop.failed < 1 || atStop.failed > failed || atStop.completed > completed || atStop.pending < pending
+      || atStop.pending > (ramp.peakOutstanding ?? ramp.configuredClientCap)) {
+      fail(path, "stop snapshot must reconcile to final outcomes with no new dispatches after the safety decision.");
+    }
+  }
   const before = ramp.successfulWithinArrivalWindow, after = ramp.successfulAfterArrivalWindow;
   if ((before === null) !== (after === null) || (before !== null && before + after !== completed)) {
     fail(path, "ramp completion-time populations must be paired and partition eventual successes, not dispatch-segment outcomes.");
@@ -187,9 +204,23 @@ function checkRampMeasurement(run, path, fail, checkDate) {
       || Math.abs(segment.durationSeconds - Math.min(600, ramp.arrivalSeconds - index * 600)) > 0.000001) {
       fail(`${path}.segments[${index}]`, "ramp segments must follow 25/30/35/40/45/50 at contiguous 600-second offsets, with only the last segment partial.");
     }
+    if (segment.durationSeconds < 600 && segment.outstandingAtEnd !== null) fail(path, "an unobserved nominal segment-end boundary must remain unknown.");
     const counts = segment.counts;
     if (counts.attempted !== counts.completed + counts.failed + counts.pending) {
       fail(path, "segment outcomes must partition actual dispatches; nominal allocations are not failure denominators.");
+    }
+    if (segment.nativeTimings) checkInvocationTimings(segment.nativeTimings, counts, run.windowSeconds, `${path}.segments[${index}].nativeTimings`, fail);
+    if (segment.completionPopulations && (segment.completionPopulations.withinNominalWindow + segment.completionPopulations.afterNominalWindow !== counts.completed
+      || segment.completionPopulations.allDispatchesWithinObservedWindow > completed)) {
+      fail(path, "segment completion populations must preserve own nominal-window outcomes versus all-dispatch observed-window completions.");
+    }
+    if (segment.distinctReturnedConversations != null && segment.distinctReturnedConversations > counts.attempted) {
+      fail(path, "distinct segment conversations cannot exceed that dispatch cohort's attempts.");
+    }
+    if (segment.dispatchCohortPeakOutstanding != null && (segment.dispatchCohortPeakOutstanding > counts.attempted
+      || segment.dispatchCohortPeakOutstanding < counts.pending || (counts.attempted > 0 && segment.dispatchCohortPeakOutstanding === 0)
+      || (ramp.peakOutstanding !== null && segment.dispatchCohortPeakOutstanding > ramp.peakOutstanding))) {
+      fail(path, "dispatch-cohort client peak must fit its actual attempts, final pending and whole-run client peak.");
     }
     if (segment.outstandingAtStart !== null && (segment.outstandingAtStart > totals.attempted || segment.outstandingAtStart < totals.pending
       || (ramp.peakOutstanding !== null && segment.outstandingAtStart > ramp.peakOutstanding)
@@ -204,6 +235,36 @@ function checkRampMeasurement(run, path, fail, checkDate) {
     }
   });
   if (Object.keys(totals).some((field) => totals[field] !== run.counts[field])) fail(path, "ramp segment outcomes must sum to the one run at its final cutoff.");
+  if (before !== null && ramp.segments.every((segment) => segment.completionPopulations)
+    && ramp.segments.reduce((sum, segment) => sum + segment.completionPopulations.allDispatchesWithinObservedWindow, 0) !== before) {
+    fail(path, "all-dispatch observed-segment completions must partition the whole arrival-window completion count.");
+  }
+  if (ramp.minutes) {
+    if (ramp.minutes.length !== Math.ceil(ramp.arrivalSeconds / 60)) fail(path, "ramp minutes must cover only the observed prefix.");
+    const segmentTotals = ramp.segments.map(() => ({ attempted: 0, completed: 0, failed: 0, pending: 0 }));
+    ramp.minutes.forEach((minute, index) => {
+      if (minute.offsetSeconds !== index * 60 || Math.abs(minute.durationSeconds - Math.min(60, ramp.arrivalSeconds - index * 60)) > 0.000001
+        || minute.attempted !== minute.completed + minute.failed + minute.pending) fail(path, "ramp minutes must be contiguous actual dispatch outcomes with only the final bucket partial.");
+      const segment = segmentTotals[Math.floor(index / 10)];
+      if (segment) for (const field of Object.keys(segment)) segment[field] += minute[field];
+    });
+    if (segmentTotals.some((counts, index) => Object.keys(counts).some((field) => counts[field] !== ramp.segments[index].counts[field]))) {
+      fail(path, "ramp minute outcomes must reconcile to their containing rate segments.");
+    }
+  }
+  if (run.units.conversations !== null && ramp.segments.every((segment) => segment.distinctReturnedConversations != null)
+    && ramp.segments.reduce((sum, segment) => sum + segment.distinctReturnedConversations, 0) !== run.units.conversations) {
+    fail(path, "all known segment conversation counts must sum to the distinct whole-run count.");
+  }
+  if (ramp.segments.every((segment) => segment.nativeTimings)) {
+    for (const field of ["success", "failure", "allOutcomes"]) {
+      const groups = ramp.segments.map((segment) => segment.nativeTimings[field]).filter((value) => value !== null);
+      if (groups.length && ramp[field] && (ramp[field].maxMs !== Math.max(...groups.map((group) => group.maxMs))
+        || (ramp[field].minMs !== null && groups.every((group) => group.minMs !== null) && ramp[field].minMs !== Math.min(...groups.map((group) => group.minMs))))) {
+        fail(path, "whole-run extrema must reconcile to measured segment populations; percentiles are never averaged.");
+      }
+    }
+  }
   const lastOutstanding = ramp.segments.at(-1).outstandingAtEnd;
   if (lastOutstanding !== null && after !== null && after + pending > lastOutstanding) fail(path, "post-arrival successful returns and final pending must fit the last observed boundary.");
   checkInvocationTimings(ramp, run.counts, run.windowSeconds, path, fail);
@@ -613,6 +674,9 @@ export function validateReport(report, schema) {
       }
       if (error.evidence === "native_disconnected_no_conversation" && (error.category !== "transport" || !pacedNative)) {
         fail(`${path}.errors`, "a disconnected native result requires paced transport evidence, not a confirmed agent/backend failure or throttle.");
+      }
+      if (error.evidence === "native_http_429_no_conversation" && (error.category !== "throttling" || !run.rampMeasurement)) {
+        fail(`${path}.errors`, "reviewed ramp native HTTP 429 has unknown enforcing layer and no returned conversation, not legacy WorkIQ-layer attribution.");
       }
     });
     if ((run.surface === "published_microsoft365_copilot") !== (run.nativeInvocation !== null || Boolean(pacedNative))) {

@@ -305,6 +305,26 @@
         "failed": { "$ref": "#/$defs/count" }, "pending": { "$ref": "#/$defs/count" }
       }
     },
+    "rampMinute": {
+      "type": "object", "additionalProperties": false,
+      "required": ["offsetSeconds", "durationSeconds", "attempted", "completed", "failed", "pending"],
+      "properties": {
+        "offsetSeconds": { "type": "integer", "minimum": 0, "maximum": 3540 },
+        "durationSeconds": { "type": "number", "minimum": 0.001, "maximum": 60 },
+        "attempted": { "$ref": "#/$defs/count" }, "completed": { "$ref": "#/$defs/count" },
+        "failed": { "$ref": "#/$defs/count" }, "pending": { "$ref": "#/$defs/count" }
+      }
+    },
+    "rampTimings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["percentileMethod", "success", "failure", "allOutcomes"],
+      "properties": {
+        "percentileMethod": { "const": "nearest_rank" },
+        "success": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "failure": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
+        "allOutcomes": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] }
+      }
+    },
     "rampMeasurement": {
       "type": "object", "additionalProperties": false,
       "required": [
@@ -331,6 +351,7 @@
         "requestCeiling": { "const": 2250 },
         "arrivalSeconds": { "type": "number", "minimum": 0.001, "maximum": 3600 },
         "arrivalEndObservedSeconds": { "$ref": "#/$defs/duration" },
+        "arrivalLoopEndObservedSeconds": { "$ref": "#/$defs/duration" },
         "arrivalStatus": { "enum": ["full_window", "stopped", "partial"] },
         "stopReason": { "enum": [null, "explicit_throttle", "authentication", "account_guard", "client_pacing", "client_outstanding_bound", "safety", "request_budget", "manual_stop", "observation_cutoff"] },
         "drainSeconds": { "type": "number", "minimum": 0, "maximum": 86400 },
@@ -365,6 +386,21 @@
         "allOutcomes": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] },
         "successfulWithinArrivalWindow": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
         "successfulAfterArrivalWindow": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+        "stopEvidence": {
+          "type": "object", "additionalProperties": false,
+          "required": ["triggeringAttempt", "nativeDurationMs", "callbackFromArrivalStartMs", "decisionFromArrivalStartMs", "countsAtDecision", "normalizedFailureCategory", "normalizedFailureStage", "backoffExposed"],
+          "properties": {
+            "triggeringAttempt": { "type": "integer", "minimum": 1, "maximum": 2250 },
+            "nativeDurationMs": { "$ref": "#/$defs/duration" },
+            "callbackFromArrivalStartMs": { "$ref": "#/$defs/duration" },
+            "decisionFromArrivalStartMs": { "$ref": "#/$defs/duration" },
+            "countsAtDecision": { "$ref": "#/$defs/rampCounts" },
+            "normalizedFailureCategory": { "const": "transport_failure" },
+            "normalizedFailureStage": { "const": "invoke" },
+            "backoffExposed": { "const": false }
+          }
+        },
+        "minutes": { "type": "array", "minItems": 1, "maxItems": 60, "items": { "$ref": "#/$defs/rampMinute" } },
         "segmentBasis": { "const": "elapsed_dispatch_segment_outcomes_at_final_cutoff" },
         "segments": {
           "type": "array", "minItems": 1, "maxItems": 6,
@@ -377,6 +413,18 @@
               "targetRpm": { "enum": [25, 30, 35, 40, 45, 50] },
               "nominalRequests": { "enum": [250, 300, 350, 400, 450, 500] },
               "counts": { "$ref": "#/$defs/rampCounts" },
+              "nativeTimings": { "anyOf": [{ "$ref": "#/$defs/rampTimings" }, { "type": "null" }] },
+              "distinctReturnedConversations": { "anyOf": [{ "$ref": "#/$defs/count" }, { "type": "null" }] },
+              "dispatchCohortPeakOutstanding": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 100 }, { "type": "null" }] },
+              "completionPopulations": {
+                "type": "object", "additionalProperties": false,
+                "required": ["withinNominalWindow", "afterNominalWindow", "allDispatchesWithinObservedWindow"],
+                "properties": {
+                  "withinNominalWindow": { "$ref": "#/$defs/count" },
+                  "afterNominalWindow": { "$ref": "#/$defs/count" },
+                  "allDispatchesWithinObservedWindow": { "$ref": "#/$defs/count" }
+                }
+              },
               "outstandingAtStart": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 100 }, { "type": "null" }] },
               "outstandingAtEnd": { "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 100 }, { "type": "null" }] }
             }
@@ -531,8 +579,8 @@
               },
               "count": { "$ref": "#/$defs/positiveCount" },
               "evidence": {
-                "description": "workiq_mcp_transport_429 records WorkIQ MCP HTTP transport 429 without a returned conversation identifier or exposed Retry-After. native_disconnected_no_conversation records a normalized disconnected native result with no returned conversation identifier; remote admission and root cause remain unknown. Neither establishes a GitHub Copilot Harness quota.",
-                "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout", "workiq_mcp_transport_429", "native_disconnected_no_conversation"]
+                "description": "workiq_mcp_transport_429 records WorkIQ MCP HTTP transport 429 without a returned conversation identifier or exposed Retry-After. native_disconnected_no_conversation records a normalized disconnected native result with no returned conversation identifier. native_http_429_no_conversation records exposed native HTTP 429 without a returned conversation identifier or exposed backoff, with the enforcing layer unknown. Remote admission remains unknown for these missing-ID outcomes; none establishes a numeric WorkIQ or GitHub Copilot Harness quota.",
+                "enum": ["visible_error", "transport_status", "unclassified_failure", "unclassified_invocation_failure", "agent_reported_timeout", "workiq_mcp_transport_429", "native_disconnected_no_conversation", "native_http_429_no_conversation"]
               }
             }
           }
