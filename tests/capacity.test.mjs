@@ -20,7 +20,7 @@ const clean = (count = 25) => ({ attempted: count, completed: count, failed: 0, 
 test("reviewed capacity windows retain exact successes, denominators, source offsets and clean alternatives", () => {
   const [group] = summarizeCapacity(report.runs);
   assert.equal(summarizeCapacity(report.runs).length, 1);
-  for (const [seconds, most, offered, cleanCount] of [[60, 49, 50, 25], [120, 98, 100, 50], [300, 125, 125, 125], [480, 200, 200, 200]]) {
+  for (const [seconds, most, offered, cleanCount] of [[60, 55, 95, 25], [120, 98, 100, 50], [300, 125, 125, 125], [480, 200, 200, 200]]) {
     const window = result(group, seconds);
     assert.equal(window.best.counts.completed, most);
     assert.equal(window.best.counts.attempted, offered);
@@ -29,9 +29,9 @@ test("reviewed capacity windows retain exact successes, denominators, source off
     assert.equal(window.clean.counts.pending, 0);
     assert.equal(window.best.offsetSeconds, 0);
     assert.equal(window.best.windowSeconds, seconds);
-    assert.equal(window.best.campaignKey, "m365-paced-campaign");
+    assert.equal(window.best.campaignKey, seconds === 60 ? "m365-finite-elastic-100" : "m365-paced-campaign");
   }
-  assert.equal(result(group, 60).best.runKey, "paced-calibration-50");
+  assert.equal(result(group, 60).best.runKey, "paced-elastic-100-completed");
   assert.equal(result(group, 120).best.runKey, "paced-calibration-50");
   assert.equal(result(group, 300).best.runKey, "paced-hour-25-stopped");
 });
@@ -54,7 +54,7 @@ test("capacity derivation leaves every reviewed record unchanged and needs no ra
   const before = structuredClone(report);
   summarizeCapacity(report.runs);
   assert.deepEqual(report, before);
-  assert.equal(report.runs.length, 11);
+  assert.equal(report.runs.length, 12);
   assert.deepEqual(summarizeCapacity([]), []);
   assert.deepEqual(summarizeCapacity(report.runs.filter((run) => !run.pacedMeasurement)), []);
 });

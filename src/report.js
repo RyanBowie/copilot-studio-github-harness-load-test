@@ -15,6 +15,7 @@ const labels = {
   workiq_mcp_transport_429: "WorkIQ MCP HTTP transport 429; GitHub Copilot Harness attribution unknown",
   generic_error_threshold: "Generic invocation-error safety threshold; not confirmed throttling",
   client_pacing: "Local client pacing/admission stop; not provider throttling",
+  native_disconnected_no_conversation: "Native disconnected result; no returned conversation; remote admission unknown",
   turn_serialization_observed: "Turn serialization observed in this run; not a platform capacity finding.",
   manual_timing: "Manual visible-response timing.",
   partial_observation: "The initial timing window was partial; later outcome evidence is shown separately when available.",
@@ -105,7 +106,8 @@ const cohortNames = {
   "paced-standalone-100-stopped": "100/min aborted",
   "paced-spread-25-completed": "25/min follow-up",
   "paced-minute-100-retest": "100/min retest",
-  "paced-minute-100-local-stop": "100/min local stop"
+  "paced-minute-100-local-stop": "100/min local stop",
+  "paced-elastic-100-completed": "100/min target retest"
 };
 const cohortName = (run) => cohortNames[run.runKey] ?? run.runKey;
 const outcomeSeries = [
@@ -132,6 +134,11 @@ function minuteRetestCard(run) {
     paragraph("Completing this 100-request cohort does not establish an hourly rate, a two-minute calibration qualification, a failure cause or a service quota. Outcomes include drain; costs are reported separately.", "fine")
   );
   if (countBound) card.append(paragraph(`Observed offered rate: ${achievedRpm(run)} client dispatches/min over the actual arrival window. Count completion is not proof of 100 starts inside one minute or sustained capacity; this is not a fixed-minute calibration.`));
+  const disconnected = run.errors.find((error) => error.evidence === "native_disconnected_no_conversation");
+  if (disconnected) {
+    const generic = run.errors.filter((error) => error.evidence === "unclassified_invocation_failure").reduce((sum, error) => sum + error.count, 0);
+    card.append(paragraph(`Failure evidence: ${number(generic)} generic server_error/invoke results and ${number(disconnected.count)} disconnected/invoke result(s). The disconnected attempt returned no conversation identifier; remote admission is unknown. These are native invocation failures, not ${number(run.counts.failed)} proven agent/backend failures. ${run.units.conversations === null ? "Distinct returned conversations were not measured." : `${number(run.units.conversations)} distinct returned conversations were verified.`}`));
+  }
   if (!allDispatched) card.append(paragraph(`The full 100-request denominator was not observed. Failure rate is ${number(run.counts.failed / run.counts.attempted * 100)}% of the ${number(run.counts.attempted)} actual attempts, not ${number(run.counts.failed)}/100. Nothing is inferred about the requests that were never sent.`));
   if (run.runKey === "paced-minute-100-local-stop") card.append(paragraph("The local runner missed the admission deadline for planned request 42. The 15 generic invocation errors did not stop dispatch; the local timing guard did. This run therefore does not establish agent capacity at 100/min.", "fine"));
   return card;
@@ -592,22 +599,24 @@ function renderFailureSummary(runs) {
   }
   byId("failure-charts").append(barChart({
     title: "Failures by observed evidence / separate cohorts",
-    description: "Counts of failed native invocations, not rate-limit thresholds. Generic server_error results do not identify a throttling layer. The one explicit HTTP 429 belongs to the WorkIQ MCP transport; harness attribution is unknown.",
+    description: "Counts of failed native invocations, not rate-limit thresholds or proven backend failures. Generic server_error results do not identify a throttling layer. Disconnected results do not prove remote admission. The explicit HTTP 429 belongs to the WorkIQ MCP transport; harness attribution is unknown.",
     stacked: true,
     series: [
       { key: "generic", label: "Generic invocation error / cause unknown", className: "series-failure" },
       { key: "transport", label: "WorkIQ transport HTTP 429", className: "series-pending" },
+      { key: "disconnected", label: "Native disconnected / admission unknown", className: "series-primary" },
       { key: "other", label: "Other classified native failure", className: "series-secondary" }
     ],
     rows: failures.map((run) => {
       const generic = run.errors.filter((error) => error.evidence === "unclassified_invocation_failure").reduce((sum, error) => sum + error.count, 0);
       const transport = run.errors.filter((error) => error.evidence === "workiq_mcp_transport_429").reduce((sum, error) => sum + error.count, 0);
-      const other = run.counts.failed - generic - transport;
+      const disconnected = run.errors.filter((error) => error.evidence === "native_disconnected_no_conversation").reduce((sum, error) => sum + error.count, 0);
+      const other = run.counts.failed - generic - transport - disconnected;
       return {
-        key: run.runKey, label: cohortName(run), values: [generic, transport, other],
-        summary: `${generic} generic errors; ${transport} transport HTTP 429; ${other} other classified failures`,
+        key: run.runKey, label: cohortName(run), values: [generic, transport, disconnected, other],
+        summary: `${generic} generic errors; ${transport} transport HTTP 429; ${disconnected} disconnected; ${other} other classified failures`,
         summaryLines: [`${run.counts.failed} / ${run.counts.attempted} failed`],
-        detail: `${generic} generic; ${transport} transport 429; ${other} other`
+        detail: `${generic} generic; ${transport} transport 429; ${disconnected} disconnected; ${other} other`
       };
     })
   }));
@@ -617,6 +626,7 @@ function renderFailureSummary(runs) {
       const paced = run.pacedMeasurement;
       const first = paced?.minutes.find((minute) => minute.failed > 0);
       const transport = run.errors.some((error) => error.evidence === "workiq_mcp_transport_429");
+      const disconnected = run.errors.some((error) => error.evidence === "native_disconnected_no_conversation");
       const generic = run.errors.every((error) => error.evidence === "unclassified_invocation_failure");
       return [
         run.runKey,
@@ -626,6 +636,7 @@ function renderFailureSummary(runs) {
           : `${paced.phase === "count_retest" ? "Count-bound" : "Full"} ${number(paced.arrivalSeconds)} s arrival window; ${label(paced.qualification)}. No arrival stop.`)
           : `${number(run.windowSeconds)} s batch observation; not a measured failure-onset time.`,
         transport ? "WorkIQ MCP HTTP transport 429 observed. Harness attribution, quota key/window/reset and backend reach unknown; no retry interval exposed. Recovery not measured."
+          : disconnected ? "Disconnected native result has no returned conversation identifier; remote admission is unknown. Generic errors remain unclassified. Invocation failures are not proven agent/backend failures or a quota."
           : generic ? "Generic invocation failure; no confirmed throttle or limiting component. Exact recovery/reset not measured."
             : "See the classified evidence; no numeric harness ceiling is established. Recovery/reset not measured."
       ];

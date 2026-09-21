@@ -11,12 +11,12 @@ test("paced comparisons increase by intended rate, keep chronological ties and l
   const before = structuredClone(report);
   const expected = [
     "paced-calibration-10", "paced-calibration-25", "paced-hour-25-stopped",
-    "paced-spread-25-completed", "paced-calibration-50", "paced-standalone-100-stopped", "paced-minute-100-local-stop", "m365-native-burst-100"
+    "paced-spread-25-completed", "paced-calibration-50", "paced-standalone-100-stopped", "paced-minute-100-local-stop", "paced-elastic-100-completed", "m365-native-burst-100"
   ];
   for (const input of [report.runs, [...report.runs].reverse()]) {
     const ordered = orderRunsByRate(input);
     assert.deepEqual(ordered.filter((run) => run.pacedMeasurement || run.nativeInvocation).map((run) => run.runKey), expected);
-    assert.deepEqual(ordered.filter((run) => run.pacedMeasurement).map((run) => run.pacedMeasurement.targetRpm), [10, 25, 25, 25, 50, 100, 100]);
+    assert.deepEqual(ordered.filter((run) => run.pacedMeasurement).map((run) => run.pacedMeasurement.targetRpm), [10, 25, 25, 25, 50, 100, 100, 100]);
   }
   assert.deepEqual(report, before);
   assert.deepEqual(orderRunsByRate([]), []);
@@ -25,7 +25,7 @@ test("paced comparisons increase by intended rate, keep chronological ties and l
 test("chart inputs retain every native cohort separately and exclude visible-channel timings", () => {
   const before = structuredClone(report);
   const rows = nativeChartRows(report.runs);
-  assert.equal(rows.length, 8);
+  assert.equal(rows.length, 9);
   assert.deepEqual(rows.map((row) => row.runKey), report.runs.filter((run) => run.nativeInvocation || run.pacedMeasurement).map((run) => run.runKey));
   for (const row of rows) {
     const run = report.runs.find((run) => run.runKey === row.runKey);

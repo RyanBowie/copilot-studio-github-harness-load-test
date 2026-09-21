@@ -62,3 +62,25 @@ test("count completion cannot hide unsent calls, fake a fixed window or alter hi
   old.runs[0].pacedMeasurement.pacing.schedule = "dispatch_rebased";
   assert.match(validateReport(old, schema).join("\n"), /historical fixed-window phases/);
 });
+
+test("disconnected invocation evidence cannot invent remote conversations or prove an agent failure", () => {
+  const report = syntheticCountRetest({ failed: 40, disconnected: 1 });
+  const run = report.runs[0];
+  assert.deepEqual(validateReport(report, schema), []);
+  assert.equal(run.units.conversations, 99);
+  assert.equal(run.pacedMeasurement.failedConversations, 39);
+  assert.deepEqual(run.errors, [
+    { category: "unknown", count: 39, evidence: "unclassified_invocation_failure" },
+    { category: "transport", count: 1, evidence: "native_disconnected_no_conversation" }
+  ]);
+  for (const category of ["agent", "throttling", "unknown"]) {
+    const changed = structuredClone(report);
+    changed.runs[0].errors[1].category = category;
+    assert.match(validateReport(changed, schema).join("\n"), /disconnected native result requires/);
+  }
+  run.units.conversations = 100;
+  assert.match(validateReport(report, schema).join("\n"), /no returned conversation identifier/);
+  run.units.conversations = 99;
+  run.pacedMeasurement.failedConversations = 40;
+  assert.match(validateReport(report, schema).join("\n"), /no returned conversation identifier/);
+});

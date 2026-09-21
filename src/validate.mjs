@@ -215,9 +215,10 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     fail(path, "returned conversation evidence must match known counts; fresh-request policy is not an observed count.");
   }
   const transport429 = run.errors.filter((error) => error.evidence === "workiq_mcp_transport_429").reduce((sum, error) => sum + error.count, 0);
-  if ((run.units.conversations !== null && run.units.conversations > attempted - transport429)
-    || (paced.failedConversations !== null && paced.failedConversations > failed - transport429)) {
-    fail(path, "WorkIQ MCP transport 429 evidence has no returned conversation identifier; do not infer one from the attempt.");
+  const disconnected = run.errors.filter((error) => error.evidence === "native_disconnected_no_conversation").reduce((sum, error) => sum + error.count, 0);
+  if ((run.units.conversations !== null && run.units.conversations > attempted - transport429 - disconnected)
+    || (paced.failedConversations !== null && paced.failedConversations > failed - transport429 - disconnected)) {
+    fail(path, "WorkIQ MCP transport 429 or disconnected evidence has no returned conversation identifier; do not infer one from the attempt.");
   }
   if (paced.stopReason === "explicit_throttle" && !run.errors.some((error) => error.category === "throttling")) {
     fail(path, "an explicit throttle stop needs classified throttle evidence, not a generic invocation error.");
@@ -379,6 +380,9 @@ export function validateReport(report, schema) {
       if (error.evidence === "agent_reported_timeout" && error.category !== "workflow") fail(`${path}.errors`, "an agent-reported workflow timeout is not a wire-status or throttling observation.");
       if (error.evidence === "workiq_mcp_transport_429" && (error.category !== "throttling" || !run.pacedMeasurement)) {
         fail(`${path}.errors`, "WorkIQ MCP HTTP 429 requires paced transport-throttling evidence; harness attribution remains unknown.");
+      }
+      if (error.evidence === "native_disconnected_no_conversation" && (error.category !== "transport" || !run.pacedMeasurement)) {
+        fail(`${path}.errors`, "a disconnected native result requires paced transport evidence, not a confirmed agent/backend failure or throttle.");
       }
     });
     if ((run.surface === "published_microsoft365_copilot") !== (run.nativeInvocation !== null || Boolean(run.pacedMeasurement))) {

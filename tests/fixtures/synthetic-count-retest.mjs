@@ -1,10 +1,17 @@
 // OFFLINE SYNTHETIC FIXTURE ONLY. Never a publication input or observed result.
 import { syntheticMinuteRetest } from "./synthetic-minute-retest.mjs";
 
-export function syntheticCountRetest(options = {}) {
+export function syntheticCountRetest({ disconnected = 0, ...options } = {}) {
   const report = syntheticMinuteRetest({ arrivalSeconds: 66, ...options });
   const run = report.runs[0];
   const paced = run.pacedMeasurement;
+  if (disconnected) {
+    run.errors[0].count -= disconnected;
+    run.errors = run.errors.filter((error) => error.count > 0);
+    run.errors.push({ category: "transport", count: disconnected, evidence: "native_disconnected_no_conversation" });
+    run.units.conversations -= disconnected;
+    paced.failedConversations -= disconnected;
+  }
   run.runKey = "offline-count-retest";
   paced.campaignKey = "offline-count-campaign";
   paced.phase = "count_retest";
@@ -22,7 +29,8 @@ export function syntheticCountRetest(options = {}) {
     paced.minutes.push({ offsetSeconds: offset, durationSeconds, ...counts });
   }
   Object.assign(report.pacedCampaigns[0], {
-    campaignKey: paced.campaignKey, runKeys: [run.runKey], status: "standalone_count_retest"
+    campaignKey: paced.campaignKey, runKeys: [run.runKey], status: "standalone_count_retest",
+    distinctReturnedConversations: run.units.conversations
   });
   return report;
 }
