@@ -14,6 +14,7 @@ const labels = {
   teams_connector: "Teams connector only",
   workiq_mcp_transport_429: "WorkIQ MCP HTTP transport 429; GitHub Copilot Harness attribution unknown",
   generic_error_threshold: "Generic invocation-error safety threshold; not confirmed throttling",
+  client_pacing: "Local client pacing/admission stop; not provider throttling",
   turn_serialization_observed: "Turn serialization observed in this run; not a platform capacity finding.",
   manual_timing: "Manual visible-response timing.",
   partial_observation: "The initial timing window was partial; later outcome evidence is shown separately when available.",
@@ -101,7 +102,8 @@ const cohortNames = {
   "paced-hour-25-stopped": "25/min hour attempt",
   "paced-standalone-100-stopped": "100/min aborted",
   "paced-spread-25-completed": "25/min follow-up",
-  "paced-minute-100-retest": "100/min retest"
+  "paced-minute-100-retest": "100/min retest",
+  "paced-minute-100-local-stop": "100/min local stop"
 };
 const cohortName = (run) => cohortNames[run.runKey] ?? run.runKey;
 const outcomeSeries = [
@@ -120,12 +122,14 @@ function minuteRetestCard(run) {
   card.append(
     paragraph(complete ? "REVIEWED 100-REQUEST COHORT / FULL MINUTE AND DRAIN" : "REVIEWED RETEST / INCOMPLETE OR UNRESOLVED", "eyebrow"),
     node("h3", allDispatched && settled ? `100-request retest: ${number(run.counts.failed)} failed out of 100`
-      : `100-request retest: ${number(run.counts.attempted)} sent; ${number(run.counts.pending)} pending`),
+      : `Retest incomplete: ${number(run.counts.failed)} failures / ${number(run.counts.attempted)} attempts`),
     paragraph(`${number(run.counts.completed)} successful greetings / ${number(run.counts.failed)} failed invocations / ${number(run.counts.pending)} pending. ${allDispatched ? "All 100 planned requests were sent." : `${number(paced.unofferedSlots)} unoffered and ${number(paced.skippedSlots)} skipped slots were not sent and are not failures.`}`),
     paragraph(`Target: 100 requests/minute for 60 seconds, not a 100-request burst. Actual arrival window: ${number(paced.arrivalSeconds)} s; drain: ${number(paced.drainSeconds)} s (${label(paced.drainStatus)}). ${paced.stopReason ? `Dispatch stop: ${pacedStopLabel(run)}.` : "No early dispatch stop recorded."}`),
     paragraph("For this separately authorized retest, ordinary generic invocation errors were counted without the earlier three-error cutoff. Explicit throttle, backoff, authentication and other safety guards still applied. No retries or automatic continuation.", "fine"),
     paragraph("Completing this 100-request cohort does not establish an hourly rate, a two-minute calibration qualification, a failure cause or a service quota. Outcomes include drain; costs are reported separately.", "fine")
   );
+  if (!allDispatched) card.append(paragraph(`The full 100-request denominator was not observed. Failure rate is ${number(run.counts.failed / run.counts.attempted * 100)}% of the ${number(run.counts.attempted)} actual attempts, not ${number(run.counts.failed)}/100. Nothing is inferred about the requests that were never sent.`));
+  if (run.runKey === "paced-minute-100-local-stop") card.append(paragraph("The local runner missed the admission deadline for planned request 42. The 15 generic invocation errors did not stop dispatch; the local timing guard did. This run therefore does not establish agent capacity at 100/min.", "fine"));
   return card;
 }
 
@@ -522,6 +526,7 @@ function renderErrorTimeline(evidence, report) {
   const ordered = nativeFirst(report.runs).filter((run) => byKey.has(run.runKey)).map((run) => byKey.get(run.runKey));
   const errors = ordered.filter((run) => run.firstError);
   if (!errors.length) return;
+  target.append(paragraph(`These callback and trigger tables use only the ${number(evidence.runs.length)}-cohort window supplement. Newer cohorts are not included; their primary results and methodology remain separate.`, "fine"));
   const first = node("div");
   table(first, "When the first error returned / client callback evidence",
     ["Cohort", "First error offset", "Counts just after processing that error", "Observed evidence"],

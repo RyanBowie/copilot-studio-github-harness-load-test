@@ -50,19 +50,19 @@ test("sub-minute and unobserved endurance windows stay null rather than extrapol
   assert.equal(group.longestClean.runKey, "paced-hour-25-stopped");
 });
 
-test("capacity derivation leaves all ten historical records unchanged and needs no raw identifiers", () => {
+test("capacity derivation leaves every reviewed record unchanged and needs no raw identifiers", () => {
   const before = structuredClone(report);
   summarizeCapacity(report.runs);
   assert.deepEqual(report, before);
-  assert.equal(report.runs.length, 10);
+  assert.equal(report.runs.length, 11);
   assert.deepEqual(summarizeCapacity([]), []);
   assert.deepEqual(summarizeCapacity(report.runs.filter((run) => !run.pacedMeasurement)), []);
 });
 
 test("partial 100 RPM calibration and burst cannot fabricate a complete minute", () => {
-  const runs = [find("paced-standalone-100-stopped"), find("m365-native-burst-100")];
+  const runs = [find("paced-standalone-100-stopped"), find("paced-minute-100-local-stop"), find("m365-native-burst-100")];
   const [group] = summarizeCapacity(runs);
-  assert.equal(group.runs.length, 1);
+  assert.equal(group.runs.length, 2);
   assert.ok(group.windows.every((window) => window.best === null && window.clean === null));
   assert.equal(group.highestQualifiedRpm, null);
   assert.equal(group.longestClean, null);

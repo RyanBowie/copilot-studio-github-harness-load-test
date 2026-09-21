@@ -177,7 +177,7 @@ test("cross-run comparison selects independent compatible-cohort maxima without 
   assert.deepEqual(summarizeReviewedWindows(null, report), []);
 });
 
-test("build embeds the supplemental closed contract separately from unchanged ten-record data", async () => {
+test("build embeds the earlier supplemental contract separately from all reviewed primary records", async () => {
   const html = await renderHtml(report, reportSchema, evidence);
   assert.deepEqual(JSON.parse(html.match(/id="window-evidence">([\s\S]*?)<\/script>/)[1]), evidence);
   assert.deepEqual(JSON.parse(html.match(/id="report-data">([\s\S]*?)<\/script>/)[1]), report);
