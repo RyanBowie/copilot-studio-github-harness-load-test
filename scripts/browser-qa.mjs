@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { build, renderHtml } from "./build.mjs";
 import { syntheticPacedReport } from "../tests/fixtures/synthetic-paced-report.mjs";
 import { syntheticMinuteRetest } from "../tests/fixtures/synthetic-minute-retest.mjs";
+import { syntheticCountRetest } from "../tests/fixtures/synthetic-count-retest.mjs";
 
 const require = createRequire(import.meta.url);
 const focused = process.argv.includes("--focused");
@@ -40,6 +41,11 @@ const minuteCases = [
   ["minute-stopped", { attempted: 21, failed: 1, arrivalSeconds: 13, stopReason: "explicit_throttle" }],
   ["minute-pending", { pending: 2 }]
 ].map(([path, options]) => ({ path, report: syntheticMinuteRetest(options) }));
+minuteCases.push(...[
+  ["count", {}], ["count-clean", { failed: 0 }], ["count-failed", { failed: 100 }],
+  ["count-pending", { pending: 2 }],
+  ["count-stopped", { attempted: 21, failed: 1, arrivalSeconds: 14, stopReason: "explicit_throttle" }]
+].map(([path, options]) => ({ path, report: syntheticCountRetest(options) })));
 const minutePages = new Map(await Promise.all(minuteCases.map(async ({ path, report }) => [path,
   (await renderHtml(report, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC MINUTE RETEST - NOT OBSERVED RESULTS</aside>')])));
 const rejectedHtml = html.replace('"schemaVersion":1', '"schemaVersion":999');
@@ -462,12 +468,18 @@ try {
     assert.match(await card.textContent(), /without the earlier three-error cutoff/);
     if (run.counts.attempted === 100 && run.counts.pending === 0) {
       assert.equal(await card.locator("h3").textContent(), `100-request retest: ${run.counts.failed} failed out of 100`);
-      assert.match(await card.textContent(), /FULL MINUTE AND DRAIN/);
+      assert.match(await card.textContent(), run.pacedMeasurement.phase === "count_retest" ? /COUNT COMPLETE AND DRAINED/ : /FULL MINUTE AND DRAIN/);
     } else {
       assert.match(await card.textContent(), /INCOMPLETE OR UNRESOLVED/);
       assert.doesNotMatch(await card.textContent(), /failed out of 100/);
     }
     if (path === "minute-stopped") assert.match(await card.textContent(), /79 unoffered.*not sent and are not failures/);
+    if (run.pacedMeasurement.phase === "count_retest") {
+      assert.match(await card.textContent(), /rebased from actual dispatch with no catch-up/);
+      assert.match(await card.textContent(), /not proof of 100 starts inside one minute/);
+      assert.doesNotMatch(await card.textContent(), /FULL MINUTE AND DRAIN/);
+      if (run.counts.attempted === 100) assert.match(await card.textContent(), /90\.909 client dispatches\/min/);
+    }
     assert.equal(await page.locator("#benchmark-kpis .metric-value").first().textContent(), "Not measured");
     for (const id of ["overview", "response-time"]) {
       await page.locator(`.section-nav a[href="#${id}"]`).click();

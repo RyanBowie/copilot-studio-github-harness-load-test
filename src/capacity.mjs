@@ -77,7 +77,7 @@ export function summarizeCapacity(runs) {
     const qualified = group.runs.filter((run) => run.pacedMeasurement.phase === "calibration"
       && run.pacedMeasurement.qualification === "qualified");
     const highestQualifiedRpm = qualified.length ? Math.max(...qualified.map((run) => run.pacedMeasurement.targetRpm)) : null;
-    const completedTrials = group.runs.filter((run) => run.pacedMeasurement.arrivalStatus === "full_window"
+    const completedTrials = group.runs.filter((run) => ["full_window", "count_complete"].includes(run.pacedMeasurement.arrivalStatus)
       && run.pacedMeasurement.drainStatus === "complete");
     const longestCompleted = completedTrials.reduce((best, run) =>
       !best || run.pacedMeasurement.arrivalSeconds > best.pacedMeasurement.arrivalSeconds ? run : best, null);

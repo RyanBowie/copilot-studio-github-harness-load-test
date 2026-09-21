@@ -151,41 +151,61 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     fail(path, "UTC arrival and observation markers must be ordered and end on the run observation date.");
   }
   const minuteRetest = paced.phase === "minute_retest";
-  const plannedSeconds = minuteRetest ? 60 : paced.phase === "hour" ? 3600 : 120;
+  const countRetest = paced.phase === "count_retest";
+  const retest = minuteRetest || countRetest;
+  const plannedSeconds = retest ? 60 : paced.phase === "hour" ? 3600 : 120;
   if (paced.plannedArrivalSeconds !== plannedSeconds || paced.plannedSlots !== paced.targetRpm * plannedSeconds / 60) {
     fail(path, "planned slots must match the phase duration and intended rate.");
   }
-  if (minuteRetest) {
+  if (retest) {
     if (paced.targetRpm !== 100 || paced.genericErrorPolicy !== "count_without_early_stop"
       || ["generic_error_threshold", "native_error"].includes(paced.stopReason)) {
-      fail(path, "minute retest is a bounded 100-request plan that counts generic errors without an early generic-error stop.");
+      fail(path, "retest is a bounded 100-request plan that counts generic errors without an early generic-error stop.");
     }
     if (paced.arrivalStatus === "full_window" && paced.arrivalEndObservedSeconds < 60) {
       fail(path, "a full minute retest requires at least 60 seconds of observed arrival coverage, not merely 100 dispatches.");
     }
   } else if (Object.hasOwn(paced, "genericErrorPolicy")) {
-    fail(path, "the count-through-generic-errors policy belongs only to the separate minute retest, not historical calibrations or hours.");
+    fail(path, "the count-through-generic-errors policy belongs only to a separate retest, not historical calibrations or hours.");
   }
-  if (paced.arrivalSeconds > plannedSeconds || attempted + paced.skippedSlots + paced.unofferedSlots !== paced.plannedSlots) {
+  if ((!countRetest && paced.arrivalSeconds > plannedSeconds) || attempted + paced.skippedSlots + paced.unofferedSlots !== paced.plannedSlots) {
     fail(path, "attempted, skipped and unoffered slots must partition the bounded plan.");
   }
-  if (paced.arrivalStatus === "full_window") {
+  if (countRetest && paced.arrivalStatus === "full_window") {
+    fail(path, "a count-bound retest records count completion, not a fixed full-minute window.");
+  } else if (paced.arrivalStatus === "count_complete") {
+    if (!countRetest || attempted !== 100 || paced.skippedSlots !== 0 || paced.unofferedSlots !== 0 || paced.stopReason !== null) {
+      fail(path, "count completion requires exactly 100 actual dispatches in a count retest, no unused slots and no stop reason.");
+    }
+  } else if (paced.arrivalStatus === "full_window") {
     if (paced.arrivalSeconds !== plannedSeconds || paced.unofferedSlots !== 0 || paced.stopReason !== null) {
       fail(path, "full arrival window requires its full duration, no unoffered slots and no stop reason.");
     }
-  } else if (paced.stopReason === null || (paced.arrivalStatus === "partial" && (paced.arrivalSeconds >= plannedSeconds || paced.stopReason !== "observation_cutoff"))) {
+  } else if (paced.stopReason === null || (paced.arrivalStatus === "partial" && ((!countRetest && paced.arrivalSeconds >= plannedSeconds) || paced.stopReason !== "observation_cutoff"))) {
     fail(path, "stopped/partial arrivals require an explicit reason; partial is an early observation cutoff.");
   }
   if ((paced.drainStatus === "complete") !== (pending === 0)) fail(path, "complete drain requires no pending invocations; cutoff retains pending outcomes.");
   const pacing = paced.pacing;
-  if (Math.abs(pacing.intervalMs - 60000 / paced.targetRpm) > 0.000001) fail(path, "absolute slot interval must match intended RPM.");
+  if (Math.abs(pacing.intervalMs - 60000 / paced.targetRpm) > 0.000001) fail(path, "dispatch interval must match intended RPM.");
+  if (countRetest) {
+    if (pacing.schedule !== "dispatch_rebased" || pacing.missedSlotPolicy !== "defer_without_catchup" || pacing.jitterAllowance !== 0
+      || paced.skippedSlots !== 0 || Math.abs(paced.arrivalSeconds - paced.arrivalEndObservedSeconds) > 0.000001) {
+      fail(path, "count-bound pacing requires actual-dispatch rebasing, no catch-up, no skipped slots or jitter allowance, and actual arrival-close duration.");
+    }
+    if (attempted > 1 && (pacing.observedMinIntervalMs === null
+      || paced.arrivalSeconds * 1000 + 0.000001 < (attempted - 1) * pacing.observedMinIntervalMs)) {
+      fail(path, "count-bound duration must contain the observed dispatch intervals; measured minimum spacing is required.");
+    }
+  } else if (pacing.schedule !== "absolute_slots" || pacing.missedSlotPolicy !== "skip_without_replay" || pacing.jitterAllowance !== 0.05) {
+    fail(path, "historical fixed-window phases retain absolute slots, skip-without-replay and the 5% allowance.");
+  }
   if ((pacing.observedMinIntervalMs === null) !== (pacing.violatingIntervals === null)
     || (attempted < 2 && pacing.observedMinIntervalMs !== null) || pacing.violatingIntervals > attempted - 1) {
     fail(path, "observed inter-dispatch evidence must be paired and bounded by actual intervals.");
   }
   const minAllowed = pacing.intervalMs * (1 - pacing.jitterAllowance);
   if (pacing.observedMinIntervalMs !== null && ((pacing.observedMinIntervalMs < minAllowed) !== (pacing.violatingIntervals > 0))) {
-    fail(path, "pacing violations must agree with the measured minimum and 5% allowance.");
+    fail(path, "pacing violations must agree with the measured minimum and declared allowance.");
   }
   if ((paced.peakOutstanding === null) !== (paced.concurrencyVerification === null) || paced.peakOutstanding > attempted) {
     fail(path, "client peak requires measured verification (interval-sweep or reviewed client peak) and cannot exceed attempts.");
@@ -214,9 +234,9 @@ function checkPacedMeasurement(run, path, fail, checkDate) {
     && attempted === paced.plannedSlots && completed * 100 >= attempted * 99
     && pacing.observedMinIntervalMs !== null && pacing.violatingIntervals === 0
     && !run.errors.some((error) => ["authentication", "throttling"].includes(error.category));
-  if (minuteRetest) {
+  if (retest) {
     if (paced.qualification !== "not_evaluated" || paced.qualifyingRunKey !== null) {
-      fail(path, "minute retest is not a two-minute calibration or qualification for an hour.");
+      fail(path, "retest is not a two-minute calibration or qualification for an hour.");
     }
   } else if (paced.phase === "calibration") {
     if (paced.qualifyingRunKey !== null || (paced.qualification === "qualified" && !canQualify)
@@ -249,8 +269,8 @@ function checkPacedCampaigns(runs, fail) {
   for (const cohorts of campaigns.values()) {
     const calibrations = cohorts.filter((run) => run.pacedMeasurement.phase === "calibration");
     const hours = cohorts.filter((run) => run.pacedMeasurement.phase === "hour");
-    if (cohorts.some((run) => run.pacedMeasurement.phase === "minute_retest") && cohorts.length !== 1) {
-      fail("report.runs", "a minute retest must be a separate single-cohort campaign; no continuation or pooled calibration.");
+    if (cohorts.some((run) => ["minute_retest", "count_retest"].includes(run.pacedMeasurement.phase)) && cohorts.length !== 1) {
+      fail("report.runs", "a retest must be a separate single-cohort campaign; no continuation or pooled calibration.");
     }
     if (cohorts.reduce((sum, run) => sum + run.counts.attempted, 0) > 9670 || hours.length > 1
       || new Set(calibrations.map((run) => run.pacedMeasurement.targetRpm)).size !== calibrations.length) {
@@ -473,9 +493,10 @@ export function validateReport(report, schema) {
     const measuredRates = cohorts.filter((run) => run.pacedMeasurement.phase !== "hour").map((run) => run.pacedMeasurement.targetRpm);
     if (campaign.notAttemptedCalibrationRpm.some((rate) => measuredRates.includes(rate))) fail(path, "unattempted calibration rates cannot have observed cohorts.");
     const last = [...cohorts].sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
-    if (campaign.status === "standalone_minute_retest") {
-      if (cohorts.length !== 1 || last.pacedMeasurement.phase !== "minute_retest") {
-        fail(path, "standalone minute context must reference exactly one minute retest; completion is determined from actual dispatch and drain evidence.");
+    if (["standalone_minute_retest", "standalone_count_retest"].includes(campaign.status)) {
+      const phase = campaign.status === "standalone_count_retest" ? "count_retest" : "minute_retest";
+      if (cohorts.length !== 1 || last.pacedMeasurement.phase !== phase) {
+        fail(path, "standalone retest context must reference exactly one matching retest; completion is determined from actual dispatch and drain evidence.");
       }
     } else if (campaign.status === "completed_standalone_calibration") {
       if (cohorts.length !== 1 || last.pacedMeasurement.phase !== "calibration" || last.pacedMeasurement.arrivalStatus !== "full_window"
