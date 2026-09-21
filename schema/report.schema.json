@@ -189,7 +189,7 @@
       ],
       "properties": {
         "campaignKey": { "$ref": "#/$defs/key" },
-        "phase": { "enum": ["calibration", "hour", "minute_retest", "count_retest", "capacity_screen", "capacity_hour"] },
+        "phase": { "enum": ["calibration", "hour", "minute_retest", "count_retest", "count_baseline", "capacity_screen", "capacity_hour"] },
         "genericErrorPolicy": { "const": "count_without_early_stop" },
         "capacityEvidence": {
           "type": "object",

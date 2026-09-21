@@ -42,10 +42,13 @@ const scopedContext = (report, run) => report.studyContext?.runKeys.includes(run
 const seconds = (milliseconds) => `${(milliseconds / 1000).toFixed(3)} s`;
 const pacedPhase = (measurement) => measurement.phase === "minute_retest" ? "One-minute 100-request retest"
   : measurement.phase === "count_retest" ? "Count-bound 100-request retest"
+  : measurement.phase === "count_baseline" ? "Count-bound 125-request baseline"
   : measurement.phase === "capacity_screen" ? "Five-minute zero-error screen"
   : measurement.phase === "capacity_hour" ? "Zero-error hour validation"
   : measurement.phase === "hour" ? "Hourly arrival cohort" : "Rate calibration cohort";
 const isRetest = (run) => ["minute_retest", "count_retest"].includes(run.pacedMeasurement?.phase);
+const isCountBaseline = (run) => run.pacedMeasurement?.phase === "count_baseline";
+const isCountBound = (run) => isCountBaseline(run) || run.pacedMeasurement?.phase === "count_retest";
 const isHourly = (run) => ["hour", "capacity_hour"].includes(run.pacedMeasurement?.phase);
 const isCapacityCohort = (run) => ["capacity_screen", "capacity_hour"].includes(run.pacedMeasurement?.phase);
 const achievedRpm = (run) => observedPacedRpm(run) === null ? "Not measured" : number(observedPacedRpm(run));
@@ -172,30 +175,39 @@ function capacityStudyCard(study) {
   return card;
 }
 
-function minuteRetestCard(run) {
+function boundedCohortCard(run) {
   const paced = run.pacedMeasurement;
-  const countBound = paced.phase === "count_retest";
+  const baseline = isCountBaseline(run);
+  const countBound = isCountBound(run);
+  const plan = paced.plannedSlots;
+  const name = baseline ? "baseline" : "retest";
   const allDispatched = run.counts.attempted === paced.plannedSlots;
   const settled = run.counts.pending === 0;
   const complete = allDispatched && settled && ["full_window", "count_complete"].includes(paced.arrivalStatus);
   const card = node("article", undefined, "note block");
-  card.dataset.minuteRetest = run.runKey;
+  if (baseline) card.dataset.countBaseline = run.runKey;
+  else card.dataset.minuteRetest = run.runKey;
   card.append(
-    paragraph(complete ? (countBound ? "REVIEWED 100-REQUEST COHORT / COUNT COMPLETE AND DRAINED" : "REVIEWED 100-REQUEST COHORT / FULL MINUTE AND DRAIN") : "REVIEWED RETEST / INCOMPLETE OR UNRESOLVED", "eyebrow"),
-    node("h3", allDispatched && settled ? `100-request retest: ${number(run.counts.failed)} failed out of 100`
-      : `Retest incomplete: ${number(run.counts.failed)} failures / ${number(run.counts.attempted)} attempts`),
-    paragraph(`${number(run.counts.completed)} successful greetings / ${number(run.counts.failed)} failed invocations / ${number(run.counts.pending)} pending. ${allDispatched ? "All 100 planned requests were sent." : `${number(paced.unofferedSlots)} unoffered and ${number(paced.skippedSlots)} skipped slots were not sent and are not failures.`}`),
-    paragraph(`${countBound ? "Target: 100 total requests, nominally 100/min. Planned spacing is at least 600 ms, rebased from actual dispatch with no catch-up. The 60-second plan may extend." : "Target: 100 requests/minute for 60 seconds, not a 100-request burst."} Actual arrival window: ${number(paced.arrivalSeconds)} s; drain: ${number(paced.drainSeconds)} s (${label(paced.drainStatus)}). ${paced.stopReason ? `Dispatch stop: ${pacedStopLabel(run)}.` : "No early dispatch stop recorded."}`),
-    paragraph("For this separately authorized retest, ordinary generic invocation errors were counted without the earlier three-error cutoff. Explicit throttle, backoff, authentication and other safety guards still applied. No retries or automatic continuation.", "fine"),
-    paragraph("Completing this 100-request cohort does not establish an hourly rate, a two-minute calibration qualification, a failure cause or a service quota. Outcomes include drain; costs are reported separately.", "fine")
+    paragraph(complete ? (countBound ? `REVIEWED ${plan}-REQUEST COHORT / COUNT COMPLETE AND DRAINED` : "REVIEWED 100-REQUEST COHORT / FULL MINUTE AND DRAIN") : `REVIEWED ${name.toUpperCase()} / INCOMPLETE OR UNRESOLVED`, "eyebrow"),
+    node("h3", allDispatched && settled ? `${plan}-request ${name}: ${number(run.counts.failed)} failed out of ${plan}`
+      : `${baseline ? "Baseline" : "Retest"} incomplete: ${number(run.counts.failed)} failures / ${number(run.counts.attempted)} attempts`),
+    paragraph(`${number(run.counts.completed)} successful greetings / ${number(run.counts.failed)} failed invocations / ${number(run.counts.pending)} pending. ${allDispatched ? `All ${plan} planned requests were sent.` : `${number(paced.unofferedSlots)} unoffered and ${number(paced.skippedSlots)} skipped slots were not sent and are not failures.`}`),
+    paragraph(`${countBound ? `Target: ${plan} total requests, nominally ${paced.targetRpm}/min. Planned spacing is at least ${paced.pacing.intervalMs} ms, rebased from actual dispatch with no catch-up. The ${paced.plannedArrivalSeconds}-second plan may extend.` : "Target: 100 requests/minute for 60 seconds, not a 100-request burst."} Actual arrival window: ${number(paced.arrivalSeconds)} s; drain: ${number(paced.drainSeconds)} s (${label(paced.drainStatus)}). ${paced.stopReason ? `Dispatch stop: ${pacedStopLabel(run)}.` : "No early dispatch stop recorded."}`),
+    paragraph(baseline
+      ? "This separate count-bound baseline counted ordinary normalized invocation errors without first-error or three-error termination. Explicit provider/throttle/backoff, authentication, action, local-clock and evidence guards still applied. No retries or automatic continuation."
+      : "For this separately authorized retest, ordinary generic invocation errors were counted without the earlier three-error cutoff. Explicit throttle, backoff, authentication and other safety guards still applied. No retries or automatic continuation.", "fine"),
+    paragraph(`Completing this ${plan}-request cohort does not establish an hourly rate, a two-minute calibration qualification, a failure cause or a service quota. Outcomes include drain; costs are reported separately.`, "fine")
   );
-  if (countBound) card.append(paragraph(`Observed offered rate: ${achievedRpm(run)} client dispatches/min over the actual arrival window. Count completion is not proof of 100 starts inside one minute or sustained capacity; this is not a fixed-minute calibration.`));
+  if (countBound) card.append(paragraph(`Observed offered rate: ${achievedRpm(run)} client dispatches/min over the actual arrival window. ${baseline
+    ? "Count completion is not proof of sustained 25/min or a clean five-minute capacity screen; this baseline cannot qualify either validation hour."
+    : "Count completion is not proof of 100 starts inside one minute or sustained capacity; this is not a fixed-minute calibration."}`));
+  if (baseline) card.append(paragraph("This is neither a resumed zero-error study nor a new 7,125-call campaign. Separate connectivity checks are not instrumented load cohorts and are never added to these counts.", "fine"));
   const disconnected = run.errors.find((error) => error.evidence === "native_disconnected_no_conversation");
   if (disconnected) {
     const generic = run.errors.filter((error) => error.evidence === "unclassified_invocation_failure").reduce((sum, error) => sum + error.count, 0);
     card.append(paragraph(`Failure evidence: ${number(generic)} generic server_error/invoke results and ${number(disconnected.count)} disconnected/invoke result(s). The disconnected attempt returned no conversation identifier; remote admission is unknown. These are native invocation failures, not ${number(run.counts.failed)} proven agent/backend failures. ${run.units.conversations === null ? "Distinct returned conversations were not measured." : `${number(run.units.conversations)} distinct returned conversations were verified.`}`));
   }
-  if (!allDispatched) card.append(paragraph(`The full 100-request denominator was not observed. Failure rate is ${number(run.counts.failed / run.counts.attempted * 100)}% of the ${number(run.counts.attempted)} actual attempts, not ${number(run.counts.failed)}/100. Nothing is inferred about the requests that were never sent.`));
+  if (!allDispatched) card.append(paragraph(`The full ${plan}-request denominator was not observed. Failure rate is ${number(run.counts.failed / run.counts.attempted * 100)}% of the ${number(run.counts.attempted)} actual attempts, not ${number(run.counts.failed)}/${plan}. Nothing is inferred about the requests that were never sent.`));
   if (run.runKey === "paced-minute-100-local-stop") card.append(paragraph("The local runner missed the admission deadline for planned request 42. The 15 generic invocation errors did not stop dispatch; the local timing guard did. This run therefore does not establish agent capacity at 100/min.", "fine"));
   return card;
 }
@@ -219,9 +231,11 @@ function renderCharts(runs) {
     });
     const overview = byId("overview-charts");
     overview.replaceChildren();
+    const latestBaseline = ordered.filter(isCountBaseline).sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
+    if (latestBaseline) overview.append(boundedCohortCard(latestBaseline));
     for (const study of summarizeCapacityStudies(runs)) overview.append(capacityStudyCard(study));
     const latestRetest = ordered.filter(isRetest).at(-1);
-    if (latestRetest) overview.append(minuteRetestCard(latestRetest));
+    if (latestRetest) overview.append(boundedCohortCard(latestRetest));
     const paced = rows.filter((row) => row.targetRpm !== null);
     const bursts = rows.filter((row) => row.targetRpm === null);
     if (paced.length) {
@@ -308,7 +322,7 @@ function renderTimeline(runs) {
   const target = byId("timeline-content");
   const controls = node("div", undefined, "searchbar");
   const choice = labelledControl("Dispatch timeline / choose a cohort", "timeline-run", paced.map((run) => [run.runKey, cohortName(run)]));
-  choice.control.value = [...paced].filter(isCapacityCohort).sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1)?.runKey
+  choice.control.value = [...paced].filter((run) => isCapacityCohort(run) || isCountBaseline(run)).sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1)?.runKey
     ?? paced.find(isHourly)?.runKey ?? paced.at(-1).runKey;
   controls.append(choice.field);
   const chart = node("div", undefined, "timeline-chart");
@@ -622,7 +636,7 @@ function loadStatus(run) {
   const paced = run.pacedMeasurement;
   if (!paced) return "Finished burst; not a sustained arrival rate.";
   if (paced.stopReason) return `Arrival ${label(paced.arrivalStatus)}: ${pacedStopLabel(run)}; drain ${label(paced.drainStatus)}.`;
-  if (isRetest(run)) return `${number(run.counts.attempted)} / 100 planned dispatches; arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}. Not a two-minute calibration.`;
+  if (isRetest(run) || isCountBaseline(run)) return `${number(run.counts.attempted)} / ${number(paced.plannedSlots)} planned dispatches; arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}. Not a two-minute calibration${isCountBaseline(run) ? " or a zero-error capacity screen" : ""}.`;
   return `Arrival ${label(paced.arrivalStatus)}; drain ${label(paced.drainStatus)}; ${label(paced.qualification)}.`;
 }
 
@@ -691,7 +705,7 @@ function renderFailureSummary(runs) {
         run.errors.map((error) => `${number(error.count)} ${label(error.evidence)}`).join("; "),
         first ? `${number(first.offsetSeconds)}-${number(first.offsetSeconds + first.durationSeconds)} s: ${number(first.failed)} eventual failure${first.failed === 1 ? "" : "s"} among ${number(first.attempted)} dispatches. Not the time the first error returned.` : "Not bucketed; exact first-error return time not available.",
         paced ? (paced.stopReason ? `${number(paced.arrivalEndObservedSeconds)} s observed arrival end / ${pacedStopLabel(run)}. Final error count includes calls already in flight, not the guard's trigger count.`
-          : `${paced.phase === "count_retest" ? "Count-bound" : "Full"} ${number(paced.arrivalSeconds)} s arrival window; ${label(paced.qualification)}. No arrival stop.`)
+          : `${isCountBound(run) ? "Count-bound" : "Full"} ${number(paced.arrivalSeconds)} s arrival window; ${label(paced.qualification)}. No arrival stop.`)
           : `${number(run.windowSeconds)} s batch observation; not a measured failure-onset time.`,
         transport ? "WorkIQ MCP HTTP transport 429 observed. Harness attribution, quota key/window/reset and backend reach unknown; no retry interval exposed. Recovery not measured."
           : disconnected ? "Disconnected native result has no returned conversation identifier; remote admission is unknown. Generic errors remain unclassified. Invocation failures are not proven agent/backend failures or a quota."
@@ -723,7 +737,7 @@ function renderOverview(report) {
   for (const campaign of report.pacedCampaigns ?? []) {
     const cohorts = report.runs.filter((run) => campaign.runKeys.includes(run.runKey));
     if (["standalone_minute_retest", "standalone_count_retest"].includes(campaign.status)) {
-      const card = minuteRetestCard(cohorts[0]);
+      const card = boundedCohortCard(cohorts[0]);
       card.classList.add("campaign-summary");
       card.dataset.campaignKey = campaign.campaignKey;
       card.append(paragraph(`Campaign markers: ${campaign.startedAt} to ${campaign.endedAt}. ${number(campaign.distinctReturnedConversations)} distinct returned conversations; peak ${number(campaign.clientPeakOutstanding)} outstanding client invocations, not backend/model concurrency.`, "fine"));

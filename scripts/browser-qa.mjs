@@ -11,6 +11,7 @@ import { build, renderHtml } from "./build.mjs";
 import { syntheticPacedReport } from "../tests/fixtures/synthetic-paced-report.mjs";
 import { syntheticMinuteRetest } from "../tests/fixtures/synthetic-minute-retest.mjs";
 import { syntheticCountRetest } from "../tests/fixtures/synthetic-count-retest.mjs";
+import { syntheticCountBaseline } from "../tests/fixtures/synthetic-count-baseline.mjs";
 import { syntheticCapacityReport } from "../tests/fixtures/synthetic-capacity-report.mjs";
 
 const require = createRequire(import.meta.url);
@@ -48,6 +49,12 @@ minuteCases.push(...[
   ["count-pending", { pending: 2 }],
   ["count-stopped", { attempted: 21, failed: 1, arrivalSeconds: 14, stopReason: "explicit_throttle" }]
 ].map(([path, options]) => ({ path, report: syntheticCountRetest(options) })));
+minuteCases.push(...[
+  ["baseline", {}], ["baseline-clean", { failed: 0 }],
+  ["baseline-failed", { failed: 125, disconnected: 125 }],
+  ["baseline-pending", { pending: 2 }],
+  ["baseline-stopped", { attempted: 21, failed: 1, arrivalSeconds: 51, stopReason: "explicit_throttle" }]
+].map(([path, options]) => ({ path, report: syntheticCountBaseline(options) })));
 const minutePages = new Map(await Promise.all(minuteCases.map(async ({ path, report }) => [path,
   (await renderHtml(report, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC MINUTE RETEST - NOT OBSERVED RESULTS</aside>')])));
 const capacityCases = ["two-hours", "one-hour", "no-candidate", "fallback", "hour-failure", "safety-stop"];
@@ -516,19 +523,21 @@ try {
   assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 2);
   for (const { path, report: minuteReport } of minuteCases) {
     const run = minuteReport.runs[0];
+    const baseline = run.pacedMeasurement.phase === "count_baseline";
+    const plan = run.pacedMeasurement.plannedSlots;
     await page.goto(`${origin}/${path}#overview`);
     await page.waitForFunction(() => document.querySelector("#publication-status").textContent === "REVIEWED AGGREGATES");
     assert.equal(await page.locator("#data-error").isVisible(), false);
-    const card = page.locator("#overview-charts [data-minute-retest]");
+    const card = page.locator(`#overview-charts [${baseline ? "data-count-baseline" : "data-minute-retest"}]`);
     assert.equal(await card.count(), 1);
     assert.match(await card.textContent(), new RegExp(`${run.counts.completed} successful greetings / ${run.counts.failed} failed invocations / ${run.counts.pending} pending`));
-    assert.match(await card.textContent(), /without the earlier three-error cutoff/);
-    if (run.counts.attempted === 100 && run.counts.pending === 0) {
-      assert.equal(await card.locator("h3").textContent(), `100-request retest: ${run.counts.failed} failed out of 100`);
-      assert.match(await card.textContent(), run.pacedMeasurement.phase === "count_retest" ? /COUNT COMPLETE AND DRAINED/ : /FULL MINUTE AND DRAIN/);
+    assert.match(await card.textContent(), baseline ? /without first-error or three-error termination/ : /without the earlier three-error cutoff/);
+    if (run.counts.attempted === plan && run.counts.pending === 0) {
+      assert.equal(await card.locator("h3").textContent(), `${plan}-request ${baseline ? "baseline" : "retest"}: ${run.counts.failed} failed out of ${plan}`);
+      assert.match(await card.textContent(), run.pacedMeasurement.phase !== "minute_retest" ? /COUNT COMPLETE AND DRAINED/ : /FULL MINUTE AND DRAIN/);
     } else {
       assert.match(await card.textContent(), /INCOMPLETE OR UNRESOLVED/);
-      assert.doesNotMatch(await card.textContent(), /failed out of 100/);
+      assert.doesNotMatch(await card.textContent(), new RegExp(`failed out of ${plan}`));
     }
     if (path === "minute-stopped") assert.match(await card.textContent(), /79 unoffered.*not sent and are not failures/);
     if (run.pacedMeasurement.phase === "count_retest") {
@@ -536,6 +545,33 @@ try {
       assert.match(await card.textContent(), /not proof of 100 starts inside one minute/);
       assert.doesNotMatch(await card.textContent(), /FULL MINUTE AND DRAIN/);
       if (run.counts.attempted === 100) assert.match(await card.textContent(), /90\.909 client dispatches\/min/);
+    }
+    if (baseline) {
+      assert.match(await card.textContent(), /125 total requests, nominally 25\/min.*at least 2400 ms.*300-second plan may extend/);
+      assert.match(await card.textContent(), /not proof of sustained 25\/min.*cannot qualify either validation hour/);
+      assert.match(await card.textContent(), /neither a resumed zero-error study nor a new 7,125-call campaign/);
+      assert.equal(await page.locator("#overview-charts [data-capacity-study]").count(), 0);
+      assert.equal(await page.locator("#overview-charts [data-minute-retest]").count(), 0);
+      if (run.counts.attempted === 125) assert.match(await card.textContent(), /24\.038 client dispatches\/min/);
+      if (path === "baseline-stopped") assert.match(await card.textContent(), /104 unoffered.*not 1\/125/);
+      if (path === "baseline-failed") {
+        assert.match(await card.textContent(), /125 disconnected\/invoke.*0 distinct returned conversations/);
+        assert.equal(await page.locator("#latency-charts rect").count(), 0);
+      }
+      if (path === "baseline") {
+        for (const width of [320, 390, 1440]) for (const theme of ["light", "dark"]) {
+          await page.setViewportSize({ width, height: 1000 });
+          await page.goto(`${origin}/baseline?scoutTheme=${theme}#overview`);
+          assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
+          assert.equal(await page.locator("#data-error").isVisible(), false);
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+          await page.addScriptTag({ path: axePath });
+          assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
+          await card.screenshot({ path: resolve(artifacts, `synthetic-baseline-${width}-${theme}.png`) });
+          snapshots++;
+        }
+        await page.setViewportSize({ width: 390, height: 900 });
+      }
     }
     if (path === "count-disconnected") {
       assert.match(await card.textContent(), /39 generic server_error\/invoke results and 1 disconnected\/invoke/);
@@ -595,7 +631,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, ten sections, eight charts, thirteen actual records with prior twelve preserved, first-attempt capacity stop/no rate/no server-drain inference, strict screen/two-hour synthetic states, four downloads, axe, keyboard, print, forced colors/reduced motion, system theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, ten sections, eight charts, thirteen actual records with prior twelve preserved, first-attempt capacity stop/no rate/no server-drain inference, strict screen/two-hour and separate 125-count baseline synthetic states, four downloads, axe, keyboard, print, forced colors/reduced motion, dark default/explicit theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));
