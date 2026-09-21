@@ -556,7 +556,7 @@ function renderReviewedWindows(report, evidence) {
   const headline = byId("benchmark-kpis");
   headline.replaceChildren();
   const missing = report.runs.filter((run) => nativeMeasurement(run) && !evidence.runs.some((item) => item.runKey === run.runKey));
-  if (missing.length) headline.append(paragraph(`Rolling-window scope: ${evidence.runs.length} reviewed native cohorts only. Excludes ${missing.map(cohortName).join(", ")} pending a reviewed window supplement; these are not maxima across every displayed run. The excluded cohort's actual totals remain in its own result.`, "fine"));
+  if (missing.length) headline.append(paragraph(`Rolling-window scope: ${evidence.runs.length} reviewed native cohorts only. Excludes ${missing.map(cohortName).join(", ")}; these are not maxima across every displayed run. Any separately reviewed ramp windows remain in that run's result, outside this seven-cohort supplement.`, "fine"));
   for (const group of summarizeReviewedWindows(evidence, report)) {
     const minute = group.windows.find((window) => window.seconds === 60);
     const five = group.windows.find((window) => window.seconds === 300);
@@ -679,6 +679,7 @@ function rampSummaryCard(run) {
   }
   if (ramp.arrivalLoopEndObservedSeconds !== undefined) card.append(paragraph(`Observation-loop end: ${number(ramp.arrivalLoopEndObservedSeconds)} s, after dispatch close. Its ${number(ramp.arrivalLoopEndObservedSeconds - ramp.arrivalEndObservedSeconds)} s local bookkeeping interval is inside the ${number(ramp.drainSeconds)} s post-close observation, not extra offered time or server latency.`, "fine"));
   if (ramp.arrivalSeconds >= 60) card.append(paragraph(`Mixed-rate window-average dispatch pace: ${number(run.counts.attempted / ramp.arrivalSeconds * 60)}/min over the actual ${number(ramp.arrivalSeconds)} s only. Not a sustained fixed rate or extrapolated hourly throughput.`, "fine"));
+  if (ramp.dispatchWindowEvidence) card.append(paragraph(`Separately reviewed full rolling-window maxima for this ramp: ${ramp.dispatchWindowEvidence.windows.map((window) => `${number(window.maximumStarts)} native starts in ${number(window.windowSeconds)} s`).join("; ")}. The ${number(run.counts.attempted)} total spans ${number(ramp.arrivalSeconds)} s, not ten minutes. See Throughput and limits for fixed versus rolling windows; no numeric quota is inferred.`));
   return card;
 }
 
@@ -724,6 +725,29 @@ function renderRampSegments(run, target) {
         segment.completionPopulations?.allDispatchesWithinObservedWindow ?? "Unknown"
       ]));
     article.append(completions, paragraph("Own-cohort nominal-window counts may include replies after an early stop but before the planned segment end. All-dispatch observed-window counts include carry-over from earlier levels and exclude replies after the actual close. Equal numbers in these columns do not make the populations equivalent.", "fine"));
+  }
+  if (ramp.dispatchWindowEvidence) {
+    const evidence = ramp.dispatchWindowEvidence;
+    const windows = node("div", undefined, "note");
+    windows.dataset.rampDispatchWindows = run.runKey;
+    windows.append(node("h3", "Actual ten-minute totals versus rolling maxima"),
+      paragraph(`Fixed ten-minute buckets: ${ramp.segments.map((segment) => `${number(segment.counts.attempted)} starts over ${number(segment.durationSeconds)} s (${segment.durationSeconds === 600 ? "full" : "partial, not scaled"})`).join("; ")}. The ${number(run.counts.attempted)} native starts cover ${number(ramp.arrivalSeconds)} s overall, not a ten-minute total.`));
+    const windowTable = node("div");
+    table(windowTable, `${run.runKey} / fully observed rolling dispatch windows`,
+      ["Window", "Maximum native starts", "Equivalent window-average RPM", "Representative elapsed interval (s)", "Candidate windows checked"],
+      evidence.windows.map((window) => [
+        `${number(window.windowSeconds)} s / full coverage`,
+        number(window.maximumStarts),
+        number(window.maximumStarts / window.windowSeconds * 60),
+        `[${number(window.representativeStartSeconds)}, ${number(window.representativeEndSeconds)})`,
+        number(window.candidateWindowsChecked)
+      ]));
+    windows.append(windowTable);
+    const minute = evidence.windows.find((window) => window.windowSeconds === 60);
+    const tenMinutes = evidence.windows.find((window) => window.windowSeconds === 600);
+    if (minute && tenMinutes) windows.append(paragraph(`More than 30 starts in any full minute: ${minute.maximumStarts > 30 ? "yes" : "no"}. More than 300 in any full ten minutes: ${tenMinutes.maximumStarts > 300 ? "yes" : "no"}. These are observations of this ramp only, not a server quota window or numeric WorkIQ limit.`));
+    windows.append(paragraph(`Reviewed ${evidence.reviewedOn}; zero new native calls. Start-inclusive/end-exclusive intervals; partial windows excluded. Counts include failed native attempts, including the HTTP 429. ${number(evidence.identityControlReadsExcluded)} identity control read excluded. External traffic and service-internal request counts are unknown; native invocation counts are not server-internal counts. This separate ramp scope does not change the original seven-cohort supplement.`, "fine"));
+    article.append(windows);
   }
   target.append(article);
 }

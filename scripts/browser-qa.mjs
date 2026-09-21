@@ -165,9 +165,16 @@ try {
           assert.match(await ramp.textContent(), /835\.974 s.*0\.939 s local bookkeeping.*not extra offered time/);
           assert.match(await ramp.textContent(), /26\.226\/min.*not.*hourly throughput/i);
           const rampSegments = page.locator('[data-ramp-segments="hour-ramp-25-to-50"]');
-          assert.equal(await rampSegments.locator("table").count(), 2);
+          assert.equal(await rampSegments.locator("table").count(), 3);
           assert.match(await rampSegments.textContent(), /117 \/ 29\.868\/min over this partial window only/);
           assert.match(await rampSegments.textContent(), /3 \/ Unknown/);
+          const rampWindows = page.locator('[data-ramp-dispatch-windows="hour-ramp-25-to-50"]');
+          assert.match(await rampWindows.textContent(), /248 starts over 600 s \(full\); 117 starts over 235\.035 s \(partial, not scaled\)/);
+          assert.match(await rampWindows.textContent(), /More than 30 starts in any full minute: no.*More than 300 in any full ten minutes: no/);
+          assert.deepEqual(await rampWindows.locator("tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent))), [
+            ["600 s / full coverage", "268", "26.8", "[235.035, 835.035)", "99"],
+            ["60 s / full coverage", "30", "30", "[775.035, 835.035)", "337"]
+          ]);
           assert.equal(await page.locator('.ramp-latencies [data-series=p50]').count(), 2);
           assert.equal(await baseline.locator("h3").textContent(), "125-request baseline: 1 failed out of 125");
           assert.match(await baseline.textContent(), /124 successful greetings \/ 1 failed invocations \/ 0 pending/);

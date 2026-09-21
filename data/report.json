@@ -1164,6 +1164,19 @@
         "allOutcomes": { "sampleCount": 365, "minMs": 73.751600000076, "p50Ms": 7980.5468999999575, "p95Ms": 10587.910900000017, "maxMs": 32830.05099999998 },
         "successfulWithinArrivalWindow": 361,
         "successfulAfterArrivalWindow": 3,
+        "dispatchWindowEvidence": {
+          "reviewedOn": "2026-09-21",
+          "basis": "native_invocation_starts_including_failures",
+          "intervalConvention": "start_inclusive_end_exclusive",
+          "fullWindowsOnly": true,
+          "newNativeCalls": 0,
+          "identityControlReadsExcluded": 1,
+          "externalAndUnobservedServiceTraffic": "unknown",
+          "windows": [
+            { "windowSeconds": 600, "maximumStarts": 268, "representativeStartSeconds": 235.03497700000003, "representativeEndSeconds": 835.0349769999999, "candidateWindowsChecked": 99 },
+            { "windowSeconds": 60, "maximumStarts": 30, "representativeStartSeconds": 775.0349769999999, "representativeEndSeconds": 835.0349769999999, "candidateWindowsChecked": 337 }
+          ]
+        },
         "stopEvidence": {
           "triggeringAttempt": 365,
           "nativeDurationMs": 73.751600000076,

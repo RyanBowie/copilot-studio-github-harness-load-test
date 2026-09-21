@@ -325,6 +325,33 @@
         "allOutcomes": { "anyOf": [{ "$ref": "#/$defs/invocationSummary" }, { "type": "null" }] }
       }
     },
+    "rampDispatchWindows": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reviewedOn", "basis", "intervalConvention", "fullWindowsOnly", "newNativeCalls", "identityControlReadsExcluded", "externalAndUnobservedServiceTraffic", "windows"],
+      "properties": {
+        "reviewedOn": { "$ref": "#/$defs/date" },
+        "basis": { "const": "native_invocation_starts_including_failures" },
+        "intervalConvention": { "const": "start_inclusive_end_exclusive" },
+        "fullWindowsOnly": { "const": true },
+        "newNativeCalls": { "const": 0 },
+        "identityControlReadsExcluded": { "$ref": "#/$defs/count" },
+        "externalAndUnobservedServiceTraffic": { "const": "unknown" },
+        "windows": {
+          "type": "array", "minItems": 1, "maxItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["windowSeconds", "maximumStarts", "representativeStartSeconds", "representativeEndSeconds", "candidateWindowsChecked"],
+            "properties": {
+              "windowSeconds": { "enum": [60, 600] },
+              "maximumStarts": { "$ref": "#/$defs/positiveCount" },
+              "representativeStartSeconds": { "type": "number", "minimum": 0, "maximum": 3540 },
+              "representativeEndSeconds": { "$ref": "#/$defs/duration" },
+              "candidateWindowsChecked": { "$ref": "#/$defs/positiveCount" }
+            }
+          }
+        }
+      }
+    },
     "rampMeasurement": {
       "type": "object", "additionalProperties": false,
       "required": [
@@ -352,6 +379,7 @@
         "arrivalSeconds": { "type": "number", "minimum": 0.001, "maximum": 3600 },
         "arrivalEndObservedSeconds": { "$ref": "#/$defs/duration" },
         "arrivalLoopEndObservedSeconds": { "$ref": "#/$defs/duration" },
+        "dispatchWindowEvidence": { "$ref": "#/$defs/rampDispatchWindows" },
         "arrivalStatus": { "enum": ["full_window", "stopped", "partial"] },
         "stopReason": { "enum": [null, "explicit_throttle", "authentication", "account_guard", "client_pacing", "client_outstanding_bound", "safety", "request_budget", "manual_stop", "observation_cutoff"] },
         "drainSeconds": { "type": "number", "minimum": 0, "maximum": 86400 },

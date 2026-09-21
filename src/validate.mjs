@@ -131,6 +131,35 @@ function checkInvocationTimings(invocation, counts, windowSeconds, path, fail) {
   }
 }
 
+function checkRampDispatchWindows(run, path, fail, checkDate) {
+  const ramp = run.rampMeasurement, evidence = ramp.dispatchWindowEvidence;
+  checkDate(evidence.reviewedOn, `${path}.reviewedOn`);
+  if (evidence.reviewedOn < run.observedOn || ramp.clockStatus !== "verified_clean" || ramp.evidenceStatus !== "verified_complete") {
+    fail(path, "reviewed dispatch windows require clean complete clock/evidence and review no earlier than the observation.");
+  }
+  const durations = new Set();
+  for (const window of evidence.windows) {
+    if (durations.has(window.windowSeconds)) fail(path, "dispatch window durations must be unique.");
+    durations.add(window.windowSeconds);
+    if (window.windowSeconds > ramp.arrivalSeconds || window.representativeEndSeconds > ramp.arrivalSeconds
+      || Math.abs(window.representativeEndSeconds - window.representativeStartSeconds - window.windowSeconds) > 0.000001) {
+      fail(path, "representative rolling windows must have full observed arrival coverage and exact duration; partial windows cannot be normalized.");
+    }
+    const fixedBuckets = window.windowSeconds === 600
+      ? ramp.segments.map((segment) => ({ durationSeconds: segment.durationSeconds, attempted: segment.counts.attempted }))
+      : ramp.minutes ?? [];
+    if (window.maximumStarts > run.counts.attempted
+      || fixedBuckets.some((bucket) => bucket.durationSeconds === window.windowSeconds && bucket.attempted > window.maximumStarts)) {
+      fail(path, "rolling dispatch maximum must fit total starts and be at least each fully observed fixed-bucket count.");
+    }
+  }
+  const minute = evidence.windows.find((window) => window.windowSeconds === 60);
+  const tenMinutes = evidence.windows.find((window) => window.windowSeconds === 600);
+  if (minute && tenMinutes && (tenMinutes.maximumStarts < minute.maximumStarts || tenMinutes.maximumStarts > 10 * minute.maximumStarts)) {
+    fail(path, "nested full-window dispatch maxima must reconcile across 60 and 600 seconds.");
+  }
+}
+
 function checkRampMeasurement(run, path, fail, checkDate) {
   const ramp = run.rampMeasurement;
   const { attempted, completed, failed, pending } = run.counts;
@@ -267,6 +296,7 @@ function checkRampMeasurement(run, path, fail, checkDate) {
   }
   const lastOutstanding = ramp.segments.at(-1).outstandingAtEnd;
   if (lastOutstanding !== null && after !== null && after + pending > lastOutstanding) fail(path, "post-arrival successful returns and final pending must fit the last observed boundary.");
+  if (ramp.dispatchWindowEvidence) checkRampDispatchWindows(run, `${path}.dispatchWindowEvidence`, fail, checkDate);
   checkInvocationTimings(ramp, run.counts, run.windowSeconds, path, fail);
 }
 
