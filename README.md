@@ -475,7 +475,7 @@ npm run qa
 
 Without `QA_BROWSER_CHANNEL`, install a Playwright Chromium build once with `npx playwright install chromium`, then run `npm run qa`. Screenshots default to a unique OS temporary directory. QA creates and closes its own ephemeral loopback server and browser contexts; it blocks non-local browser requests, uses no saved profile, and never attaches to a debugging port or shared MCP browser.
 
-Checks cover light/dark at **320, 390 and 1440 px**, all ten report sections, chart/label overflow, sticky-navigation heading visibility, rolling-window coverage/cohort selectors, paired counts and exact offsets, callback/trigger evidence, four downloads, axe WCAG A/AA rules, keyboard skip/navigation behavior, query/hash preservation, system theme changes, invalid-data withholding, print, reduced-motion and forced-color support. Explicitly labelled synthetic states exercise populated rendering only on the ephemeral QA server; they never go into `dist`.
+Checks cover light/dark at **320, 390 and 1440 px**, all ten report sections, chart/label overflow, sticky-navigation heading visibility, rolling-window coverage/cohort selectors, paired counts and exact offsets, callback/trigger evidence, four downloads, axe WCAG A/AA rules, keyboard skip/navigation behavior, query/hash preservation, the dark default regardless of system theme, explicit light-mode choices, invalid-data withholding, print, reduced-motion and forced-color support. Explicitly labelled synthetic states exercise populated rendering only on the ephemeral QA server; they never go into `dist`.
 
 ## Design and interpretation decisions
 

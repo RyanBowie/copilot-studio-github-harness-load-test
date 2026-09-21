@@ -960,7 +960,6 @@ function renderCosts(report) {
   }
 }
 
-const themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
 const explicitTheme = () => {
   const value = new URLSearchParams(window.location.search).get("scoutTheme");
   return value === "light" || value === "dark" ? value : null;
@@ -971,7 +970,7 @@ function setTheme(theme) {
   byId("theme-toggle").textContent = `${next[0].toUpperCase()}${next.slice(1)} theme`;
   byId("theme-toggle").setAttribute("aria-label", `Switch to ${next} theme`);
 }
-setTheme(explicitTheme() ?? (themeQuery.matches ? "dark" : "light"));
+setTheme(explicitTheme() ?? "dark");
 byId("theme-toggle").hidden = false;
 byId("theme-toggle").addEventListener("click", () => {
   const theme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
@@ -980,10 +979,7 @@ byId("theme-toggle").addEventListener("click", () => {
   window.history.replaceState(null, "", url);
   setTheme(theme);
 });
-themeQuery.addEventListener("change", () => {
-  if (!explicitTheme()) setTheme(themeQuery.matches ? "dark" : "light");
-});
-window.addEventListener("popstate", () => setTheme(explicitTheme() ?? (themeQuery.matches ? "dark" : "light")));
+window.addEventListener("popstate", () => setTheme(explicitTheme() ?? "dark"));
 
 const sections = [...document.querySelectorAll("main > section")];
 function navigate() {

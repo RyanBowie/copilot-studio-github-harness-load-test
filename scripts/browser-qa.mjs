@@ -363,13 +363,12 @@ try {
   const page = await context.newPage();
   await page.goto(`${origin}/#response-time`);
   await page.locator("#theme-toggle").waitFor({ state: "visible" });
-  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark", "system theme applies without a query override");
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark", "dark is the default without a query override");
   await page.emulateMedia({ colorScheme: "light" });
-  await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
-  assert.equal(await page.locator("html").getAttribute("data-theme"), "light", "system changes propagate");
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark", "system changes do not override the dark default");
   await page.goto(`${origin}/?scoutTheme=invalid#costs`);
   await page.locator("#theme-toggle").waitFor({ state: "visible" });
-  assert.equal(await page.locator("html").getAttribute("data-theme"), "light", "invalid theme falls back to system");
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark", "invalid theme falls back to dark");
   await page.emulateMedia({ media: "print" });
   await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
   assert.equal(await page.locator("main > section:visible").count(), sectionIds.length, "print includes every section");
