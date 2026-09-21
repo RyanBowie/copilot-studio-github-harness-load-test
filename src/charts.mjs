@@ -15,6 +15,14 @@ function chartHtml(tag, text, className) {
   return element;
 }
 
+export function orderRunsByRate(runs) {
+  const paced = runs.filter((run) => run.pacedMeasurement).sort((a, b) =>
+    a.pacedMeasurement.targetRpm - b.pacedMeasurement.targetRpm
+    || a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)
+    || a.runKey.localeCompare(b.runKey));
+  return [...paced, ...runs.filter((run) => run.nativeInvocation), ...runs.filter((run) => !run.pacedMeasurement && !run.nativeInvocation)];
+}
+
 export function nativeChartRows(runs) {
   return runs.filter((run) => run.nativeInvocation || run.pacedMeasurement).map((run) => {
     const measurement = run.pacedMeasurement ?? run.nativeInvocation;

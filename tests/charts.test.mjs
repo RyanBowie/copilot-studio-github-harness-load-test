@@ -1,11 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { nativeChartRows } from "../src/charts.mjs";
+import { nativeChartRows, orderRunsByRate } from "../src/charts.mjs";
 import { renderHtml } from "../scripts/build.mjs";
 
 const report = JSON.parse(await readFile(new URL("../data/report.json", import.meta.url), "utf8"));
 const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
+
+test("paced comparisons increase by intended rate, keep chronological ties and leave burst outside the rate ordering", () => {
+  const before = structuredClone(report);
+  const expected = [
+    "paced-calibration-10", "paced-calibration-25", "paced-hour-25-stopped",
+    "paced-spread-25-completed", "paced-calibration-50", "paced-standalone-100-stopped", "m365-native-burst-100"
+  ];
+  for (const input of [report.runs, [...report.runs].reverse()]) {
+    const ordered = orderRunsByRate(input);
+    assert.deepEqual(ordered.filter((run) => run.pacedMeasurement || run.nativeInvocation).map((run) => run.runKey), expected);
+    assert.deepEqual(ordered.filter((run) => run.pacedMeasurement).map((run) => run.pacedMeasurement.targetRpm), [10, 25, 25, 25, 50, 100]);
+  }
+  assert.deepEqual(report, before);
+  assert.deepEqual(orderRunsByRate([]), []);
+});
 
 test("chart inputs retain every native cohort separately and exclude visible-channel timings", () => {
   const before = structuredClone(report);
