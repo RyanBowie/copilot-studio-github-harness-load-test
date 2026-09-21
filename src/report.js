@@ -35,7 +35,7 @@ const node = (tag, text, className) => {
 };
 const paragraph = (text, className) => node("p", text, className);
 const nativeMeasurement = (run) => run.pacedMeasurement ?? run.nativeInvocation;
-const nativeFirst = (runs) => [...runs.filter((run) => run.pacedMeasurement), ...runs.filter((run) => run.nativeInvocation), ...runs.filter((run) => !nativeMeasurement(run))];
+const nativeFirst = (runs) => orderRunsByRate(runs);
 const scopedContext = (report, run) => report.studyContext?.runKeys.includes(run.runKey) ? report.studyContext : null;
 const seconds = (milliseconds) => `${(milliseconds / 1000).toFixed(3)} s`;
 const pacedPhase = (measurement) => measurement.phase === "hour" ? "Hourly arrival cohort" : "Rate calibration cohort";
@@ -114,20 +114,48 @@ function renderCharts(runs) {
   if (!rows.length) {
     for (const id of ["overview-charts", "latency-charts", "concurrency-charts"]) empty(id, "No native load chart yet.", "No eligible native measurements; visible Teams turns are reported separately.");
   } else {
-    byId("overview-charts").replaceChildren(barChart({
-      title: "The whole native-load result in one chart",
-      description: "Share of attempted calls with eventual greetings, failures or pending outcomes at each cohort's final cutoff, including drain. Intended rates label separate trials, not a fitted capacity curve. The burst is not 100 RPM.",
+    const byKey = new Map(ordered.map((run) => [run.runKey, run]));
+    const outcomeChart = (selected, title, description) => barChart({
+      title, description,
       domain: 100, unit: "%", stacked: true, series: outcomeSeries,
-      rows: rows.map((row, index) => ({
+      rows: selected.map((row) => ({
         key: row.runKey, label: cohortName(row), values: row.percentages,
         summary: `${row.counts.completed} successful / ${row.counts.attempted} attempts; ${row.counts.failed} failed; ${row.counts.pending} pending`,
         summaryLines: [`${row.counts.completed} / ${row.counts.attempted} replies`, row.percentages[0] === null ? "No attempt ratio" : `${number(row.percentages[0])}% success`],
-        detail: `${row.counts.failed} failed; ${row.counts.pending} pending. ${ordered[index].pacedMeasurement ? `${number(ordered[index].pacedMeasurement.arrivalSeconds)} s arrivals + drain` : "Burst; not a paced minute"}.`
+        detail: `${row.counts.failed} failed; ${row.counts.pending} pending. ${byKey.get(row.runKey).pacedMeasurement ? `${number(byKey.get(row.runKey).pacedMeasurement.arrivalSeconds)} s arrivals + drain` : "Burst; not a paced minute"}.`
       }))
-    }));
+    });
+    const overview = byId("overview-charts");
+    overview.replaceChildren();
+    const paced = rows.filter((row) => row.targetRpm !== null);
+    const bursts = rows.filter((row) => row.targetRpm === null);
+    if (paced.length) {
+      const chart = outcomeChart(paced, "Paced load / success by intended sending rate",
+        "Rows increase from lower to higher requests/minute; equal-rate cohorts retain chronological order. Bar width is eventual successful replies divided by actual attempts, including drain, not the sending rate or a capacity guarantee. Different durations and campaigns remain separate.");
+      chart.dataset.loadShape = "paced";
+      overview.append(chart);
+    }
+    const slower = byKey.get("paced-spread-25-completed");
+    const faster = byKey.get("paced-standalone-100-stopped");
+    if (slower && faster) {
+      const explanation = node("article", undefined, "note block");
+      explanation.id = "rate-success-explanation";
+      explanation.append(node("h3", "Sending rate and success rate are different"),
+        paragraph(`${slower.pacedMeasurement.targetRpm}/min schedules a call about every ${number(60 / slower.pacedMeasurement.targetRpm)} seconds; ${faster.pacedMeasurement.targetRpm}/min schedules one every ${number(60 / faster.pacedMeasurement.targetRpm)} seconds. The slower follow-up returned ${slower.counts.completed}/${slower.counts.attempted} greetings. The faster trial stopped early after only ${faster.counts.attempted} dispatches, with ${faster.counts.completed} eventual greetings and ${faster.counts.failed} generic invocation errors after dispatched calls settled. It did not complete a full minute.`));
+      const hour = byKey.get("paced-hour-25-stopped");
+      if (hour) explanation.append(paragraph(`The longer ${hour.pacedMeasurement.targetRpm}/min attempt was not 100% successful: ${hour.counts.completed}/${hour.counts.attempted} eventual greetings, ending on WorkIQ transport HTTP 429. Passing a short lower-rate trial does not guarantee a higher-rate or longer trial will pass.`));
+      explanation.append(paragraph("These trials happened at different times with different observed client overlap. They do not isolate the cause of the generic errors or establish a GitHub Copilot Harness quota; cooldown and background conditions could also contribute.", "fine"));
+      overview.append(explanation);
+    }
+    if (bursts.length) {
+      const chart = outcomeChart(bursts, "Separate burst / not a requests-per-minute test",
+        "Requests were launched together, rather than paced across a minute. This burst is shown separately so 100 requests is not mistaken for 100/min. Its bar uses the same eventual-outcome percentage scale.");
+      chart.dataset.loadShape = "burst";
+      overview.append(chart);
+    }
     byId("latency-charts").replaceChildren(barChart({
       title: "Successful reply duration / median and tail",
-      description: "Native invocation completion, measured separately for successful replies in each cohort. No pooled percentiles, failure durations, backend TTFA or invented distribution.",
+      description: "Native invocation completion, measured separately for successful replies in each cohort. Paced rows increase by intended rate; the burst is last and is not an RPM trial. No pooled percentiles, failure durations, backend TTFA or invented distribution.",
       unit: " s", series: [
         { key: "p50", label: "p50 / median", className: "series-primary" },
         { key: "p95", label: "p95 / tail", className: "series-secondary" }
@@ -141,7 +169,7 @@ function renderCharts(runs) {
     }));
     byId("concurrency-charts").replaceChildren(barChart({
       title: "Observed peak outstanding client calls",
-      description: "Client calls whose measured lifetimes overlapped. This is not a worker setting, agent admission count or simultaneous backend/model execution. The 25/min follow-up still had a configured client cap of 100, not five.",
+      description: "Client calls whose measured lifetimes overlapped, ordered by intended paced rate with the burst last. This is not a worker setting, agent admission count or simultaneous backend/model execution. The 25/min follow-up still had a configured client cap of 100, not five.",
       series: [{ key: "peak", label: "Observed client peak", className: "series-primary" }],
       rows: rows.map((row) => ({
         key: row.runKey, label: cohortName(row), values: [row.peakOutstanding],
@@ -176,7 +204,7 @@ function labelledControl(labelText, id, options) {
 }
 
 function renderTimeline(runs) {
-  const paced = runs.filter((run) => run.pacedMeasurement);
+  const paced = nativeFirst(runs).filter((run) => run.pacedMeasurement);
   if (!paced.length) {
     empty("timeline-content", "No dispatch-minute series.", "A burst or individual visible turn is not a full offered-load minute.");
     return;
@@ -417,7 +445,7 @@ function renderReviewedWindows(report, evidence) {
   const basis = labelledControl("Window coverage", "window-coverage", [
     ["observed_through_drain", "Observed through drain"], ["observed_arrival_only", "Observed arrival interval only"]
   ]);
-  const cohort = labelledControl("Window cohort", "window-cohort", [["all", "All compatible native cohorts"], ...evidence.runs.map((run) => [run.runKey, cohortName(run)])]);
+  const cohort = labelledControl("Window cohort", "window-cohort", [["all", "All compatible native cohorts"], ...nativeFirst(report.runs).filter((run) => evidence.runs.some((item) => item.runKey === run.runKey)).map((run) => [run.runKey, cohortName(run)])]);
   controls.append(basis.field, cohort.field);
   const results = node("div", undefined, "reviewed-window-results");
   const status = paragraph(undefined, "fine");
@@ -460,11 +488,13 @@ function renderReviewedWindows(report, evidence) {
   draw();
 }
 
-function renderErrorTimeline(evidence) {
+function renderErrorTimeline(evidence, report) {
   const target = byId("error-timeline");
   target.replaceChildren();
   if (!evidence) return;
-  const errors = evidence.runs.filter((run) => run.firstError);
+  const byKey = new Map(evidence.runs.map((run) => [run.runKey, run]));
+  const ordered = nativeFirst(report.runs).filter((run) => byKey.has(run.runKey)).map((run) => byKey.get(run.runKey));
+  const errors = ordered.filter((run) => run.firstError);
   if (!errors.length) return;
   const first = node("div");
   table(first, "When the first error returned / client callback evidence",
@@ -474,7 +504,7 @@ function renderErrorTimeline(evidence) {
   const stops = node("div");
   table(stops, "Actual safety triggers and later admitted-call outcomes / not final failure thresholds",
     ["Cohort / trigger", "Trigger callback", "Dispatch-close bounds", "Client counts at trigger", "After trigger / no new dispatch"],
-    evidence.runs.filter((run) => run.safetyTrigger).map((run) => {
+    ordered.filter((run) => run.safetyTrigger).map((run) => {
       const stop = run.safetyTrigger;
       const arrival = run.bases.find((basis) => basis.basis === "observed_arrival_only").coverage;
       return [
@@ -941,7 +971,7 @@ try {
   renderResponses(report.runs);
   renderThroughput(report);
   renderFailureSummary(report.runs);
-  renderErrorTimeline(evidence);
+  renderErrorTimeline(evidence, report);
   renderObservations(report.runs);
   renderCosts(report);
   const reviewed = report.publication.status === "reviewed";
