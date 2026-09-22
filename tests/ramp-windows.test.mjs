@@ -17,6 +17,7 @@ const reject = (change, expected) => {
 test("separate ramp windows preserve all fifteen primary records and the seven-cohort scope", async () => {
   assert.deepEqual(validateReport(report, schema), []);
   const primary = structuredClone(report);
+  primary.runs = primary.runs.slice(0, 15);
   delete getRamp(primary).dispatchWindowEvidence;
   assert.equal(createHash("sha256").update(JSON.stringify(primary)).digest("hex"), "cf491ffde4b1542721b160584dba691594ce00afd16f34c18444b7fd6dcd975a");
   assert.deepEqual(validateReport(primary, schema), []);

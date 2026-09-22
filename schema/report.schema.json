@@ -460,6 +460,104 @@
         }
       }
     },
+    "quotaStudyMeasurement": {
+      "description": "Supported actual shape: one locally interrupted first load phase, no recovery calls or later phase. This is not quota qualification; additional observed phases require a reviewed contract extension.",
+      "type": "object", "additionalProperties": false,
+      "required": ["campaignKey", "protocol", "phase", "targetRpm", "plannedArrivalSeconds", "plannedLoadSlots", "unofferedLoadSlots", "studyRequestCeiling", "unusedStudyCeiling", "maximumStudySeconds", "minimumControlledQuietSeconds", "studyPlanCompleted", "identityReads", "recoveryCalls", "runnerRetries", "managedServiceRetries", "path", "endpoint", "requestKind", "startedAt", "arrivalEndedAt", "observedThroughAt", "studyFinishedAt", "studyFinishedOffsetMs", "arrivalSeconds", "drainSeconds", "clockStatus", "evidenceStatus", "phaseClock", "pairedClockEvidence", "initialQuietEvidence", "localObserverIncident", "peakOutstanding", "conversationEvidence", "failedConversations", "firstFailedAttempt", "percentileMethod", "success", "failure", "allOutcomes", "rollingDispatchWindows"],
+      "properties": {
+        "campaignKey": { "$ref": "#/$defs/key" },
+        "protocol": { "const": "quota_recovery_v1" },
+        "phase": { "const": 1 }, "targetRpm": { "const": 35 },
+        "plannedArrivalSeconds": { "const": 1800 }, "plannedLoadSlots": { "const": 1050 },
+        "unofferedLoadSlots": { "$ref": "#/$defs/count" },
+        "studyRequestCeiling": { "const": 2560 }, "unusedStudyCeiling": { "$ref": "#/$defs/count" },
+        "maximumStudySeconds": { "const": 14400 }, "minimumControlledQuietSeconds": { "const": 3600 },
+        "studyPlanCompleted": { "const": false }, "identityReads": { "const": 1 },
+        "recoveryCalls": { "const": 0 }, "runnerRetries": { "const": 0 }, "managedServiceRetries": { "const": "unknown" },
+        "path": { "const": "workiq_ask_via_native_tool_rpc" },
+        "endpoint": { "const": "invocation_completion" }, "requestKind": { "const": "greeting_only" },
+        "startedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "arrivalEndedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "observedThroughAt": { "$ref": "#/$defs/millisecondInstant" },
+        "studyFinishedAt": { "$ref": "#/$defs/millisecondInstant" },
+        "studyFinishedOffsetMs": { "$ref": "#/$defs/duration" },
+        "arrivalSeconds": { "type": "number", "minimum": 0.001, "maximum": 1800 },
+        "drainSeconds": { "$ref": "#/$defs/duration" },
+        "clockStatus": { "const": "verified_clean" }, "evidenceStatus": { "const": "verified_complete" },
+        "phaseClock": {
+          "type": "object", "additionalProperties": false,
+          "required": ["startOffsetMs", "arrivalEndOffsetMs", "drainEndOffsetMs", "arrivalObservationLoopEndOffsetMs"],
+          "properties": {
+            "startOffsetMs": { "$ref": "#/$defs/duration" },
+            "arrivalEndOffsetMs": { "$ref": "#/$defs/duration" },
+            "drainEndOffsetMs": { "$ref": "#/$defs/duration" },
+            "arrivalObservationLoopEndOffsetMs": { "$ref": "#/$defs/duration" }
+          }
+        },
+        "pairedClockEvidence": {
+          "type": "object", "additionalProperties": false,
+          "required": ["dispatchBasis", "completionBasis", "maximumStartReadDeltaMs", "maximumCompletionReadDeltaMs", "allowedReadDeltaLessThanMs"],
+          "properties": {
+            "dispatchBasis": { "const": "request_start_monotonic_timestamp_retained_in_native_completion" },
+            "completionBasis": { "const": "request_start_plus_native_duration_from_matching_monotonic_reads" },
+            "maximumStartReadDeltaMs": { "$ref": "#/$defs/duration" },
+            "maximumCompletionReadDeltaMs": { "$ref": "#/$defs/duration" },
+            "allowedReadDeltaLessThanMs": { "const": 1 }
+          }
+        },
+        "initialQuietEvidence": {
+          "type": "object", "additionalProperties": false,
+          "required": ["previousControlledRunFinishedAt", "earliestPermittedIdentityAt", "initialIdentityCompletedAt", "externallyGeneratedTrafficUnknown"],
+          "properties": {
+            "previousControlledRunFinishedAt": { "$ref": "#/$defs/millisecondInstant" },
+            "earliestPermittedIdentityAt": { "$ref": "#/$defs/millisecondInstant" },
+            "initialIdentityCompletedAt": { "$ref": "#/$defs/millisecondInstant" },
+            "externallyGeneratedTrafficUnknown": { "const": true }
+          }
+        },
+        "localObserverIncident": {
+          "type": "object", "additionalProperties": false,
+          "required": ["operation", "exception", "errno", "storedControllerReason", "action", "exactCause", "atomicReplacementContention", "notUserCancellation", "notProviderThrottle", "newTrafficAfterStop", "restartAttempted"],
+          "properties": {
+            "operation": { "const": "read_local_summary_json" },
+            "exception": { "const": "PermissionError" }, "errno": { "const": 13 },
+            "storedControllerReason": { "const": "manual_stop" },
+            "action": { "const": "parent_requested_stop_new_dispatch_and_drain" },
+            "exactCause": { "const": "not_established" },
+            "atomicReplacementContention": { "const": "hypothesis_not_proven" },
+            "notUserCancellation": { "const": true }, "notProviderThrottle": { "const": true },
+            "newTrafficAfterStop": { "const": false }, "restartAttempted": { "const": false }
+          }
+        },
+        "peakOutstanding": { "$ref": "#/$defs/positiveCount" },
+        "conversationEvidence": { "const": "returned_ids_checked_unique" },
+        "failedConversations": { "const": 0 }, "firstFailedAttempt": { "const": 1 },
+        "percentileMethod": { "const": "nearest_rank" },
+        "success": { "$ref": "#/$defs/invocationSummary" },
+        "failure": { "$ref": "#/$defs/invocationSummary" },
+        "allOutcomes": { "$ref": "#/$defs/invocationSummary" },
+        "rollingDispatchWindows": {
+          "type": "array", "minItems": 1, "maxItems": 3,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["windowSeconds", "fullCoverageRequired", "intervalConvention", "maximumStarts", "startsRepresentativeSeconds", "startsWindowCounts", "maximumEventualGreetings", "greetingsRepresentativeSeconds", "greetingsWindowCounts", "successfulCallbacksInsideWindowNotInferred", "candidateWindowsChecked"],
+            "properties": {
+              "windowSeconds": { "enum": [60, 300, 600] },
+              "fullCoverageRequired": { "const": true },
+              "intervalConvention": { "const": "start_inclusive_end_exclusive" },
+              "maximumStarts": { "$ref": "#/$defs/positiveCount" },
+              "startsRepresentativeSeconds": { "type": "number", "minimum": 0 },
+              "startsWindowCounts": { "$ref": "#/$defs/rampCounts" },
+              "maximumEventualGreetings": { "$ref": "#/$defs/positiveCount" },
+              "greetingsRepresentativeSeconds": { "type": "number", "minimum": 0 },
+              "greetingsWindowCounts": { "$ref": "#/$defs/rampCounts" },
+              "successfulCallbacksInsideWindowNotInferred": { "const": true },
+              "candidateWindowsChecked": { "$ref": "#/$defs/positiveCount" }
+            }
+          }
+        }
+      }
+    },
     "run": {
       "type": "object",
       "additionalProperties": false,
@@ -505,6 +603,7 @@
         "nativeInvocation": { "anyOf": [{ "$ref": "#/$defs/nativeInvocation" }, { "type": "null" }] },
         "pacedMeasurement": { "$ref": "#/$defs/pacedMeasurement" },
         "rampMeasurement": { "$ref": "#/$defs/rampMeasurement" },
+        "quotaStudyMeasurement": { "$ref": "#/$defs/quotaStudyMeasurement" },
         "firstVisibleActivity": {
           "anyOf": [
             { "type": "null" },
