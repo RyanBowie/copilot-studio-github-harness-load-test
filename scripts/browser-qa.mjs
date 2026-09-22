@@ -23,6 +23,7 @@ const orderedNativeKeys = [
   "paced-spread-25-completed", "capacity-25-transport-stop", "paced-125-25-baseline", "quota-recovery-35-local-stop", "paced-calibration-50", "paced-standalone-100-stopped", "paced-minute-100-local-stop", "paced-elastic-100-completed", "hour-ramp-25-to-50", "m365-native-burst-100"
 ];
 const axePath = require.resolve("axe-core/axe.min.js");
+const workIqTerms = "https://learn.microsoft.com/en-us/legal/work-iq-apis/terms-of-use#3-work-iq-api-license-and-guidelines";
 const { html, report, evidence, evidenceSchema } = await build();
 const schema = JSON.parse(await readFile(new URL("../schema/report.schema.json", import.meta.url), "utf8"));
 const emptyHtml = await renderHtml({
@@ -126,6 +127,53 @@ try {
         const expectedStatus = view === "empty" ? "NOT MEASURED" : "REVIEWED AGGREGATES";
         await page.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
         assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
+        const permission = page.locator("#permission-warning");
+        assert.equal(await permission.isVisible(), true);
+        assert.equal(await permission.getAttribute("aria-labelledby"), "permission-heading");
+        assert.equal(await permission.locator("a").getAttribute("href"), workIqTerms);
+        assert.match(await permission.textContent(), /Do not replicate these performance tests unless Microsoft has expressly permitted them under a duly executed written agreement, or an applicable superseding agreement expressly authorizes the testing/);
+        assert.match(await permission.textContent(), /section 3\(b\)\(7\).*April 2026/);
+        assert.match(await permission.textContent(), /corporate account, valid license, tenant ownership, user consent.*not evidence of Microsoft permission/);
+        assert.match(await permission.textContent(), /has not verified applicable written-agreement coverage.*does not assert that Microsoft permission was obtained.*does not certify legal compliance/);
+        assert.equal(await permission.locator("button").count(), 0, "warning is not dismissible");
+        assert.equal(await permission.evaluate((element) => Boolean(element.compareDocumentPosition(document.querySelector("#overview")) & Node.DOCUMENT_POSITION_FOLLOWING)), true);
+        assert.equal(await permission.locator("p").evaluateAll((items) => items.every((item) => {
+          const style = getComputedStyle(item);
+          return Number.parseFloat(style.fontSize) >= 16 && Number.parseFloat(style.lineHeight) >= 24;
+        })), true, "permission paragraphs stay readable on mobile");
+        const horizons = await page.locator("#evidence-sufficiency-content tbody tr").evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
+        assert.deepEqual(horizons.map((row) => row.slice(0, 2)), [
+          ["60 seconds", "NOT ESTABLISHED"], ["60 minutes", "NOT ESTABLISHED"], ["24 hours", "NOT ESTABLISHED"]
+        ]);
+        assert.deepEqual(await page.locator("#capacity-units dt").allTextContents(), [
+          "Simultaneous client outstanding requests", "Distinct conversations", "Unique users active over a period", "Sustainable users with an SLO"
+        ]);
+        assert.match(await page.locator("#evidence-sufficiency").textContent(), /Missing dimensions.*think time, roles, tenant\/quota isolation.*no defensible percentage.*Configured quota, counting window and reset remain unknown/);
+        if (view === "report") {
+          assert.match(horizons[0][2], /35\/35 eventual greetings.*NOT callbacks necessarily completed inside 60 seconds/);
+          assert.match(horizons[0][2], /35 starts \/ 34 eventual greetings \/ 1 failure \/ 0 pending.*Do not conflate/);
+          assert.match(horizons[0][2], /81 attempts \/ 80 eventual greetings \/ 1 failure \/ 0 pending over 140\.1724152 seconds.*peak 8 outstanding client calls only/);
+          assert.match(horizons[0][2], /peak 100 outstanding client calls produced 33\/100.*not 100 users/);
+          assert.match(horizons[1][2], /No completed 60-minute continuous run.*365 attempts \/ 364 eventual greetings \/ 1 failure \/ 0 pending.*835\.034977 seconds.*214 attempts \/ 213 eventual greetings \/ 1 failure \/ 0 pending.*512\.2330114 seconds/);
+        } else {
+          assert.match(horizons[0][2], /No reviewed full 60-second quota-study dispatch cohort/);
+          assert.doesNotMatch(horizons.map((row) => row[2]).join(" "), /35\/35|81 attempts|365 attempts|214 attempts|peak 100/);
+        }
+        assert.match(horizons[2][2], /No 24-hour endurance cohort or multi-user coverage.*sporadic runs is NOT continuous 24-hour coverage.*illustrative arithmetic.*not a prediction/);
+        const scenarioRows = (id) => page.locator(`#${id} tbody tr`).evaluateAll((rows) => rows.map((row) => [...row.cells].map((cell) => cell.textContent)));
+        assert.deepEqual(await scenarioRows("illustrative-volumes"), [
+          ["25 requests/minute", "25", "1,500", "36,000"], ["30 requests/minute", "30", "1,800", "43,200"], ["35 requests/minute", "35", "2,100", "50,400"]
+        ]);
+        assert.deepEqual(await scenarioRows("illustrative-populations"), [
+          ["35", "1 request per minute", "35 requests/minute"], ["175", "1 request per 5 minutes", "35 requests/minute"], ["350", "1 request per 10 minutes", "35 requests/minute"]
+        ]);
+        assert.match(await page.locator("#illustrative-scenarios").textContent(), /not forecasts, successful completions, quota, measured throughput or validated sustainable capacity/);
+        assert.match(await page.locator("#scenario-assumptions").textContent(), /constant offered rate continuously maintained.*no quota\/backoff or admission loss.*NOT established/);
+        assert.match(await page.locator("#population-assumptions").textContent(), /not numbers of tested, supported or concurrently executing users, or unique users observed/);
+        assert.match(await page.locator("#population-caveat").textContent(), /same people can repeat.*No inference applies Little's Law to p50\/p95 latency or client peaks/);
+        assert.equal(await page.locator("#illustrative-scenarios .benchmark-chart, #illustrative-scenarios input").count(), 0);
+        assert.equal(await page.locator("#illustrative-scenarios").evaluate((element) => Boolean(element.compareDocumentPosition(document.querySelector("#benchmark-kpis")) & Node.DOCUMENT_POSITION_FOLLOWING)), true);
+        assert.equal(await page.locator(".sufficiency-table[role=region], #evidence-sufficiency-content [role=region]").evaluateAll((items) => items.length === 3 && items.every((item) => item.tabIndex === 0 && getComputedStyle(item).overflowX === "auto")), true);
         const metrics = await page.locator("#overview-summary .metric-value").allTextContents();
         assert.deepEqual(metrics, view === "empty" ? Array(4).fill("NOT MEASURED") : ["20", "20", "0", "0", "50", "50", "0", "0", "100", "98", "2", "0", "214", "213", "1", "0", "21", "12", "9", "0", "50", "50", "0", "0", "41", "26", "15", "0", "100", "60", "40", "0", "1", "0", "1", "0", "125", "124", "1", "0", "365", "364", "1", "0", "81", "80", "1", "0", "100", "33", "67", "0", "3", "2", "1", "0"]);
         const background = await page.locator("body").evaluate((element) => getComputedStyle(element).backgroundColor);
@@ -134,6 +182,7 @@ try {
           await page.locator(`.section-nav a[href="#${id}"]`).click();
           await page.locator(`#${id}`).waitFor({ state: "visible" });
           assert.equal(await page.locator("main > section:visible").count(), 1);
+          assert.equal(await permission.isVisible(), true, "permission warning is independent of active tab");
           assert.equal(await page.locator(`.section-nav a[href="#${id}"]`).getAttribute("aria-current"), "page");
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${view}/${width}/${theme}/${id}: no page overflow`);
           assert.equal(await page.locator(`#${id}`).evaluate((section) => section.querySelector("h2").getBoundingClientRect().top >= document.querySelector(".section-nav").getBoundingClientRect().bottom), true, "sticky navigation must not cover the destination heading");
@@ -498,6 +547,12 @@ try {
         await page.locator('.section-nav a[href="#overview"]').click();
         await page.screenshot({ path: resolve(artifacts, `${view}-overview-${width}-${theme}.png`), fullPage: true });
         snapshots++;
+        if (view === "report") {
+          for (const id of ["permission-warning", "evidence-sufficiency", "illustrative-scenarios"]) {
+            await page.locator(`#${id}`).screenshot({ path: resolve(artifacts, `${id}-${width}-${theme}.png`) });
+            snapshots++;
+          }
+        }
         await page.locator('.section-nav a[href="#costs"]').click();
         await page.screenshot({ path: resolve(artifacts, `${view}-costs-${width}-${theme}.png`), fullPage: true });
         snapshots++;
@@ -526,10 +581,14 @@ try {
   await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
   assert.equal(await page.locator("main > section:visible").count(), sectionIds.length, "print includes every section");
   assert.equal(await page.locator("details:not([open])").count(), 0, "print expands detailed evidence");
+  assert.equal(await page.locator("#permission-warning").isVisible(), true, "print retains permission warning");
+  assert.equal(await page.locator("#illustrative-scenarios").isVisible(), true, "print retains assumptions beside scenarios");
+  assert.equal(await page.locator("#evidence-sufficiency-content tbody tr").count(), 3);
   await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
   assert.equal(await page.locator("details[open]").count(), 0, "after print restores collapsed state");
   await page.emulateMedia({ media: "screen", forcedColors: "active", reducedMotion: "reduce" });
   assert.equal(await page.locator(".hero-gradient").evaluate((element) => getComputedStyle(element).backgroundImage), "none");
+  assert.equal(await page.locator("#permission-warning").evaluate((element) => getComputedStyle(element).borderInlineStartStyle), "solid");
   await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
   await page.goto(origin);
   await page.keyboard.press("Tab");
@@ -541,6 +600,8 @@ try {
   await page.keyboard.press("Tab");
   assert.equal(await page.locator(":focus").getAttribute("id"), "theme-toggle");
   assert.equal(await page.locator(":focus").evaluate((element) => getComputedStyle(element).outlineWidth), "3px");
+  await page.keyboard.press("Tab");
+  assert.equal(await page.locator(":focus").getAttribute("href"), workIqTerms, "permission reference is keyboard reachable before report tabs");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
@@ -817,7 +878,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, ten sections, eleven published charts, sixteen actual records with prior fifteen preserved, interrupted study81/80/1/0, distinct35-start/35-eventual-greeting windows, local observer stop not cancellation/throttle, unknown quota/reset, historical and synthetic regressions, four downloads, axe, keyboard, print, forced colors/reduced motion, dark default/explicit theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, persistent permission warning and official link, three unknown user-capacity horizons, exact illustrative arithmetic/population examples with caveats, ten sections, eleven published charts, sixteen unchanged actual records, historical and synthetic regressions, four downloads, axe, keyboard, print, forced colors/reduced motion, dark default/explicit theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));
