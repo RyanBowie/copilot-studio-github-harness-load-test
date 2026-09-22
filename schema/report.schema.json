@@ -32,8 +32,8 @@
             "executionPattern": { "enum": ["sequential", "not_established"] },
             "volumeRamp": { "enum": ["not_performed", "performed", "not_established"] },
             "configurationChanges": { "enum": ["none_by_tester", "changed_by_tester", "not_established"] },
-            "prePilotMonitor": { "enum": ["no_sessions_or_credits_recorded", "not_checked", "not_established"] },
-            "postPilotMonitor": { "enum": ["no_sessions_or_credits_recorded", "not_checked", "not_established"] },
+            "prePilotMonitor": { "enum": ["no_sessions_recorded", "not_checked", "not_established"] },
+            "postPilotMonitor": { "enum": ["no_sessions_recorded", "not_checked", "not_established"] },
             "harnessVerification": { "enum": ["github_copilot_and_published_badges", "not_established"] }
           }
         }
@@ -56,12 +56,11 @@
           "notAttemptedCalibrationRpm": { "type": "array", "uniqueItems": true, "items": { "enum": [10, 25, 50, 100, 150] } },
           "postCampaignMonitor": {
             "type": "object", "additionalProperties": false,
-            "required": ["checkedAt", "updatedMinutesAgo", "sessions", "credits", "relevance"],
+            "required": ["checkedAt", "updatedMinutesAgo", "sessions", "relevance"],
             "properties": {
               "checkedAt": { "$ref": "#/$defs/instant" },
               "updatedMinutesAgo": { "$ref": "#/$defs/positiveCount" },
               "sessions": { "$ref": "#/$defs/count" },
-              "credits": { "const": "not_recorded" },
               "relevance": { "const": "stale_precampaign_analytics" }
             }
           }
@@ -162,13 +161,12 @@
         "postRunMonitor": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["checkedAt", "updatedMinutesAgo", "sessions", "messages", "credits", "relevance"],
+          "required": ["checkedAt", "updatedMinutesAgo", "sessions", "messages", "relevance"],
           "properties": {
             "checkedAt": { "$ref": "#/$defs/instant" },
             "updatedMinutesAgo": { "$ref": "#/$defs/positiveCount" },
             "sessions": { "$ref": "#/$defs/count" },
             "messages": { "$ref": "#/$defs/count" },
-            "credits": { "const": "not_recorded" },
             "relevance": { "const": "stale_preburst_analytics" }
           }
         }
@@ -565,7 +563,7 @@
         "runKey", "observedOn", "surface", "agentVersion", "environmentType", "model",
         "authenticatedAccounts", "memory", "workload", "workflow", "connectors", "counts",
         "units", "windowSeconds", "firstVisibleActivity", "firstVisibleLatency", "latency", "concurrency", "arrival", "errors", "clientIssues",
-        "workflowState", "followUp", "nativeInvocation", "observations", "cost"
+        "workflowState", "followUp", "nativeInvocation", "observations"
       ],
       "properties": {
         "runKey": { "$ref": "#/$defs/key" },
@@ -798,19 +796,6 @@
               "requested_answer_format_and_public_citation_observed", "sharepoint_search_and_snippets_observed",
               "unsent_draft_recovered_once_without_auto_retry"
             ]
-          }
-        },
-        "cost": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["status", "currency", "amount", "source", "scope", "recordedOn"],
-          "properties": {
-            "status": { "enum": ["pending", "settled", "unknown"] },
-            "currency": { "enum": [null, "USD", "GBP", "EUR", "CAD", "AUD", "JPY"] },
-            "amount": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1000000000 }, { "type": "null" }] },
-            "source": { "enum": [null, "billing_export", "invoice", "usage_meter"] },
-            "scope": { "enum": [null, "this_run", "shared_window"] },
-            "recordedOn": { "anyOf": [{ "$ref": "#/$defs/date" }, { "type": "null" }] }
           }
         }
       }

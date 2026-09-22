@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { loadPublicReport, renderHtml } from "../scripts/build.mjs";
+import { restoreHistoricalMetadata } from "./helpers/historical-metadata.mjs";
 
 const loaded = await loadPublicReport();
 const html = await renderHtml(loaded.report, loaded.schema, loaded.evidence);
@@ -82,15 +83,16 @@ test("hypothetical active-population examples generate the same average load wit
   assert.match(scenarios, /Mean request latency, user cadence, workload mix, multi-user behavior, quota scope and success\/latency SLOs are not established/);
 });
 
-test("guidance-only edition preserves all sixteen records and all four previous data downloads", () => {
+test("load-only edition preserves sixteen records via the prior fingerprint and both window downloads exactly", () => {
   assert.equal(loaded.report.runs.length, 16);
   const previousHashes = {
     report: "f2751421e297d3628f46d2fbc01bd166358f813a9a5bf8928dab8f0e3ba82283",
-    schema: "bbc76f1bf8eb277d61a6c36dc20def144173d6f9ae23a1897f9fb5a8a0654075",
+    schema: "d279f6af92efa346852045976dfe25a812889cd80626822739e65040ed225d47",
     evidence: "21a8fc3b99dbc7a7325f7fde4cab6c1beb5387029f21f50ccee878b5a59b2d33",
     evidenceSchema: "55a9a6dea7457b5273f25e4bfc4952865193f213c030d09493c63a8176710adc"
   };
   for (const [key, hash] of Object.entries(previousHashes)) {
-    assert.equal(createHash("sha256").update(`${JSON.stringify(loaded[key], null, 2)}\n`).digest("hex"), hash, key);
+    const value = key === "report" ? restoreHistoricalMetadata(loaded.report) : loaded[key];
+    assert.equal(createHash("sha256").update(`${JSON.stringify(value, null, 2)}\n`).digest("hex"), hash, key);
   }
 });

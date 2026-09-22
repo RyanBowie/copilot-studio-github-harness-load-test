@@ -25,8 +25,7 @@ test("reviewed minute retest has 41 actual attempts, not 100 or 59 additional fa
   assert.equal(paced.qualification, "not_evaluated");
   assert.equal(paced.runnerRetries, 0);
   assert.deepEqual(run.errors, [{ category: "unknown", count: 15, evidence: "unclassified_invocation_failure" }]);
-  assert.equal(run.cost.status, "pending");
-  assert.equal(run.cost.amount, null);
+  assert.equal(Object.hasOwn(run, "cost"), false);
   assert.deepEqual(run.units, { conversations: 41, sessions: null });
   assert.equal(paced.failedConversations, 15);
   assert.equal(paced.peakOutstanding, 17);

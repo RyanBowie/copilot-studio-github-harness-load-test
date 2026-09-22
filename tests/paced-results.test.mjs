@@ -32,8 +32,7 @@ test("the original four-cohort 384-request campaign stays separate from other re
     assert.equal(run.memory, "off");
     assert.equal(run.agentVersion, null);
     for (const key of ["nativeInvocation", "firstVisibleActivity", "firstVisibleLatency", "latency", "arrival", "concurrency"]) assert.equal(run[key], null);
-    assert.equal(run.cost.status, "pending");
-    assert.equal(run.cost.amount, null);
+    assert.equal(Object.hasOwn(run, "cost"), false);
   }
 });
 
@@ -84,7 +83,7 @@ test("native latency retains success/failure/all populations, including the fast
   assert.equal(cohorts[3].pacedMeasurement.allOutcomes.p50Ms, 7849.779300000053);
 });
 
-test("campaign counts and stale Monitor do not infer a missing conversation or settled cost", () => {
+test("campaign counts and stale Monitor do not infer a missing conversation", () => {
   const campaign = report.pacedCampaigns[0];
   assert.equal(campaign.distinctReturnedConversations, 383);
   assert.deepEqual(cohorts.map((run) => run.units.conversations), [20, 50, 100, 213]);
@@ -95,7 +94,7 @@ test("campaign counts and stale Monitor do not infer a missing conversation or s
   assert.equal(campaign.endedAt, "2026-09-20T19:33:36.725Z");
   assert.deepEqual(campaign.postCampaignMonitor, {
     checkedAt: "2026-09-20T19:34:29Z", updatedMinutesAgo: 120, sessions: 36,
-    credits: "not_recorded", relevance: "stale_precampaign_analytics"
+    relevance: "stale_precampaign_analytics"
   });
   reject((campaign) => { campaign.distinctReturnedConversations = 384; }, /distinct conversations/);
   reject((campaign) => { campaign.clientPeakOutstanding = 100; }, /cohort peaks/);

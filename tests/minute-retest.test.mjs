@@ -1,4 +1,5 @@
 import test from "node:test";
+import { restoreHistoricalMetadata } from "./helpers/historical-metadata.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -20,7 +21,7 @@ test("the original ten public records and three campaign contexts remain unchang
     runs: report.runs.slice(0, 10), pacedCampaigns: report.pacedCampaigns.slice(0, 3),
     documentedLimits: report.documentedLimits, studyContext: report.studyContext
   };
-  assert.equal(createHash("sha256").update(JSON.stringify(history)).digest("hex"), "101ea0c18291eca5f4ef04960198f8948419030f6cd97350723d16b1f8217dc3");
+  assert.equal(createHash("sha256").update(JSON.stringify(restoreHistoricalMetadata(history))).digest("hex"), "101ea0c18291eca5f4ef04960198f8948419030f6cd97350723d16b1f8217dc3");
 });
 
 test("synthetic one-minute retest counts every ordinary failure without claiming calibration qualification", async () => {

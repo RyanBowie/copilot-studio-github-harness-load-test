@@ -76,7 +76,7 @@ test("self-contained report embeds charts and Standard-format aggregate sections
   assert.doesNotMatch(html, /<!-- CHARTS_JS -->|export function barChart|<canvas/);
   const navigation = html.match(/<nav class="section-nav"[\s\S]*?<\/nav>/)[0];
   assert.deepEqual([...navigation.matchAll(/href="#([^"]+)"/g)].map((match) => match[1]), [
-    "overview", "concurrency", "response-time", "throughput", "observations", "answers", "failures", "conversations", "methodology", "costs"
+    "overview", "concurrency", "response-time", "throughput", "observations", "answers", "failures", "conversations", "methodology"
   ]);
   assert.match(html, /identifiers, transcripts, internal citations and screenshots are deliberately not published/);
   const embedded = JSON.parse(html.match(/<script type="application\/json" id="report-data">([\s\S]*?)<\/script>/)[1]);

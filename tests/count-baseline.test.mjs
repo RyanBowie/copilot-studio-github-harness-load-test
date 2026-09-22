@@ -1,4 +1,5 @@
 import test from "node:test";
+import { restoreHistoricalMetadata } from "./helpers/historical-metadata.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -20,7 +21,7 @@ test("baseline preparation preserves all thirteen historical records and their c
     runs: report.runs.slice(0, 13), pacedCampaigns: report.pacedCampaigns.slice(0, 3),
     documentedLimits: report.documentedLimits, studyContext: report.studyContext
   };
-  assert.equal(createHash("sha256").update(JSON.stringify(history)).digest("hex"), "f02b7070374a99cb9315f00e8af04a93eb27a65a7d81f6a8b20a3379089474fb");
+  assert.equal(createHash("sha256").update(JSON.stringify(restoreHistoricalMetadata(history))).digest("hex"), "f02b7070374a99cb9315f00e8af04a93eb27a65a7d81f6a8b20a3379089474fb");
 });
 
 test("125-count baseline counts ordinary outcomes and extensions without qualifying for hours", () => {

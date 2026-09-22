@@ -119,14 +119,14 @@ test("measured five-call peak and fifty returned conversations remain client-onl
   reject((_, campaign) => { campaign.clientPeakOutstanding = 100; }, /cohort peaks/);
 });
 
-test("completed cohort retains pending cost and its own stale Monitor with closed privacy fields", () => {
+test("completed cohort retains its own stale Monitor with closed privacy fields", () => {
   assert.deepEqual(campaign.postCampaignMonitor, {
     checkedAt: "2026-09-20T21:23:22Z", updatedMinutesAgo: 60, sessions: 417,
-    credits: "not_recorded", relevance: "stale_precampaign_analytics"
+    relevance: "stale_precampaign_analytics"
   });
   assert.deepEqual(report.pacedCampaigns.slice(0, 2).map((item) => item.postCampaignMonitor.checkedAt), ["2026-09-20T19:34:29Z", "2026-09-20T20:48:13Z"]);
-  assert.ok(report.runs.every((run) => run.cost.status === "pending" && run.cost.amount === null));
-  reject((run) => { run.cost.amount = 0; }, /unknown costs as zero/);
+  assert.ok(report.runs.every((run) => !Object.hasOwn(run, "cost")));
+  reject((run) => { run.cost = { amount: 0 }; }, /unknown field/);
   reject((_, campaign) => { campaign.postCampaignMonitor.updatedMinutesAgo = 1; }, /stale campaign Monitor/);
   reject((run) => { run.pacedMeasurement.conversationIds = ["private"]; });
   reject((run) => { run.rawResponses = []; });

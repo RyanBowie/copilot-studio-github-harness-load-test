@@ -27,8 +27,7 @@ test("actual ramp retains 365/364/1/0 and unknown-layer HTTP429 without inventin
   assert.equal(ramp.stopReason, "explicit_throttle");
   assert.equal(ramp.drainStatus, "complete");
   assert.equal(ramp.runnerRetries, 0);
-  assert.equal(run.cost.status, "pending");
-  assert.equal(run.cost.amount, null);
+  assert.equal(Object.hasOwn(run, "cost"), false);
   assert.deepEqual(summarizeCapacity([run]), []);
   assert.deepEqual(summarizeCapacityStudies([run]), []);
 });

@@ -12,7 +12,6 @@ export function syntheticPacedReport(scenario = "full") {
     windowSeconds: 121, firstVisibleActivity: null, firstVisibleLatency: null, latency: null,
     concurrency: null, arrival: null, errors: [], clientIssues: [], workflowState: null, followUp: null,
     nativeInvocation: null, observations: [],
-    cost: { status: "pending", currency: null, amount: null, source: null, scope: null, recordedOn: null },
     pacedMeasurement: {
       campaignKey: "offline-paced-campaign", phase: "calibration",
       path: "workiq_ask_via_native_tool_rpc", endpoint: "invocation_completion", requestKind: "greeting_only",

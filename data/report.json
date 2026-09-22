@@ -12,8 +12,8 @@
     "executionPattern": "sequential",
     "volumeRamp": "not_performed",
     "configurationChanges": "none_by_tester",
-    "prePilotMonitor": "no_sessions_or_credits_recorded",
-    "postPilotMonitor": "no_sessions_or_credits_recorded",
+    "prePilotMonitor": "no_sessions_recorded",
+    "postPilotMonitor": "no_sessions_recorded",
     "harnessVerification": "github_copilot_and_published_badges"
   },
   "runs": [
@@ -74,8 +74,7 @@
         "standalone_teams_send_tool_missing",
         "public_knowledge_all_websites_enabled",
         "unsent_draft_recovered_once_without_auto_retry"
-      ],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      ]
     },
     {
       "runKey": "public-knowledge-pilot",
@@ -135,8 +134,7 @@
         "public_knowledge_all_websites_enabled",
         "built_in_web_search_observed",
         "requested_answer_format_and_public_citation_observed"
-      ],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      ]
     },
     {
       "runKey": "compliance-review-pilot",
@@ -199,8 +197,7 @@
         "public_knowledge_all_websites_enabled",
         "sharepoint_search_and_snippets_observed",
         "human_review_workflow_attached"
-      ],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      ]
     },
     {
       "runKey": "m365-native-burst-100",
@@ -272,12 +269,10 @@
           "updatedMinutesAgo": 44,
           "sessions": 1,
           "messages": 7,
-          "credits": "not_recorded",
           "relevance": "stale_preburst_analytics"
         }
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-calibration-10",
@@ -353,8 +348,7 @@
           { "offsetSeconds": 60, "durationSeconds": 60, "attempted": 10, "completed": 10, "failed": 0, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-calibration-25",
@@ -430,8 +424,7 @@
           { "offsetSeconds": 60, "durationSeconds": 60, "attempted": 25, "completed": 25, "failed": 0, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-calibration-50",
@@ -507,8 +500,7 @@
           { "offsetSeconds": 60, "durationSeconds": 60, "attempted": 50, "completed": 49, "failed": 1, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-hour-25-stopped",
@@ -591,8 +583,7 @@
           { "offsetSeconds": 480, "durationSeconds": 32.2330114, "attempted": 14, "completed": 13, "failed": 1, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-standalone-100-stopped",
@@ -667,8 +658,7 @@
           { "offsetSeconds": 0, "durationSeconds": 12.612879599999992, "attempted": 21, "completed": 12, "failed": 9, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-spread-25-completed",
@@ -744,8 +734,7 @@
           { "offsetSeconds": 60, "durationSeconds": 60, "attempted": 25, "completed": 25, "failed": 0, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-minute-100-local-stop",
@@ -821,8 +810,7 @@
           { "offsetSeconds": 0, "durationSeconds": 25.284633200000002, "attempted": 41, "completed": 26, "failed": 15, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-elastic-100-completed",
@@ -902,8 +890,7 @@
           { "offsetSeconds": 60, "durationSeconds": 3.5221637999999946, "attempted": 5, "completed": 5, "failed": 0, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "capacity-25-transport-stop",
@@ -1001,8 +988,7 @@
           { "offsetSeconds": 0, "durationSeconds": 0.04990869999999995, "attempted": 1, "completed": 0, "failed": 1, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "paced-125-25-baseline",
@@ -1091,8 +1077,7 @@
           { "offsetSeconds": 300, "durationSeconds": 3.0806670999999626, "attempted": 1, "completed": 1, "failed": 0, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "hour-ramp-25-to-50",
@@ -1243,8 +1228,7 @@
           { "offsetSeconds": 780, "durationSeconds": 55.034976999999955, "attempted": 28, "completed": 27, "failed": 1, "pending": 0 }
         ]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     },
     {
       "runKey": "quota-recovery-35-local-stop",
@@ -1354,8 +1338,7 @@
           "candidateWindowsChecked": 49
         }]
       },
-      "observations": [],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": []
     }
   ],
   "pacedCampaigns": [
@@ -1372,7 +1355,6 @@
         "checkedAt": "2026-09-20T19:34:29Z",
         "updatedMinutesAgo": 120,
         "sessions": 36,
-        "credits": "not_recorded",
         "relevance": "stale_precampaign_analytics"
       }
     },
@@ -1389,7 +1371,6 @@
         "checkedAt": "2026-09-20T20:48:13Z",
         "updatedMinutesAgo": 60,
         "sessions": 417,
-        "credits": "not_recorded",
         "relevance": "stale_precampaign_analytics"
       }
     },
@@ -1406,7 +1387,6 @@
         "checkedAt": "2026-09-20T21:23:22Z",
         "updatedMinutesAgo": 60,
         "sessions": 417,
-        "credits": "not_recorded",
         "relevance": "stale_precampaign_analytics"
       }
     }

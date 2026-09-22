@@ -190,7 +190,7 @@ test("pending invocations are not silently timed or failed; absent observations 
   reject((paced) => { paced.stopReason = "explicit_throttle"; }, /classified throttle/, "stopped");
   reject((paced) => { paced.failedConversations = 2; }, /returned conversation evidence/, "stopped");
   reject((paced) => { paced.conversationEvidence = null; }, /returned conversation evidence/);
-  reject((_, run) => { run.cost.amount = 0; }, /unknown costs as zero/);
+  reject((_, run) => { run.cost = { amount: 0 }; }, /unknown field/);
   const report = syntheticPacedReport("calibration");
   const run = report.runs[0];
   run.counts = { attempted: 1, completed: 0, failed: 0, pending: 1 };

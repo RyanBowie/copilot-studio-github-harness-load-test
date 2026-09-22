@@ -1,4 +1,5 @@
 import test from "node:test";
+import { restoreHistoricalMetadata } from "./helpers/historical-metadata.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -20,7 +21,7 @@ test("all eleven reviewed records and original campaign contexts remain unchange
     runs: report.runs.slice(0, 11), pacedCampaigns: report.pacedCampaigns.slice(0, 3),
     documentedLimits: report.documentedLimits, studyContext: report.studyContext
   };
-  assert.equal(createHash("sha256").update(JSON.stringify(history)).digest("hex"), "42664db765db324830f7df7c3ad754ecceeeae25cab49c0e698c834e9eb50ce4");
+  assert.equal(createHash("sha256").update(JSON.stringify(restoreHistoricalMetadata(history))).digest("hex"), "42664db765db324830f7df7c3ad754ecceeeae25cab49c0e698c834e9eb50ce4");
 });
 
 test("count-bound retests retain extended arrivals and every outcome without full-minute qualification", () => {
