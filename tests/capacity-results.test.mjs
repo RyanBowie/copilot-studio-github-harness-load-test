@@ -35,8 +35,7 @@ test("reviewed capacity study preserves its one actual disconnected attempt and 
   assert.equal(study.hours.length, 0);
   assert.equal(study.highestCleanScreen, null);
   assert.equal(study.validatedRpm, null);
-  assert.equal(run.cost.status, "pending");
-  assert.equal(run.cost.amount, null);
+  assert.equal(Object.hasOwn(run, "cost"), false);
 });
 
 test("single native failure timing is not successful reply latency or local post-close bookkeeping", () => {

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { restoreHistoricalMetadata } from "./helpers/historical-metadata.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -23,7 +24,7 @@ test("sixteenth actual study preserves all fifteen previous records and the old 
   assert.equal(report.runs.length, 16);
   const prior = structuredClone(report);
   prior.runs = prior.runs.slice(0, 15);
-  assert.equal(createHash("sha256").update(JSON.stringify(prior)).digest("hex"), "bfec418432f7502143a1ea515ba9dd6d96bd57bf5edcfaabc189a549b80a6464");
+  assert.equal(createHash("sha256").update(JSON.stringify(restoreHistoricalMetadata(prior))).digest("hex"), "bfec418432f7502143a1ea515ba9dd6d96bd57bf5edcfaabc189a549b80a6464");
   const windows = (await readFile(new URL("../data/window-evidence.json", import.meta.url), "utf8")).replace(/\r\n/g, "\n");
   assert.equal(createHash("sha256").update(windows).digest("hex"), "21a8fc3b99dbc7a7325f7fde4cab6c1beb5387029f21f50ccee878b5a59b2d33");
   assert.deepEqual(validateReport(prior, schema), []);
@@ -48,8 +49,7 @@ test("81 attempts retain one native disconnect, separate local stop and no phase
   assert.equal(study.localObserverIncident.notUserCancellation, true);
   assert.equal(study.localObserverIncident.notProviderThrottle, true);
   assert.equal(study.localObserverIncident.atomicReplacementContention, "hypothesis_not_proven");
-  assert.equal(run.cost.status, "pending");
-  assert.equal(run.cost.amount, null);
+  assert.equal(Object.hasOwn(run, "cost"), false);
   assert.deepEqual(summarizeCapacity([run]), []);
   assert.deepEqual(summarizeCapacityStudies([run]), []);
   assert.equal(nativeChartRows([run])[0].loadShape, "quota_study");

@@ -26,8 +26,7 @@ test("reviewed full100 denominator retains the disconnected result without inven
   assert.equal(paced.drainStatus, "complete");
   assert.equal(paced.arrivalStatus, "count_complete");
   assert.equal(paced.phase, "count_retest");
-  assert.equal(run.cost.status, "pending");
-  assert.equal(run.cost.amount, null);
+  assert.equal(Object.hasOwn(run, "cost"), false);
 });
 
 test("measured count-bound arrivals extend beyond60 seconds and never fabricate100 first-minute dispatches", () => {

@@ -86,13 +86,13 @@ test("compliance call fails while separate workflow history still shows waiting"
   });
 });
 
-test("reviewed costs stay pending and configuration discrepancies are explicit", () => {
+test("retired fields stay absent and configuration discrepancies are explicit", () => {
   for (const item of pilotRuns) {
-    assert.deepEqual(item.cost, { status: "pending", currency: null, amount: null, source: null, scope: null, recordedOn: null });
+    assert.equal(Object.hasOwn(item, "cost"), false);
     assert.ok(item.observations.includes("standalone_teams_send_tool_missing"));
     assert.ok(item.observations.includes("public_knowledge_all_websites_enabled"));
   }
-  assert.equal(report.studyContext.postPilotMonitor, "no_sessions_or_credits_recorded");
+  assert.equal(report.studyContext.postPilotMonitor, "no_sessions_recorded");
   assert.equal(report.studyContext.harnessVerification, "github_copilot_and_published_badges");
   assert.equal(run("public-knowledge-pilot").connectors, "not_involved");
   assert.ok(run("public-knowledge-pilot").observations.includes("built_in_web_search_observed"));

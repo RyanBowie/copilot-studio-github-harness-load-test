@@ -1,4 +1,5 @@
 import test from "node:test";
+import { restoreHistoricalMetadata } from "./helpers/historical-metadata.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -19,7 +20,7 @@ test("separate ramp windows preserve all fifteen primary records and the seven-c
   const primary = structuredClone(report);
   primary.runs = primary.runs.slice(0, 15);
   delete getRamp(primary).dispatchWindowEvidence;
-  assert.equal(createHash("sha256").update(JSON.stringify(primary)).digest("hex"), "cf491ffde4b1542721b160584dba691594ce00afd16f34c18444b7fd6dcd975a");
+  assert.equal(createHash("sha256").update(JSON.stringify(restoreHistoricalMetadata(primary))).digest("hex"), "cf491ffde4b1542721b160584dba691594ce00afd16f34c18444b7fd6dcd975a");
   assert.deepEqual(validateReport(primary, schema), []);
   const oldWindows = JSON.parse(await readFile(new URL("../data/window-evidence.json", import.meta.url), "utf8"));
   assert.equal(oldWindows.runs.length, 7);

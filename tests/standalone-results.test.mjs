@@ -118,14 +118,14 @@ test("returned conversations include failures but neither fresh intent nor clien
   reject((run) => { run.units.conversations = 22; }, /conversations/);
 });
 
-test("new stale Monitor remains separate, closed and pending rather than zero-cost evidence", () => {
+test("new stale Monitor remains separate and closed", () => {
   assert.deepEqual(campaign.postCampaignMonitor, {
     checkedAt: "2026-09-20T20:48:13Z", updatedMinutesAgo: 60, sessions: 417,
-    credits: "not_recorded", relevance: "stale_precampaign_analytics"
+    relevance: "stale_precampaign_analytics"
   });
   assert.equal(report.pacedCampaigns[0].postCampaignMonitor.sessions, 36);
-  assert.ok(report.runs.every((run) => run.cost.status === "pending" && run.cost.amount === null));
-  reject((run) => { run.cost.amount = 0; }, /unknown costs as zero/);
+  assert.ok(report.runs.every((run) => !Object.hasOwn(run, "cost")));
+  reject((run) => { run.cost = { amount: 0 }; }, /unknown field/);
   reject((_, campaign) => { campaign.postCampaignMonitor.updatedMinutesAgo = 1; }, /stale campaign Monitor/);
   reject((run) => { run.pacedMeasurement.conversationIds = ["private"]; });
   reject((run) => { run.errors[0].rawResponse = "private"; });

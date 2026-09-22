@@ -85,15 +85,15 @@ test("exact success intersection retains partial history and stale analytics lim
   });
   assert.deepEqual(burst.nativeInvocation.postRunMonitor, {
     checkedAt: "2026-09-20T16:59:36Z", updatedMinutesAgo: 44,
-    sessions: 1, messages: 7, credits: "not_recorded", relevance: "stale_preburst_analytics"
+    sessions: 1, messages: 7, relevance: "stale_preburst_analytics"
   });
-  assert.deepEqual(burst.cost, { status: "pending", currency: null, amount: null, source: null, scope: null, recordedOn: null });
+  assert.equal(Object.hasOwn(burst, "cost"), false);
   reject((_, invocation) => { invocation.history.hasMore = false; });
   reject((_, invocation) => { invocation.history.completeness = "exhaustive"; });
   reject((_, invocation) => { invocation.postRunMonitor.relevance = "burst_totals"; });
   reject((_, invocation) => { invocation.postRunMonitor.updatedMinutesAgo = 1; }, /last updated before/);
   reject((_, invocation) => { invocation.postRunMonitor.checkedAt = "2026-09-20T16:54:30Z"; }, /checked after/);
-  reject((run) => { run.cost.amount = 0; }, /unknown costs as zero/);
+  reject((run) => { run.cost = { amount: 0 }; }, /unknown field/);
 });
 
 test("native contract rejects wrong surface, UI timing, message overlap and unbounded counts", () => {

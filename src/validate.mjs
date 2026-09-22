@@ -848,14 +848,6 @@ export function validateReport(report, schema) {
         fail(`${path}.followUp`, "late answer and settlement timing are unmeasured in this follow-up shape.");
       }
     }
-    const cost = run.cost;
-    checkDate(cost.recordedOn, `${path}.cost.recordedOn`);
-    if (cost.status === "settled") {
-      if ([cost.currency, cost.amount, cost.source, cost.scope, cost.recordedOn].some((value) => value === null)) fail(`${path}.cost`, "settled requires amount, currency, source, scope and date.");
-      if (cost.recordedOn !== null && cost.recordedOn < run.observedOn) fail(`${path}.cost`, "settlement date cannot precede observation.");
-    } else if ([cost.currency, cost.amount, cost.source, cost.scope, cost.recordedOn].some((value) => value !== null)) {
-      fail(`${path}.cost`, "pending/unknown must not contain settled values; do not encode unknown costs as zero.");
-    }
   });
   if (report.studyContext?.runKeys.some((key) => !runKeys.has(key))) fail("report.studyContext.runKeys", "context can only reference existing reviewed runs.");
   checkPacedCampaigns(report.runs, fail);

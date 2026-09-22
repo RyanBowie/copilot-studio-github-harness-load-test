@@ -1,4 +1,5 @@
 import test from "node:test";
+import { restoreHistoricalMetadata } from "./helpers/historical-metadata.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -22,7 +23,7 @@ test("capacity additions preserve all twelve previously reviewed runs and campai
     documentedLimits: report.documentedLimits,
     studyContext: report.studyContext
   };
-  assert.equal(createHash("sha256").update(JSON.stringify(history)).digest("hex"), "6a6ec17246a26cb0e6206066ffe8d245faf55c1e42ac88f3762cf304337f865a");
+  assert.equal(createHash("sha256").update(JSON.stringify(restoreHistoricalMetadata(history))).digest("hex"), "6a6ec17246a26cb0e6206066ffe8d245faf55c1e42ac88f3762cf304337f865a");
 });
 
 test("all capacity scenarios are explicitly synthetic valid aggregate shapes", () => {

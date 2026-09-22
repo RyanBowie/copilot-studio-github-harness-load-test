@@ -162,22 +162,11 @@ test("structured error counts cover failures without inferring root cause", () =
   reject((_, run) => { run.observations.push("manual_timing"); }, /duplicates/);
 });
 
-test("pending and unknown costs cannot disguise estimates or zeros as settled", () => {
-  reject((_, run) => { run.cost.amount = 0; }, /do not encode unknown costs as zero/);
-  reject((_, run) => { run.cost.currency = "USD"; }, /pending\/unknown/);
-  reject((_, run) => { run.cost.status = "settled"; }, /settled requires/);
-  const data = sample();
-  data.runs[0].cost.status = "unknown";
-  assert.deepEqual(validateReport(data, schema), []);
-  data.runs[0].cost = {
-    status: "settled", currency: "USD", amount: 0, source: "billing_export",
-    scope: "shared_window", recordedOn: "2026-09-20"
-  };
-  assert.deepEqual(validateReport(data, schema), [], "verified zero is legal only as settled evidence");
-  data.runs[0].cost.amount = 0.000001;
-  assert.deepEqual(validateReport(data, schema), [], "retain fractional usage cost without rounding to zero");
-  data.runs[0].cost.recordedOn = "2026-09-18";
-  assert.match(validateReport(data, schema).join("\n"), /cannot precede/);
+test("the load-only closed contract rejects retired monetary metadata rather than publishing zeros", () => {
+  for (const status of ["pending", "unknown", "settled"]) {
+    reject((_, run) => { run.cost = { status, amount: 0 }; }, /unknown field/);
+  }
+  reject((data) => { data.billing = {}; }, /unknown field/);
 });
 
 test("dates must exist and cannot postdate review", () => {

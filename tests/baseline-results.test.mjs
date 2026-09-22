@@ -27,8 +27,7 @@ test("actual125 baseline retains first disconnect in the complete denominator an
   assert.equal(paced.stopReason, null);
   assert.equal(paced.arrivalStatus, "count_complete");
   assert.equal(paced.drainStatus, "complete");
-  assert.equal(run.cost.status, "pending");
-  assert.equal(run.cost.amount, null);
+  assert.equal(Object.hasOwn(run, "cost"), false);
 });
 
 test("actual arrival extension and partial sixth bucket cannot become a nominal25RPM or clean capacity screen", () => {

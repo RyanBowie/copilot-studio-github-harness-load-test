@@ -1,4 +1,5 @@
 import test from "node:test";
+import { restoreHistoricalMetadata } from "./helpers/historical-metadata.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -18,7 +19,7 @@ const reject = (change, pattern) => {
 test("ramp preparation preserves fourteen historical runs and the seven-cohort supplement", async () => {
   const report = JSON.parse(await readFile(new URL("../data/report.json", import.meta.url), "utf8"));
   const history = { runs: report.runs.slice(0, 14), pacedCampaigns: report.pacedCampaigns.slice(0, 3), documentedLimits: report.documentedLimits, studyContext: report.studyContext };
-  assert.equal(createHash("sha256").update(JSON.stringify(history)).digest("hex"), "a5aaedefc012f310d9a9685825ce531d397135b2e7532b16c70c0a7b2ea2045b");
+  assert.equal(createHash("sha256").update(JSON.stringify(restoreHistoricalMetadata(history))).digest("hex"), "a5aaedefc012f310d9a9685825ce531d397135b2e7532b16c70c0a7b2ea2045b");
   const windows = await readFile(new URL("../data/window-evidence.json", import.meta.url), "utf8");
   assert.equal(createHash("sha256").update(windows.replaceAll("\r\n", "\n")).digest("hex"), "21a8fc3b99dbc7a7325f7fde4cab6c1beb5387029f21f50ccee878b5a59b2d33");
 });

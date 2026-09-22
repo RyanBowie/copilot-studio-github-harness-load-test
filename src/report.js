@@ -189,7 +189,7 @@ function capacityStudyCard(study) {
     paragraph(study.highestCleanScreen
       ? `Highest clean five-minute screen: ${number(study.highestCleanScreen.pacedMeasurement.targetRpm)} intended RPM. ${cleanHours} / 2 strictly qualifying full hours recorded at that candidate rate. A screen or one hour alone is not a validated rate.`
       : "No clean screen in this study, so no eligible hour candidate. Earlier campaigns cannot supply a candidate."),
-    paragraph(`${study.screens.length} nonempty screen cohort(s) and ${study.hours.length} nonempty hour cohort(s) recorded. Never-started stages have no result. Costs: ${study.runs.every((run) => run.cost.status === "pending") ? "pending, not zero" : "see the separately reviewed cost records"}.`));
+    paragraph(`${study.screens.length} nonempty screen cohort(s) and ${study.hours.length} nonempty hour cohort(s) recorded. Never-started stages have no result.`));
   if (failedScreen) card.append(paragraph(`${number(failedScreen.pacedMeasurement.targetRpm)} RPM screen did not qualify: ${number(failedScreen.counts.attempted)} / ${number(failedScreen.pacedMeasurement.plannedSlots)} planned slots actually sent; ${number(failedScreen.pacedMeasurement.unofferedSlots)} unoffered / ${number(failedScreen.pacedMeasurement.skippedSlots)} skipped. ${failedScreen.pacedMeasurement.stopReason ? pacedStopLabel(failedScreen) : "Strict zero-error evidence requirements were not met"}. No escalation after that screen.`));
   const disconnected = study.runs.reduce((sum, run) => sum + run.errors.filter((error) => error.evidence === "native_disconnected_no_conversation").reduce((count, error) => count + error.count, 0), 0);
   if (disconnected) card.append(paragraph(`${number(disconnected)} disconnected/invoke result(s) returned no conversation identifier. Remote agent admission is unknown. A transport disconnection is not proof of an agent/backend failure, provider throttling or capacity at the intended sending rate.`));
@@ -240,7 +240,7 @@ function boundedCohortCard(run) {
     paragraph(baseline
       ? "This separate count-bound baseline counted ordinary normalized invocation errors without first-error or three-error termination. Explicit provider/throttle/backoff, authentication, action, local-clock and evidence guards still applied. No retries or automatic continuation."
       : "For this separately authorized retest, ordinary generic invocation errors were counted without the earlier three-error cutoff. Explicit throttle, backoff, authentication and other safety guards still applied. No retries or automatic continuation.", "fine"),
-    paragraph(`Completing this ${plan}-request cohort does not establish an hourly rate, a two-minute calibration qualification, a failure cause or a service quota. Outcomes include drain; costs are reported separately.`, "fine")
+    paragraph(`Completing this ${plan}-request cohort does not establish an hourly rate, a two-minute calibration qualification, a failure cause or a service quota. Outcomes include drain.`, "fine")
   );
   if (countBound) card.append(paragraph(`Observed offered rate: ${achievedRpm(run)} client dispatches/min over the actual arrival window. ${baseline
     ? "Count completion is not proof of sustained 25/min or a clean five-minute capacity screen; this baseline cannot qualify either validation hour."
@@ -251,7 +251,7 @@ function boundedCohortCard(run) {
     card.append(paragraph(`${number(run.counts.completed / run.counts.attempted * 100)}% greeting success across all ${number(run.counts.attempted)} actual attempts. The failure denominator is never reduced by dropping an initial disconnect. Arrival extension beyond the nominal plan: ${number(Math.max(0, paced.arrivalSeconds - paced.plannedArrivalSeconds))} s.`));
     if (evidence.successfulWithinArrivalWindow !== null) card.append(paragraph(`${number(evidence.successfulWithinArrivalWindow)} successful replies completed before the observed arrival end; ${number(evidence.successfulAfterArrivalWindow)} completed afterward during drain. These are completion-time populations, not outcomes grouped by dispatch minute.`));
     if (evidence.firstFailedAttempt !== null) card.append(paragraph(`First failed attempt: ${number(evidence.firstFailedAttempt)}. Its native failure callback was ${number(evidence.firstFailureCallbackFromArrivalStartMs)} ms after arrival start${run.counts.failed === 1 && run.counts.pending === 0 && evidence.firstFailedAttempt === 1 ? `; all subsequent ${number(run.counts.completed)} requests returned successful greetings` : ""}. This does not establish a warm-up effect or a failure cause.`));
-    card.append(paragraph(`Reviewed controller clock: ${label(evidence.clockStatus)}; evidence: ${label(evidence.evidenceStatus)}. Client peak: ${number(paced.peakOutstanding)} outstanding native invocations, not backend/model execution. Cost: ${label(run.cost.status)}. No settled zero cost is inferred.`, "fine"));
+    card.append(paragraph(`Reviewed controller clock: ${label(evidence.clockStatus)}; evidence: ${label(evidence.evidenceStatus)}. Client peak: ${number(paced.peakOutstanding)} outstanding native invocations, not backend/model execution.`, "fine"));
   }
   const disconnected = run.errors.find((error) => error.evidence === "native_disconnected_no_conversation");
   if (disconnected) {
@@ -508,8 +508,7 @@ function renderCapacity(report, evidence = null) {
       ["Best dispatch minute", bestMinute ? `${bestMinute.counts.completed} / ${bestMinute.counts.attempted}` : "Not measured", "Eventual replies from a complete 60-second dispatch bucket."],
       ["Best five minutes", bestFive ? `${bestFive.counts.completed} / ${bestFive.counts.attempted}` : "Not measured", "Eventual replies; not necessarily completed inside five minutes."],
       ["Longest clean segment", longestClean ? windowLabel(longestClean.windowSeconds) : "Not measured", longestClean ? `${longestClean.counts.completed}/${longestClean.counts.attempted} eventual replies. A segment, not a separate endurance test.` : "No eligible error-free segment."],
-      ["Full fixed-rate hourly trial", fullHour ? "Completed" : "Not measured", "No projection of shorter trials or variable-rate ramps into fixed-rate capacity."],
-      ["Cost per success", group.runs.every((run) => run.cost.status === "pending") ? "Pending" : "Not derived", "Unsettled or shared evidence is not zero cost."]
+      ["Full fixed-rate hourly trial", fullHour ? "Completed" : "Not measured", "No projection of shorter trials or variable-rate ramps into fixed-rate capacity."]
     ]) {
       const card = node("article", undefined, "card");
       card.append(paragraph(title, "metric-label"), paragraph(value, "metric-value"), paragraph(detail, "metric-help"));
@@ -558,7 +557,7 @@ function renderCapacity(report, evidence = null) {
   const fullHour = groups.some((group) => group.runs.some((run) => isHourly(run)
     && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete"));
   gaps.append(node("h3", "Still not established"),
-    paragraph(`${evidence ? "Exact burst completion-window maxima; " : "Exact rolling-window and completion-window maxima; "}${fullHour ? "daily capacity" : "a completed fixed-rate hourly/daily endurance result"}; failure recovery/reset; quota scope; backend concurrency; representative knowledge/workflow throughput. Variable-rate ramps remain separate. See Costs for separately reviewed billing evidence; no unit cost is derived here.`),
+    paragraph(`${evidence ? "Exact burst completion-window maxima; " : "Exact rolling-window and completion-window maxima; "}${fullHour ? "daily capacity" : "a completed fixed-rate hourly/daily endurance result"}; failure recovery/reset; quota scope; backend concurrency; representative knowledge/workflow throughput. Variable-rate ramps remain separate.`),
     paragraph("The same rate can pass a short calibration and later encounter a transport stop. Repeated small clean samples do not establish a 99% service guarantee. Check the rate, duration, stop reason and failure layer together."));
   target.append(gaps);
 }
@@ -608,8 +607,7 @@ function renderReviewedWindows(report, evidence) {
       ["Peak 60 s dispatch", minute.dispatch ? `${minute.dispatch.successes} / ${minute.dispatch.snapshot.dispatchCohort.dispatched}` : "Not measured", "Eventual successes of a selected dispatch cohort; errors stay in the denominator."],
       ["Peak 60 s completions", minute.completion ? number(minute.completion.successes) : "Not measured", "Replies completed inside a separately selected 60-second window."],
       ["Peak 5 min completions", five.completion ? number(five.completion.successes) : "Not measured", "Finite-window peak, not sustained hourly capacity."],
-      ["Full fixed-rate hourly trial", group.runs.some((run) => isHourly(run) && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete") ? "Completed" : "Not measured", "No hourly/daily extrapolation; variable-rate ramps are separate."],
-      ["Cost per success", group.runs.every((run) => run.cost.status === "pending") ? "Pending" : "Not derived", "Client outcomes do not settle remote work, retries or billing."]
+      ["Full fixed-rate hourly trial", group.runs.some((run) => isHourly(run) && run.pacedMeasurement.arrivalStatus === "full_window" && run.pacedMeasurement.drainStatus === "complete") ? "Completed" : "Not measured", "No hourly/daily extrapolation; variable-rate ramps are separate."]
     ]) {
       const card = node("article", undefined, "card");
       card.append(paragraph(title, "metric-label"), paragraph(value, "metric-value"), paragraph(detail, "metric-help"));
@@ -693,7 +691,7 @@ function renderErrorTimeline(evidence, report) {
         `${stop.settlementsAfterTrigger.successes} successes / ${stop.settlementsAfterTrigger.failures} failures / ${stop.settlementsAfterTrigger.pendingAtFinalCutoff} pending at final client cutoff. ${stop.newDispatchesAfterTrigger} later starts; no quota or backend-concurrency inference.`
       ];
     }));
-  target.append(stops, paragraph("The dispatch-close assignment was not separately timestamped; synchronous callback order supplies inclusive bounds. Post-trigger outcomes may arrive before the observed arrival end or during the separately measured drain. Final failures include calls already in flight. Zero client pending is not proof that remote work, retries, admission or cost have settled.", "fine"));
+  target.append(stops, paragraph("The dispatch-close assignment was not separately timestamped; synchronous callback order supplies inclusive bounds. Post-trigger outcomes may arrive before the observed arrival end or during the separately measured drain. Final failures include calls already in flight. Zero client pending is not proof that remote work, retries or admission have settled.", "fine"));
 }
 
 function quotaStudyCard(run) {
@@ -705,7 +703,7 @@ function quotaStudyCard(run) {
     paragraph(`${number(run.counts.failed)} failed / ${number(run.counts.pending)} pending. First invocation disconnected/invoke in ${number(study.failure.maxMs)} ms with no returned conversation ID; all subsequent ${number(run.counts.completed)} greetings succeeded. No HTTP 429 or exposed backoff was observed in this study. Remote admission of the failed invocation remains unknown.`),
     paragraph(`Only phase ${study.phase} ran: ${study.targetRpm} target RPM for ${number(study.arrivalSeconds)} s of the planned 1,800 s; actual window-average ${number(run.counts.attempted / study.arrivalSeconds * 60)}/min. Final drain ${number(study.drainSeconds)} s. ${number(study.unofferedLoadSlots)} unoffered phase slots and ${number(study.unusedStudyCeiling)} unused study-ceiling calls are not failures or restart authorization.`),
     paragraph(`${quotaStopLabel}. PermissionError (errno ${study.localObserverIncident.errno}) while reading the local summary caused the parent to request stop-new-dispatch and drain. Stored controller reason: ${study.localObserverIncident.storedControllerReason}. Atomic-replacement contention is a hypothesis, not an established cause.`),
-    paragraph(`No recovery probes, second 50 RPM phase, retries or restart. ${number(run.units.conversations)} distinct returned conversations; peak ${number(study.peakOutstanding)} outstanding client calls, not model concurrency. Costs ${run.cost.status}. The configured quota, counting window and reset remain unknown.`),
+    paragraph(`No recovery probes, second 50 RPM phase, retries or restart. ${number(run.units.conversations)} distinct returned conversations; peak ${number(study.peakOutstanding)} outstanding client calls, not model concurrency. The configured quota, counting window and reset remain unknown.`),
     paragraph(`Observed phase ${study.startedAt} to ${study.arrivalEndedAt}; drain through ${study.observedThroughAt}. Local observation loop ended ${number((clock.arrivalObservationLoopEndOffsetMs - clock.startOffsetMs) / 1000)} s after phase start, not extra arrival time. Study bookkeeping finished ${study.studyFinishedAt}.`, "fine"));
   const minute = study.rollingDispatchWindows.find((window) => window.windowSeconds === 60);
   if (minute) card.append(node("h3", `${number(minute.maximumStarts)} starts in a fully observed 60-second window`),
@@ -749,7 +747,7 @@ function rampSummaryCard(run) {
     paragraph(ramp.successfulWithinArrivalWindow === null
       ? "Successful returns inside versus after the fixed arrival window were not separately measured; eventual outcomes cannot supply hourly completion counts."
       : `${number(ramp.successfulWithinArrivalWindow)} successful returns inside the arrival window; ${number(ramp.successfulAfterArrivalWindow)} afterward. These completion-time counts are not outcomes grouped by dispatch segment.`),
-    paragraph(`Clock: ${label(ramp.clockStatus)}; evidence: ${label(ramp.evidenceStatus)}. ${ramp.stopReason ? `Stop: ${rampStopLabel(run)}.` : "No arrival stop recorded."} Client peak: ${ramp.peakOutstanding === null ? "not measured" : number(ramp.peakOutstanding)}; remote admission and backend/model concurrency remain unknown. Costs: ${run.cost.status}.`, "fine"),
+    paragraph(`Clock: ${label(ramp.clockStatus)}; evidence: ${label(ramp.evidenceStatus)}. ${ramp.stopReason ? `Stop: ${rampStopLabel(run)}.` : "No arrival stop recorded."} Client peak: ${ramp.peakOutstanding === null ? "not measured" : number(ramp.peakOutstanding)}; remote admission and backend/model concurrency remain unknown.`, "fine"),
     paragraph("Even a full variable-rate hour is not a fixed-rate validation hour, zero-error qualification, sustainable maximum or platform-wide capacity. No rate is validated by this ramp."));
   if (ramp.segments.length < 6) card.append(paragraph(`${[25, 30, 35, 40, 45, 50].slice(ramp.segments.length).join(" / ")} nominal RPM levels were not observed. The last partial segment is not a full ten-minute result; no hour at 50 RPM was tested.`));
   if (ramp.stopEvidence) {
@@ -1027,7 +1025,7 @@ function renderOverview(report) {
     }
     const unattempted = campaign.notAttemptedCalibrationRpm.length ? `${campaign.notAttemptedCalibrationRpm.map(number).join(" / ")} RPM calibration stages were not attempted in this campaign (${campaign.campaignKey}); separate campaigns are not included. ` : "";
     card.append(paragraph(`${unattempted}${number(campaign.distinctReturnedConversations)} distinct returned conversations were independently verified across this campaign.${transportStop ? " The transport-429 attempt returned no identifier." : ""} Peak client outstanding: ${number(campaign.clientPeakOutstanding)}, not backend/model concurrency.`),
-      paragraph(`Campaign markers: ${campaign.startedAt} to ${campaign.endedAt}. No runner retries or automatic restart; managed-service retries unknown. ${cohorts.every((run) => run.cost.status === "pending") ? "Costs remain pending." : "Cost evidence is reported separately."} Earlier burst and Teams observations are separate.`, "fine"));
+      paragraph(`Campaign markers: ${campaign.startedAt} to ${campaign.endedAt}. No runner retries or automatic restart; managed-service retries unknown. Earlier burst and Teams observations are separate.`, "fine"));
     overview.append(card);
   }
   for (const run of report.runs.filter((item) => item.pacedMeasurement)) {
@@ -1041,7 +1039,7 @@ function renderOverview(report) {
       outcomeCards([run], true, "This paced dispatch cohort only"),
       paragraph(`${observedPacedRpm(run) === null ? "Offered rate not measured; the partial window is not normalized to a minute" : `${achievedRpm(run)} achieved client dispatches/min`} over ${number(paced.arrivalSeconds)} s of a planned ${number(paced.plannedArrivalSeconds)} s arrival window. This is not an extrapolated hourly result. Arrival status: ${label(paced.arrivalStatus)}; post-close observation: ${postCloseSummary(run)} (${label(paced.drainStatus)}). ${paced.stopReason ? `Stop reason: ${pacedStopLabel(run)}.` : "No arrival stop recorded."}`),
       paragraph(`${number(paced.skippedSlots)} skipped and ${number(paced.unofferedSlots)} unoffered client slots are outside the ${number(run.counts.attempted)} invocation attempts, not agent failures. Qualification: ${label(paced.qualification)}.${paced.qualifyingRunKey ? ` Rate selected from ${paced.qualifyingRunKey}.` : ""}`),
-      paragraph(`Peak outstanding client invocations: ${paced.peakOutstanding === null ? "not measured" : number(paced.peakOutstanding)}; not backend/model concurrency. Costs: ${run.cost.status}.`, "fine"));
+      paragraph(`Peak outstanding client invocations: ${paced.peakOutstanding === null ? "not measured" : number(paced.peakOutstanding)}; not backend/model concurrency.`, "fine"));
     if (isCapacityCohort(run)) feature.append(paragraph(`Zero-error protocol only, not the historical 99% rule. Clock: ${label(paced.capacityEvidence.clockStatus)}; evidence: ${label(paced.capacityEvidence.evidenceStatus)}. Qualification of this one cohort is not validation of the complete two-hour study.`, "fine"));
     overview.append(feature);
   }
@@ -1071,7 +1069,7 @@ function renderOverview(report) {
       paragraph(`${number(invocation.peakOutstanding)} outstanding client invocations at peak, independently verified by a start/end interval sweep, launched across ${invocation.dispatchWindowMs} ms. This is client RPC launch spread, not measured network/server admission spread or simultaneous backend/model execution.`),
       paragraph(`${number(run.units.conversations)} distinct Microsoft 365 conversations verified, including ${number(invocation.failedConversations)} returned with failure payloads. One account; ${number(run.windowSeconds)} s calibrated batch window. No UI-stable or TTFA timing.`),
       paragraph(`${number(run.counts.failed)} generic WorkIQ/Microsoft 365 server_error outcomes are unclassified invocation failures. No explicit 429, Retry-After, RATE_LIMIT_REACHED or numeric quota evidence; the bottleneck is unknown.`),
-      paragraph(`${number(invocation.excludedPreflights)} earlier probes and the separate Teams pilot are excluded from this batch. Runner retries: ${invocation.runnerRetries}; managed-service retries: unknown. Costs: ${run.cost.status}.`, "fine"));
+      paragraph(`${number(invocation.excludedPreflights)} earlier probes and the separate Teams pilot are excluded from this batch. Runner retries: ${invocation.runnerRetries}; managed-service retries: unknown.`, "fine"));
     overview.append(feature);
   }
   const visibleRuns = report.runs.filter((run) => !nativeMeasurement(run));
@@ -1094,7 +1092,7 @@ function renderOverview(report) {
     byId("overview-summary").append(note);
   }
   if (!report.runs.length) {
-    empty("run-ledger", "Awaiting the first reviewed pilot.", "No load measurements have been published. Response time, throughput, concurrency, error outcomes and costs remain not measured. There are no synthetic results behind this view.");
+    empty("run-ledger", "Awaiting the first reviewed pilot.", "No load measurements have been published. Response time, throughput, concurrency and error outcomes remain not measured. There are no synthetic results behind this view.");
     return;
   }
   const ledger = node("div", undefined, "stack");
@@ -1271,43 +1269,6 @@ function renderObservations(runs) {
   byId("observations-content").replaceChildren(stack);
 }
 
-function renderCosts(report) {
-  const { runs } = report;
-  if (!runs.length) {
-    empty("costs-content", "Cost evidence is awaiting the pilot.", "No cost amount has been reported or settled. The first run must carry an explicit cost status, even when billing evidence is pending.");
-    return;
-  }
-  table("costs-content", "Cost evidence by run / no cross-surface total", ["Run / surface", "Status", "Amount", "Evidence / scope"],
-    nativeFirst(runs).map((run) => {
-      const cost = run.cost;
-      return [
-        `${run.runKey} / ${label(run.surface)}`, cost.status.toUpperCase(),
-        cost.status === "settled" ? `${cost.currency} ${cost.amount}` : "Not settled",
-        cost.status === "settled" ? `${label(cost.source)} / ${label(cost.scope)} / ${cost.recordedOn}` : "No settled billing evidence"
-      ];
-    }));
-  if (report.studyContext?.prePilotMonitor === "no_sessions_or_credits_recorded") {
-    const note = node("article", undefined, "note");
-    note.append(node("h3", "Earlier Teams pilot Monitor is not settled billing evidence"), paragraph("No sessions or credits were recorded in the pre-pilot Monitor check for the scoped Teams runs. Analytics and billing meters can lag; that observation is not zero usage or zero cost. Runtime session counts remain unknown."));
-    byId("costs-content").append(note);
-  }
-  if (report.studyContext?.postPilotMonitor === "no_sessions_or_credits_recorded") byId("costs-content").append(paragraph("A later check after the Teams pilot (before the native burst) also showed no recorded sessions or credits. Delayed meters still do not establish zero cost; all unsettled amounts remain null.", "fine"));
-  for (const run of runs.filter((item) => item.nativeInvocation)) {
-    const monitor = run.nativeInvocation.postRunMonitor;
-    const note = node("article", undefined, "note boundary");
-    note.append(node("h3", `${run.runKey} / stale preburst analytics`),
-      paragraph(`Monitor checked at ${monitor.checkedAt} said it was updated ${number(monitor.updatedMinutesAgo)} minutes earlier. It showed ${number(monitor.sessions)} old Teams session and ${number(monitor.messages)} messages, with no credits recorded. These are stale preburst analytics, not this burst's session or credit totals. They neither measure zero cost nor settle the pending billing amount.`));
-    byId("costs-content").append(note);
-  }
-  for (const campaign of report.pacedCampaigns ?? []) {
-    const monitor = campaign.postCampaignMonitor;
-    const note = node("article", undefined, "note boundary");
-    note.append(node("h3", `${campaign.campaignKey} / stale Monitor, costs pending`),
-      paragraph(`Monitor checked at ${monitor.checkedAt} still showed ${number(monitor.sessions)} old sessions and no posted credits, with a refresh ${number(monitor.updatedMinutesAgo)} minutes earlier. This stale precampaign snapshot is not attributed usage for these cohorts and is not zero cost. The request-count budget was not a hard monetary limit or billing evidence.`));
-    byId("costs-content").append(note);
-  }
-}
-
 const explicitTheme = () => {
   const value = new URLSearchParams(window.location.search).get("scoutTheme");
   return value === "light" || value === "dark" ? value : null;
@@ -1335,6 +1296,11 @@ function navigate() {
   if (window.location.hash === "#main") return;
   const requested = window.location.hash.slice(1);
   const active = sections.some((section) => section.id === requested) ? requested : "overview";
+  if (requested && requested !== active && !document.getElementById(requested)) {
+    const url = new URL(window.location.href);
+    url.hash = active;
+    window.history.replaceState(null, "", url);
+  }
   for (const section of sections) section.hidden = section.id !== active;
   for (const link of document.querySelectorAll(".section-nav a")) {
     if (link.hash === `#${active}`) link.setAttribute("aria-current", "page");
@@ -1373,16 +1339,15 @@ try {
   renderFailureSummary(report.runs);
   renderErrorTimeline(evidence, report);
   renderObservations(report.runs);
-  renderCosts(report);
   const reviewed = report.publication.status === "reviewed";
   byId("publication-status").textContent = reviewed ? "REVIEWED AGGREGATES" : "NOT MEASURED";
   byId("publication-status").classList.toggle("reviewed", reviewed);
-  byId("review-status").textContent = reviewed ? `Public aggregate review: ${report.publication.reviewedOn}. Run dates and cost settlement may differ.` : "Awaiting pilot / no measured results published";
+  byId("review-status").textContent = reviewed ? `Public aggregate review: ${report.publication.reviewedOn}. Individual run dates may differ.` : "Awaiting pilot / no measured results published";
   if (evidence) byId("review-status").textContent += ` Window/callback supplement reviewed ${evidence.reviewedOn}; no new calls.`;
   byId("window-download").hidden = evidence === null;
   byId("window-schema-download").hidden = evidence === null;
 } catch {
-  for (const id of ["evidence-sufficiency-content", "reviewed-windows", "error-timeline", "benchmark-kpis", "overview-charts", "concurrency-charts", "concurrency-content", "latency-charts", "timeline-content", "stages-content", "answers-content", "conversations-content", "capacity-summary", "overview-summary", "run-ledger", "reliability-content", "failure-charts", "failure-summary", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
+  for (const id of ["evidence-sufficiency-content", "reviewed-windows", "error-timeline", "benchmark-kpis", "overview-charts", "concurrency-charts", "concurrency-content", "latency-charts", "timeline-content", "stages-content", "answers-content", "conversations-content", "capacity-summary", "overview-summary", "run-ledger", "reliability-content", "failure-charts", "failure-summary", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content"]) byId(id).replaceChildren();
   byId("publication-status").textContent = "DATA REJECTED";
   byId("publication-status").classList.add("rejected");
   byId("review-status").textContent = "No metrics displayed.";

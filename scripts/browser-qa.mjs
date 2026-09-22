@@ -17,7 +17,7 @@ import { syntheticContinuousRamp } from "../tests/fixtures/synthetic-continuous-
 
 const require = createRequire(import.meta.url);
 const focused = process.argv.includes("--focused");
-const sectionIds = ["overview", "concurrency", "response-time", "throughput", "observations", "answers", "failures", "conversations", "methodology", "costs"];
+const sectionIds = ["overview", "concurrency", "response-time", "throughput", "observations", "answers", "failures", "conversations", "methodology"];
 const orderedNativeKeys = [
   "paced-calibration-10", "paced-calibration-25", "paced-hour-25-stopped",
   "paced-spread-25-completed", "capacity-25-transport-stop", "paced-125-25-baseline", "quota-recovery-35-local-stop", "paced-calibration-50", "paced-standalone-100-stopped", "paced-minute-100-local-stop", "paced-elastic-100-completed", "hour-ramp-25-to-50", "m365-native-burst-100"
@@ -33,8 +33,7 @@ const emptyHtml = await renderHtml({
 const synthetic = JSON.parse(await readFile(new URL("../tests/fixtures/synthetic-report.json", import.meta.url), "utf8"));
 synthetic.runs.push(structuredClone(synthetic.runs[0]));
 Object.assign(synthetic.runs[1], {
-  runKey: "offline-preview-fixture", surface: "studio_preview", firstVisibleActivity: null, firstVisibleLatency: null, latency: null, arrival: null, concurrency: null, windowSeconds: null,
-  cost: { status: "settled", currency: "USD", amount: 0.000001, source: "billing_export", scope: "shared_window", recordedOn: "2026-09-20" }
+  runKey: "offline-preview-fixture", surface: "studio_preview", firstVisibleActivity: null, firstVisibleLatency: null, latency: null, arrival: null, concurrency: null, windowSeconds: null
 });
 const syntheticHtml = (await renderHtml(synthetic, schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC QA FIXTURE - NOT OBSERVED RESULTS</aside>');
 const pacedHtml = (await renderHtml(syntheticPacedReport("transport-stop"), schema)).replace("<body>", '<body><aside aria-label="Offline QA warning">OFFLINE SYNTHETIC PACED FIXTURE - NOT OBSERVED RESULTS</aside>');
@@ -195,7 +194,7 @@ try {
           assert.deepEqual(violations, [], `${view}/${width}/${theme}/${id}: accessibility violations`);
         }
         if (view === "report") {
-          assert.deepEqual(await page.locator("#benchmark-kpis .metric-value").allTextContents(), ["25/min", "50 / 51", "52", "126", "Not measured", "Pending"]);
+          assert.deepEqual(await page.locator("#benchmark-kpis .metric-value").allTextContents(), ["25/min", "50 / 51", "52", "126", "Not measured"]);
           assert.equal(await page.locator(".benchmark-chart svg").count(), 11);
           const study = page.locator("#overview-charts [data-capacity-study]");
           const baseline = page.locator("#overview-charts [data-count-baseline]");
@@ -517,15 +516,7 @@ try {
           ]);
           assert.deepEqual(nativeRows[7], ["Failed invocations", "1", "0.065 s", "0.065 s", "0.065 s", "0.065 s"]);
           assert.doesNotMatch(await page.locator("#response-content").textContent(), /m365-native-burst-100|17\.299/);
-          assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 16);
-          assert.match(await page.locator("#costs-content").textContent(), /updated 44 minutes earlier/);
-          assert.match(await page.locator("#costs-content").textContent(), /stale preburst analytics, not this burst/);
-          assert.match(await page.locator("#costs-content").textContent(), /36 old sessions/);
-          assert.match(await page.locator("#costs-content").textContent(), /refresh 120 minutes earlier/);
-          assert.match(await page.locator("#costs-content").textContent(), /417 old sessions.*refresh 60 minutes earlier/);
-          assert.match(await page.locator("#costs-content").textContent(), /m365-spread-25.*2026-09-20T21:23:22Z.*417 old sessions.*refresh 60 minutes earlier/);
           assert.match(await page.locator("#observations-content").textContent(), /Transport throttling: 1/);
-          assert.doesNotMatch(await page.locator("#costs-content").textContent(), /USD|GBP|EUR/);
           assert.deepEqual(await page.locator("#report-data").evaluate((element) => JSON.parse(element.textContent)), report);
           if (width === 1440 && theme === "light") {
             for (const [name, expected] of [["Public aggregate JSON", report], ["JSON schema", schema], ["Window evidence JSON", evidence], ["Window evidence schema", evidenceSchema]]) {
@@ -541,7 +532,7 @@ try {
         await page.locator("#theme-toggle").click();
         const url = new URL(page.url());
         assert.equal(url.searchParams.get("keep"), "qa");
-        assert.equal(url.hash, "#costs");
+        assert.equal(url.hash, "#methodology");
         assert.equal(url.searchParams.get("scoutTheme"), theme === "light" ? "dark" : "light");
         await page.locator("#theme-toggle").click();
         await page.locator('.section-nav a[href="#overview"]').click();
@@ -553,8 +544,25 @@ try {
             snapshots++;
           }
         }
-        await page.locator('.section-nav a[href="#costs"]').click();
-        await page.screenshot({ path: resolve(artifacts, `${view}-costs-${width}-${theme}.png`), fullPage: true });
+        await page.goto(`${origin}/${view === "report" ? "" : view}?result=burst100&keep=qa&scoutTheme=${theme}#costs`);
+        await page.waitForFunction(() => location.hash === "#overview" && document.querySelector("#theme-toggle").hidden === false);
+        assert.equal(new URL(page.url()).searchParams.get("result"), "burst100");
+        assert.equal(new URL(page.url()).searchParams.get("keep"), "qa");
+        assert.equal(new URL(page.url()).searchParams.get("scoutTheme"), theme);
+        assert.equal(await page.locator("#overview").isVisible(), true);
+        assert.equal(await page.locator("main > section:visible").count(), 1);
+        assert.equal(await page.locator('.section-nav a[aria-current="page"]').getAttribute("href"), "#overview");
+        assert.doesNotMatch(await page.locator("body").textContent(), /\b(?:costs?|billing|pricing|credits|monetary|currency)\b/i);
+        await page.locator("#theme-toggle").click();
+        assert.equal(new URL(page.url()).searchParams.get("result"), "burst100");
+        assert.equal(new URL(page.url()).searchParams.get("keep"), "qa");
+        assert.equal(new URL(page.url()).hash, "#overview");
+        await page.locator("#theme-toggle").click();
+        if (view === "report") assert.match(await page.locator("#overview-summary .burst-summary").textContent(), /100 requests.*33% greeting reply success.*Failed invocations67/);
+        await page.addScriptTag({ path: axePath });
+        assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+        await page.screenshot({ path: resolve(artifacts, `${view}-legacy-route-${width}-${theme}.png`), fullPage: true });
         snapshots++;
         if (view === "report") {
           await page.locator('.section-nav a[href="#response-time"]').click();
@@ -671,9 +679,6 @@ try {
     await page.addScriptTag({ path: axePath });
     assert.deepEqual(await page.evaluate(async () => (await window.axe.run()).violations.map(({ id }) => id)), []);
   }
-  assert.match(await page.locator("#costs-content").textContent(), /USD 0\.000001/);
-  assert.match(await page.locator("#costs-content").textContent(), /PENDING/);
-  assert.match(await page.locator("#costs-content").textContent(), /shared window/);
   await page.locator('.section-nav a[href="#response-time"]').click();
   assert.match(await page.locator("#response-content").textContent(), /First activity \(status or answer; not answer latency\)/);
   assert.match(await page.locator("#response-content").textContent(), /First actual answer \(status excluded\)/);
@@ -699,7 +704,6 @@ try {
   assert.match(await page.locator("#throughput-content").textContent(), /not completions occurring within that minute/);
   assert.match(await page.locator("#observations-content").textContent(), /Transport throttling: 1/);
   assert.match(await page.locator("#observations-content").textContent(), /No conversation identifier or Retry-After was exposed/);
-  assert.equal((await page.locator("#costs-content").textContent()).match(/PENDING/g).length, 2);
   for (const { path, report: minuteReport } of minuteCases) {
     const run = minuteReport.runs[0];
     const baseline = run.pacedMeasurement.phase === "count_baseline";
@@ -790,7 +794,6 @@ try {
     assert.equal(await page.locator("[data-ramp-segments] tbody tr").count(), ramp.segments.length);
     assert.equal(await page.locator("[data-ramp-segments] [data-chart-key]").count(), ramp.segments.length);
     assert.deepEqual(await page.locator("[data-ramp-segments] [data-series=completed]").evaluateAll((bars) => bars.map((bar) => Number(bar.dataset.value))), ramp.segments.map((segment) => segment.counts.completed));
-    assert.match(await page.locator("#costs-content").textContent(), /PENDING/);
     assert.doesNotMatch(await page.locator("main").textContent(), /NaN|Infinity/);
     if (path === "ramp-disconnected") {
       assert.equal(await page.locator("#latency-charts rect").count(), 0);
@@ -878,7 +881,7 @@ try {
   await offlinePage.waitForFunction((expected) => document.querySelector("#publication-status").textContent === expected, expectedStatus);
   assert.equal(await offlinePage.locator("#data-error").isVisible(), false, "published artifact works offline from disk");
   await offline.close();
-  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, persistent permission warning and official link, three unknown user-capacity horizons, exact illustrative arithmetic/population examples with caveats, ten sections, eleven published charts, sixteen unchanged actual records, historical and synthetic regressions, four downloads, axe, keyboard, print, forced colors/reduced motion, dark default/explicit theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
+  console.log(`Browser QA passed: ${focused ? "focused 390 dark / 1440 light" : "six viewport/theme combinations"}, persistent permission warning and official link, three unknown user-capacity horizons, exact illustrative arithmetic/population examples with caveats, nine load-only sections, eleven published charts, sixteen preserved load records, legacy-route/query preservation, historical and synthetic regressions, four downloads, axe, keyboard, print, forced colors/reduced motion, dark default/explicit theme, offline artifact and rejection paths. ${snapshots} screenshots: ${artifacts}`);
 } finally {
   if (browser) await browser.close();
   await new Promise((done, reject) => server.close((error) => error ? reject(error) : done()));

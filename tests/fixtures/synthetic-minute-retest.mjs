@@ -30,7 +30,7 @@ export function syntheticMinuteRetest({ attempted = 100, failed = 30, pending = 
     notAttemptedCalibrationRpm: [],
     postCampaignMonitor: {
       checkedAt: "2026-01-10T00:02:00Z", updatedMinutesAgo: 10, sessions: 11,
-      credits: "not_recorded", relevance: "stale_precampaign_analytics"
+      relevance: "stale_precampaign_analytics"
     }
   }];
   return report;

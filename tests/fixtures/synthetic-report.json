@@ -61,8 +61,7 @@
       "workflowState": null,
       "followUp": null,
       "nativeInvocation": null,
-      "observations": ["manual_timing", "partial_observation"],
-      "cost": { "status": "pending", "currency": null, "amount": null, "source": null, "scope": null, "recordedOn": null }
+      "observations": ["manual_timing", "partial_observation"]
     }
   ],
   "documentedLimits": []
