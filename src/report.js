@@ -109,6 +109,43 @@ function table(target, caption, headers, rows) {
   (typeof target === "string" ? byId(target) : target).replaceChildren(wrapper);
 }
 
+function renderEvidenceSufficiency(runs) {
+  const outcomes = (run) => `${run.counts.attempted} attempts / ${run.counts.completed} eventual greetings / ${run.counts.failed} failure${run.counts.failed === 1 ? "" : "s"} / ${run.counts.pending} pending`;
+  const duration = (run) => new Intl.NumberFormat("en", { maximumFractionDigits: 7, useGrouping: false }).format(nativeMeasurement(run).arrivalSeconds);
+  const minuteEvidence = node("div");
+  const latestStudy = runs.filter((run) => run.quotaStudyMeasurement)
+    .sort((a, b) => a.quotaStudyMeasurement.startedAt.localeCompare(b.quotaStudyMeasurement.startedAt)).at(-1);
+  const minute = latestStudy?.quotaStudyMeasurement.rollingDispatchWindows.find((window) => window.windowSeconds === 60);
+  if (minute) {
+    const greeting = minute.greetingsWindowCounts, starts = minute.startsWindowCounts;
+    minuteEvidence.append(paragraph(`Latest reviewed full 60-second successful dispatch cohort: ${greeting.completed}/${greeting.attempted} eventual greetings. These are calls started inside that minute, NOT callbacks necessarily completed inside 60 seconds, a quota or a user-capacity benchmark.`),
+      paragraph(`The separately selected maximum-start representative has ${starts.attempted} starts / ${starts.completed} eventual greetings / ${starts.failed} failure${starts.failed === 1 ? "" : "s"} / ${starts.pending} pending. Do not conflate the two windows.`),
+      paragraph(`That interrupted study as a whole: ${outcomes(latestStudy)} over ${duration(latestStudy)} seconds of arrivals, with peak ${latestStudy.quotaStudyMeasurement.peakOutstanding} outstanding client calls only.`));
+  } else minuteEvidence.append(paragraph("No reviewed full 60-second quota-study dispatch cohort is available in this dataset."));
+  const burst = runs.find((run) => run.runKey === "m365-native-burst-100" && run.nativeInvocation);
+  if (burst) minuteEvidence.append(paragraph(`The separate burst's peak ${burst.nativeInvocation.peakOutstanding} outstanding client calls produced ${burst.counts.completed}/${burst.counts.attempted} successful greetings overall. It was not ${burst.nativeInvocation.peakOutstanding} users.`));
+  minuteEvidence.append(paragraph("Independent human users, their interaction patterns and a sustainable success/latency SLO were not measured."));
+
+  const hourEvidence = node("div");
+  const fullHour = runs.some((run) => (nativeMeasurement(run)?.arrivalSeconds ?? 0) >= 3600);
+  hourEvidence.append(paragraph(fullHour
+    ? "A full-hour single-account arrival window still does not establish concurrent-human-user capacity, a per-user result or a reset."
+    : "No completed 60-minute continuous run at a qualified target. No sustained-hour, reset validation or per-user result."));
+  for (const [key, title] of [["hour-ramp-25-to-50", "Continuous ramp"], ["paced-hour-25-stopped", "Earlier 25 RPM hourly attempt"]]) {
+    const run = runs.find((item) => item.runKey === key);
+    if (run) hourEvidence.append(paragraph(`${title}: ${outcomes(run)}; arrivals ended after ${duration(run)} seconds, not an hour.`));
+  }
+  const dayEvidence = node("div");
+  dayEvidence.append(paragraph("No 24-hour endurance cohort or multi-user coverage. Elapsed calendar history across sporadic runs is NOT continuous 24-hour coverage."),
+    paragraph("There is no empirical hourly/daily capacity extrapolation from a 35-start minute. The illustrative arithmetic below is a separate workload scenario, not a prediction. Sustained multi-user/SLO coverage and service-owner quota/reset confirmation are missing."));
+  table("evidence-sufficiency-content", "Evidence sufficiency by horizon / concurrent human users",
+    ["Horizon", "Concurrent-human-user capacity", "Observed coverage and missing evidence"], [
+      ["60 seconds", "NOT ESTABLISHED", minuteEvidence],
+      ["60 minutes", "NOT ESTABLISHED", hourEvidence],
+      ["24 hours", "NOT ESTABLISHED", dayEvidence]
+    ]);
+}
+
 const windowLabel = (value) => value < 60 ? `${number(value)} seconds`
   : value < 3600 ? `${number(value / 60)} minute${value === 60 ? "" : "s"}`
     : value < 86400 ? `${number(value / 3600)} hour${value === 3600 ? "" : "s"}` : `${number(value / 86400)} day`;
@@ -1322,6 +1359,7 @@ try {
   assertReport(report, schema);
   const evidence = JSON.parse(byId("window-evidence").textContent);
   assertWindowEvidence(evidence, JSON.parse(byId("window-schema").textContent), report);
+  renderEvidenceSufficiency(report.runs);
   renderCapacity(report, evidence);
   renderReviewedWindows(report, evidence);
   renderOverview(report);
@@ -1344,7 +1382,7 @@ try {
   byId("window-download").hidden = evidence === null;
   byId("window-schema-download").hidden = evidence === null;
 } catch {
-  for (const id of ["reviewed-windows", "error-timeline", "benchmark-kpis", "overview-charts", "concurrency-charts", "concurrency-content", "latency-charts", "timeline-content", "stages-content", "answers-content", "conversations-content", "capacity-summary", "overview-summary", "run-ledger", "reliability-content", "failure-charts", "failure-summary", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
+  for (const id of ["evidence-sufficiency-content", "reviewed-windows", "error-timeline", "benchmark-kpis", "overview-charts", "concurrency-charts", "concurrency-content", "latency-charts", "timeline-content", "stages-content", "answers-content", "conversations-content", "capacity-summary", "overview-summary", "run-ledger", "reliability-content", "failure-charts", "failure-summary", "native-response-content", "response-content", "throughput-content", "limits-content", "observations-content", "costs-content"]) byId(id).replaceChildren();
   byId("publication-status").textContent = "DATA REJECTED";
   byId("publication-status").classList.add("rejected");
   byId("review-status").textContent = "No metrics displayed.";

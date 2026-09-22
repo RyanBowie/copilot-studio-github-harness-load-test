@@ -168,6 +168,12 @@ section { margin-bottom: 48px; }
 .two-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
 .stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin: 24px 0; }
 .boundary { border-left: 4px solid var(--cp-accent); }
+.permission-warning { border: 2px solid var(--cp-warning); border-inline-start-width: 6px; margin-block: 24px 0; }
+.permission-warning h2 { font-size: 1.375rem; }
+.permission-warning p { color: var(--cp-text); }
+.evidence-guidance { margin-block: 24px; }
+.sufficiency-table table { min-width: 640px; }
+.sufficiency-table td:nth-child(2) { font-weight: 600; }
 .burst-summary { margin: 24px 0 32px; }
 .burst-summary .burst-result { color: var(--cp-accent); font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 600; line-height: 1.25; }
 dl { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); margin: 0; gap: 8px 16px; }
@@ -241,6 +247,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
   .hero-gradient { background: none; color: var(--cp-text); }
   .hero { padding-top: 24px; }
   .table-wrap { overflow: visible; }
+  .sufficiency-table table { min-width: 0; }
   .chart-scroll { overflow: visible; }
   .chart-scroll svg { min-width: 0; }
   .searchbar { display: none; }
@@ -277,6 +284,12 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
           <span id="publication-status" class="pill">AWAITING VALIDATION</span>
           <span id="review-status">No results shown before the public aggregate contract is checked.</span>
         </div>
+        <aside id="permission-warning" class="note permission-warning" aria-labelledby="permission-heading">
+          <h2 id="permission-heading">Microsoft written permission required before replication</h2>
+          <p><strong>Do not replicate these performance tests unless Microsoft has expressly permitted them under a duly executed written agreement, or an applicable superseding agreement expressly authorizes the testing.</strong></p>
+          <p>The <a href="https://learn.microsoft.com/en-us/legal/work-iq-apis/terms-of-use#3-work-iq-api-license-and-guidelines">Microsoft Work IQ APIs Terms of Use (preview), section 3(b)(7)</a>, last updated April 2026, sets this performance-testing restriction. This is a published requirement, not evidence that this study was covered by an agreement.</p>
+          <p>A corporate account, valid license, tenant ownership, user consent or this report is <strong>not evidence of Microsoft permission</strong>. This report has not verified applicable written-agreement coverage, does not assert that Microsoft permission was obtained and does not certify legal compliance. Historical results and protocol descriptions are observations, not authorization or instructions to benchmark.</p>
+        </aside>
       </div>
     </div>
   </header>
@@ -299,6 +312,49 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       <section id="overview" aria-labelledby="overview-heading">
         <h2 id="overview-heading">The measured result</h2>
         <p class="section-intro">How many requests succeeded, how quickly, and where did errors appear? These are single-account observations of the published route, not a measured service ceiling.</p>
+        <article id="evidence-sufficiency" class="note boundary evidence-guidance" aria-labelledby="sufficiency-heading">
+          <h3 id="sufficiency-heading">Evidence sufficiency by horizon</h3>
+          <p><strong>Concurrent-human-user capacity is NOT ESTABLISHED for 60 seconds, 60 minutes or 24 hours.</strong> All native cohorts used one corporate identity. Request volume and response latency cannot be extrapolated into a measured user capacity; illustrative workload arithmetic is shown separately below, not as a prediction.</p>
+          <div id="evidence-sufficiency-content" class="sufficiency-table"></div>
+          <h3>Four different counting units</h3>
+          <dl id="capacity-units">
+            <dt>Simultaneous client outstanding requests</dt><dd>Calls sent but not yet settled on the client at one instant; not people or simultaneous backend/model execution.</dd>
+            <dt>Distinct conversations</dt><dd>Returned conversation identifiers within a cohort; one identity can start many conversations. They are not distinct users.</dd>
+            <dt>Unique users active over a period</dt><dd>Different people active at any point in a window; not necessarily simultaneous and not measured by single-account call counts.</dd>
+            <dt>Sustainable users with an SLO</dt><dd>A representative user population meeting declared success and latency service-level objectives over sustained load; not established by a selected clean minute.</dd>
+          </dl>
+          <p class="fine">Missing dimensions include independent multi-user workloads, representative request mix, think time, roles, tenant/quota isolation, sustained coverage and a declared success/latency SLO. There is no defensible percentage of missing data or fixed additional sample count that resolves these gaps. Configured quota, counting window and reset remain unknown; a fixed set of black-box tests cannot be promised to reveal them.</p>
+        </article>
+        <article id="illustrative-scenarios" class="note boundary evidence-guidance" aria-labelledby="scenarios-heading">
+          <h3 id="scenarios-heading">Illustrative scenarios - not measured capacity</h3>
+          <p><strong>Hypothetical arithmetic only: nominal request starts, not forecasts, successful completions, quota, measured throughput or validated sustainable capacity.</strong> Inputs are illustrative even when they coincide with tested rates. The latest 35-start finding covers only a short window; prior HTTP 429 stops contradict assuming throttle-free hours or days.</p>
+          <p id="scenario-assumptions"><strong>Unverified assumptions:</strong> a constant offered rate continuously maintained, full-interval availability, and no quota/backoff or admission loss. Those conditions are NOT established. This arithmetic is not permission to generate the illustrated traffic.</p>
+          <div class="table-wrap sufficiency-table" role="region" tabindex="0" aria-label="Illustrative nominal request starts, not capacity; scroll horizontally if needed">
+            <table id="illustrative-volumes" aria-describedby="scenario-assumptions">
+              <caption>Hypothetical workload volumes / nominal request starts only</caption>
+              <thead><tr><th scope="col">Assumed constant offered rate</th><th scope="col">60 seconds</th><th scope="col">60 minutes</th><th scope="col">24 hours</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">25 requests/minute</th><td>25</td><td>1,500</td><td>36,000</td></tr>
+                <tr><th scope="row">30 requests/minute</th><td>30</td><td>1,800</td><td>43,200</td></tr>
+                <tr><th scope="row">35 requests/minute</th><td>35</td><td>2,100</td><td>50,400</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Offered-load population examples - not user capacity</h3>
+          <p id="population-assumptions">At an <strong>assumed 35 requests/minute</strong>, evenly spread steady usage by these hypothetical active populations would generate the same average offered load. These are <strong>not numbers of tested, supported or concurrently executing users, or unique users observed</strong>.</p>
+          <div class="table-wrap sufficiency-table" role="region" tabindex="0" aria-label="Hypothetical active-population examples, not user capacity; scroll horizontally if needed">
+            <table id="illustrative-populations" aria-describedby="population-assumptions population-caveat">
+              <caption>Hypothetical offered-load populations / not concurrent-user capacity</caption>
+              <thead><tr><th scope="col">Hypothetical active people</th><th scope="col">Assumed cadence per person</th><th scope="col">Average offered load generated</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">35</th><td>1 request per minute</td><td>35 requests/minute</td></tr>
+                <tr><th scope="row">175</th><td>1 request per 5 minutes</td><td>35 requests/minute</td></tr>
+                <tr><th scope="row">350</th><td>1 request per 10 minutes</td><td>35 requests/minute</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p id="population-caveat">The same people can repeat requests throughout an hour or day; request totals cannot be multiplied into distinct-user counts. No inference applies Little's Law to p50/p95 latency or client peaks. Mean request latency, user cadence, workload mix, multi-user behavior, quota scope and success/latency SLOs are not established for these scenarios. Neither table changes the NOT ESTABLISHED capacity findings above, the actual results below or the public data downloads.</p>
+        </article>
         <div id="benchmark-kpis"></div>
         <div id="overview-charts"></div>
         <div id="reviewed-windows"></div>
@@ -316,15 +372,17 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
             <h3>What this study measures</h3>
             <p>Single authenticated account, labelled published surface, requested-operation outcomes and explicitly named timing endpoints. Native invocation completion is separate from Teams visible-response latency. A final explanatory message does not turn a failed operation into a successful one. Runs, conversations and sessions remain distinct units.</p>
           </article>
-          <article class="note">
+          <article class="note" id="capacity-conclusion">
             <h3>What this study does not claim</h3>
             <p>A single Teams bot chat can serialize turns. Neither that serial pilot nor outstanding client RPC calls establish simultaneous model execution, platform-wide capacity or the backend cause of generic invocation failures.</p>
+            <p>There is no established concurrent-human-user capacity for 60 seconds, 60 minutes or 24 hours. These historical results are not permission to replicate performance tests. Any future study requires the Microsoft permission described above, service-owner confirmation and an approved representative multi-user/SLO design; this report starts no new tests.</p>
           </article>
         </div>
       </section>
       <section id="concurrency" aria-labelledby="concurrency-heading" hidden>
         <h2 id="concurrency-heading">How many calls were outstanding?</h2>
         <p class="section-intro">Observed client overlap, not configured workers or simultaneous model execution. Spreading requests changes the arrival shape; these observations do not isolate a concurrency limit.</p>
+        <p class="note boundary">Outstanding requests, distinct conversations, unique users active over a period and sustainable users meeting an SLO are different units. None of the 60-second, 60-minute or 24-hour concurrent-human-user capacities is established by these single-identity observations.</p>
         <div id="concurrency-charts"></div>
         <div id="concurrency-content"></div>
       </section>
@@ -401,8 +459,13 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
       </section>
       <section id="methodology" aria-labelledby="methodology-heading" hidden>
         <h2 id="methodology-heading">Methodology &amp; boundaries</h2>
-        <p class="section-intro">A reproducible public summary, not a transcript archive. Raw evidence stays outside this repository; every published measurement requires evidence and privacy review by the report preparer.</p>
+        <p class="section-intro">An auditable historical summary, not instructions to replicate performance tests or a transcript archive. Raw evidence stays outside this repository; every published measurement requires evidence and privacy review by the report preparer.</p>
         <div class="stack">
+          <article class="note boundary" id="permission-method">
+            <h3>Permission is a prerequisite, not a result of report review</h3>
+            <p>The <a href="https://learn.microsoft.com/en-us/legal/work-iq-apis/terms-of-use#3-work-iq-api-license-and-guidelines">April 2026 Microsoft Work IQ APIs preview terms, section 3(b)(7)</a> restrict performance testing unless expressly permitted by Microsoft pursuant to a duly executed written agreement. An applicable superseding agreement must expressly authorize the testing. The published requirement and this historical study's unverified agreement coverage are separate facts.</p>
+            <p>Evidence review, a corporate account, a valid license, tenant ownership and user consent do not establish Microsoft permission or certify legal compliance. Historical references to an authorized run, a budget or a consumed gate describe the testing owner's controls, not proof of Microsoft's written permission. These protocol descriptions are not a replication guide.</p>
+          </article>
           <article class="note boundary">
             <h3>Capacity summary / what can be derived now</h3>
             <p>Window summaries use only contiguous, complete 60-second dispatch buckets within one cohort. They count the eventual outcomes of those requests at the original drain/cutoff, not replies completed inside the window. Never combine cohorts, bridge cooldowns, scale up a partial minute, or treat a burst as steady-state traffic. Different recorded configurations are ranked separately; unknown agent revisions still prevent a controlled comparison.</p>
@@ -540,7 +603,11 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
             <p>A combined pre-invocation logging/check span of 319.63380000000325 ms crossed the local slot deadline; abandonment was 662.1854999999996 ms after the scheduled slot. This does not isolate a disk, OS or service delay. The generic failures exposed no HTTP status/backoff signal; their cause remains unknown. Costs remain pending. The consumed authorization did not permit resuming the remaining 59 or automatically starting another cohort.</p>
           </article>
         </div>
-        <p class="fine">Future scope: email &rarr; workflow &rarr; agent. That scenario is not implemented or measured by this scaffold.</p>
+        <article class="note boundary" id="replication-guidance">
+          <h3>Future work is conditional, not permission to resume</h3>
+          <p>Do not replicate these performance tests without the required express Microsoft written permission or an applicable superseding agreement expressly authorizing them. Confirm permission and scope with the service owner before considering an approved representative multi-user study with declared success and latency SLOs. There is no promise that a fixed test plan will expose a configured quota or reset window.</p>
+          <p>No new tests, recovery probes, retries, account changes or load generation are started by this report. The separate email &rarr; workflow &rarr; agent scenario remains unimplemented and unmeasured, subject to the same prerequisites.</p>
+        </article>
       </section>
       <section id="costs" aria-labelledby="costs-heading" hidden>
         <h2 id="costs-heading">Costs, tracked from the outset</h2>
@@ -563,6 +630,7 @@ footer a { margin-right: 16px; display: inline-block; padding-block: 4px; }
     </main>
     <footer>
       <p>Independent, single-account observation report for Copilot Studio agents powered by the GitHub Copilot Harness. Observations are configuration-specific, not a service guarantee.</p>
+      <p>Historical observations are not permission to benchmark. Read the <a href="#permission-warning">Microsoft written-permission requirement</a>; this report does not verify agreement coverage or certify legal compliance.</p>
       <a href="report.json" download>Public aggregate JSON</a>
       <a href="report.schema.json" download>JSON schema</a>
       <a id="window-download" href="window-evidence.json" download hidden>Window evidence JSON</a>

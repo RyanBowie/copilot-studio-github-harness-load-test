@@ -2,11 +2,53 @@
 
 A separate, aggregate-only report for single-account observations of **Copilot Studio agents powered by the GitHub Copilot Harness**. This is not the Standard Harness study, GitHub coding agent, or Copilot SDK.
 
+> **Microsoft written permission required before replication.** Do not replicate these performance tests unless Microsoft has expressly permitted them under a duly executed written agreement, or an applicable superseding agreement expressly authorizes the testing.
+>
+> [Microsoft Work IQ APIs Terms of Use (preview), section 3(b)(7)](https://learn.microsoft.com/en-us/legal/work-iq-apis/terms-of-use#3-work-iq-api-license-and-guidelines), **last updated April 2026**, sets the published performance-testing restriction. Applicable agreement coverage for this historical study has not been verified by this report. A corporate account, valid license, tenant ownership, user consent or this report is **not evidence of Microsoft permission**. No Microsoft written permission is asserted and no legal compliance is certified.
+>
+> Historical results and protocol descriptions are observations, not authorization or instructions to benchmark. References below to an authorized run, budget or consumed gate describe testing-owner controls, not proof of Microsoft's written permission. No runnable live-traffic instructions are provided by this update.
+
 **Current state: sixteen reviewed runs, reported on [GitHub Pages](https://ryanbowie.github.io/copilot-studio-github-harness-load-test/).** The newest quota/recovery study was **locally interrupted**, with **81 attempts / 80 greetings / 1 initial disconnected invocation / 0 pending**. Only the 35 RPM phase ran, for **140.1724152 seconds**. A fully observed 60-second dispatch window contained **35 starts**, and a separately selected window contained **35 starts that all eventually returned greetings**. This exceeds 30 client starts in a full minute, but does not establish a configured service quota, counting/reset window or sustained capacity. **The testing objective remains unresolved.**
 
 All fifteen prior records and their campaign contexts remain unchanged, including the ramp's **365 attempts / 364 greetings / 1 HTTP 429 / 0 pending** over **835.034977 seconds**, and its separately reviewed 268-start/600-second and 30-start/60-second maxima. Those maxima describe that earlier ramp only. The separate 125-request baseline remains **124 greetings / 1 initial disconnected failure / 0 pending (99.2%)**, at **24.74588719816105 actual RPM**, not full 25/min or zero-error qualification. The strict zero-error study still has no candidate after its first transport disconnection. **No full hour completed and no GitHub Copilot Harness capacity ceiling is established.** Costs remain **pending**, not zero. No Standard Harness data or images are imported. This repository is an offline report, not a cloud test runner; the separate email-to-workflow-to-agent scenario is not implemented.
 
 First published on **2026-09-21** through the existing GitHub Actions Pages workflow. Deployment remains manual, explicitly opted in, restricted to `main`, and gated by the `github-pages` environment's required reviewer. The published HTML, aggregate JSON and schema were verified against the reviewed source; publication performed no new live load tests.
+
+## Evidence sufficiency by horizon
+
+**None of these horizons establishes concurrent-human-user capacity.** All native cohorts used one corporate identity. Simultaneous client-outstanding requests are calls awaiting settlement, not people or simultaneous backend executions. Distinct conversations are identifiers, not distinct users. Unique users active at any time in a period are not necessarily simultaneous. Sustainable users meeting a declared success/latency service-level objective (SLO) are a further, unmeasured population.
+
+| Horizon | Concurrent-human-user capacity | Observed coverage and gaps |
+| --- | --- | --- |
+| 60 seconds | **NOT ESTABLISHED** | Latest full dispatch cohort: **35/35 eventual greetings**, not 35 callbacks inside that minute or a quota/capacity benchmark. Its separate maximum-start representative is **35 attempts / 34 greetings / 1 failure / 0 pending**. The enclosing study was **81/80/1/0**, interrupted after **140.1724152 seconds**, with peak **8 client-outstanding calls**. The separate burst peak **100** produced **33/100 greetings**, not 100 users |
+| 60 minutes | **NOT ESTABLISHED** | No completed continuous hour at a qualified target. The variable-rate ramp ended at **835.034977 seconds**, **365/364/1/0**; the earlier 25 RPM hour attempt ended at **512.2330114 seconds**, **214/213/1/0**. No sustained-hour, reset validation or per-user result |
+| 24 hours | **NOT ESTABLISHED** | No 24-hour endurance cohort or multi-user coverage. Calendar time spanning sporadic runs is not continuous 24-hour observation |
+
+Missing dimensions are independent multi-user workloads, representative request mix, think time, roles, tenant/quota isolation, sustained coverage and declared success/latency SLOs. There is no defensible percentage of missing data or fixed additional sample count that resolves these gaps. Configured numeric quota, counting window and reset remain unknown; a fixed set of black-box tests cannot be promised to identify them. **No empirical capacity extrapolation follows**; the separate arithmetic examples below are workload scenarios, not predictions.
+
+### Illustrative scenarios - not measured capacity
+
+**Hypothetical nominal request starts only, not forecasts, successful completions, quota, measured throughput or validated sustainable capacity.** Inputs are illustrative even if they coincide with tested rates. The latest 35-start observation is only a short window; prior HTTP 429 stops contradict assuming throttle-free hours or days.
+
+**Unverified assumptions:** constant offered rate continuously maintained, full-interval availability, and no quota/backoff or admission loss. None of those conditions is established. These numbers are not permission to generate traffic.
+
+| Assumed constant offered rate | 60 seconds: nominal starts | 60 minutes: nominal starts | 24 hours: nominal starts |
+| --- | --- | --- | --- |
+| 25 requests/minute | 25 | 1,500 | 36,000 |
+| 30 requests/minute | 30 | 1,800 | 43,200 |
+| 35 requests/minute | 35 | 2,100 | 50,400 |
+
+**Offered-load population examples, not user capacity:** at an assumed 35 requests/minute, evenly spread steady usage by the following hypothetical active populations generates the same average offered load. These are **not tested, supported or concurrently executing users, or unique users observed**.
+
+| Hypothetical active people | Assumed cadence per person | Average offered load generated |
+| --- | --- | --- |
+| 35 | One request per minute | 35 requests/minute |
+| 175 | One request per five minutes | 35 requests/minute |
+| 350 | One request per ten minutes | 35 requests/minute |
+
+The same people can repeat requests during an hour or day; request totals are not distinct-user counts. No inference applies Little's Law to p50/p95 latency or client peaks. Mean request latency, user cadence, workload mix, multi-user behavior, quota scope and SLOs are not established for these scenarios. The illustrative tables remain outside all measured-result charts and the four public data downloads: **sixteen actual records, not a seventeenth scenario record**.
+
+Future performance work requires the express Microsoft written permission described above or an applicable superseding agreement expressly authorizing it, service-owner confirmation and an approved representative multi-user/SLO study design. This report starts no new tests, probes, retries or load generation.
 
 ## Chart-led reporting and measured window maxima
 
@@ -69,6 +111,8 @@ The older dispatch-bucket failure table locates the first **dispatch bucket cont
 ### Remaining evidence, not permission for new traffic
 
 The [separate Standard Harness report](https://ryanbowie.github.io/copilot-studio-load-test/) informs the reporting questions, not this report's numerical limits. Its measurements are not imported here; the existing tenant/environment/transport/model/workload confounders remain.
+
+The gaps below are not an execution plan or authorization. Any future performance study first needs the Microsoft permission described above, service-owner confirmation and an approved representative multi-user/SLO design. User authorization, an explicit request bound and offline checks cannot substitute for Microsoft's permission.
 
 | Missing result | Reviewed aggregate needed |
 | --- | --- |
@@ -569,7 +613,7 @@ Only HTTPS documentation URLs under `learn.microsoft.com` or `docs.github.com` a
 | [CopilotStudioClient / Agents SDK integration](https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk) | Existing integration guidance is Standard Harness only. | No supported programmatic published GitHub Copilot Harness user-client contract was established from these sources. Never replay private endpoints or presume Teams APIs invoke the bot. |
 | [Billed-credit activity timing](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/authoring-review-activity#billings) | Billed credits update after "a few hours"; no exact SLA. | An empty pre-pilot meter is not zero usage or settled cost. |
 
-The user explicitly requested and the testing owner executed one bounded 100-call native burst; it is not merely a future plan. This report update creates no live runner and grants no further/open-ended load authorization. Additional work requires an explicit bound, excludes review/email workloads and must not automatically retry ambiguous failures. Earlier single-chat wait-for-completion guidance describes the Teams pilot, not the measured distinct-conversation burst. Neither serial turns nor outstanding client RPCs establish backend/model concurrency. Old Standard Harness results from a different tenant, Production environment and DirectToEngine transport support descriptive comparison only, not a controlled harness-only comparison.
+The user explicitly requested and the testing owner executed one bounded 100-call native burst; it is not merely a future plan. This report update creates no live runner and grants no further/open-ended load authorization. Additional performance work requires express Microsoft written permission or an applicable superseding agreement expressly authorizing it, service-owner confirmation and an approved study design before any separately bounded execution. Historical user authorization is not proof of that permission. Earlier single-chat wait-for-completion guidance describes the Teams pilot, not the measured distinct-conversation burst. Neither serial turns nor outstanding client RPCs establish backend/model concurrency. Old Standard Harness results from a different tenant, Production environment and DirectToEngine transport support descriptive comparison only, not a controlled harness-only comparison.
 
 ## Safe ingestion and publication
 
