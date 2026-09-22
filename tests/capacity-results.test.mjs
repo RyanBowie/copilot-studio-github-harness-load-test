@@ -17,7 +17,7 @@ const reject = (change, pattern) => {
 
 test("reviewed capacity study preserves its one actual disconnected attempt and no clean candidate", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 15);
+  assert.equal(report.runs.length, 16);
   assert.deepEqual(run.counts, { attempted: 1, completed: 0, failed: 1, pending: 0 });
   assert.deepEqual(run.errors, [{ category: "transport", count: 1, evidence: "native_disconnected_no_conversation" }]);
   assert.deepEqual(run.units, { conversations: 0, sessions: null });

@@ -15,7 +15,7 @@ const reject = (change, pattern) => {
 
 test("actual ramp retains 365/364/1/0 and unknown-layer HTTP429 without inventing a numeric quota", () => {
   assert.deepEqual(validateReport(report, schema), []);
-  assert.equal(report.runs.length, 15);
+  assert.equal(report.runs.length, 16);
   assert.deepEqual(run.counts, { attempted: 365, completed: 364, failed: 1, pending: 0 });
   assert.deepEqual(run.errors, [{ category: "throttling", count: 1, evidence: "native_http_429_no_conversation" }]);
   assert.equal(run.units.conversations, 364);

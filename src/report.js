@@ -37,7 +37,8 @@ const node = (tag, text, className) => {
   return element;
 };
 const paragraph = (text, className) => node("p", text, className);
-const nativeMeasurement = (run) => run.rampMeasurement ?? run.pacedMeasurement ?? run.nativeInvocation;
+const nativeMeasurement = (run) => run.quotaStudyMeasurement ?? run.rampMeasurement ?? run.pacedMeasurement ?? run.nativeInvocation;
+const quotaStopLabel = "Local observer read failure; controller stopped dispatch and drained; not user cancellation or provider throttling";
 const nativeFirst = (runs) => orderRunsByRate(runs);
 const scopedContext = (report, run) => report.studyContext?.runKeys.includes(run.runKey) ? report.studyContext : null;
 const seconds = (milliseconds) => `${(milliseconds / 1000).toFixed(3)} s`;
@@ -126,7 +127,8 @@ const cohortNames = {
   "paced-elastic-100-completed": "100/min target retest",
   "capacity-25-transport-stop": "25/min screen stopped",
   "paced-125-25-baseline": "25/min target baseline",
-  "hour-ramp-25-to-50": "25-50/min ramp stopped"
+  "hour-ramp-25-to-50": "25-50/min ramp stopped",
+  "quota-recovery-35-local-stop": "35/min observer stop"
 };
 const cohortName = (run) => cohortNames[run.runKey] ?? run.runKey;
 const outcomeSeries = [
@@ -238,11 +240,13 @@ function renderCharts(runs) {
         key: row.runKey, label: cohortName(row), values: row.percentages,
         summary: `${row.counts.completed} successful / ${row.counts.attempted} attempts; ${row.counts.failed} failed; ${row.counts.pending} pending`,
         summaryLines: [`${row.counts.completed} / ${row.counts.attempted} replies`, row.percentages[0] === null ? "No attempt ratio" : `${number(row.percentages[0])}% success`],
-        detail: `${row.counts.failed} failed; ${row.counts.pending} pending. ${row.loadShape === "ramp" ? "Continuous variable-rate run" : byKey.get(row.runKey).pacedMeasurement ? `${number(byKey.get(row.runKey).pacedMeasurement.arrivalSeconds)} s arrivals + drain` : "Burst; not a paced minute"}.`
+        detail: `${row.counts.failed} failed; ${row.counts.pending} pending. ${row.loadShape === "ramp" ? "Continuous variable-rate run" : row.targetRpm !== null ? `${number(nativeMeasurement(byKey.get(row.runKey)).arrivalSeconds)} s arrivals + drain` : "Burst; not a paced minute"}.`
       }))
     });
     const overview = byId("overview-charts");
     overview.replaceChildren();
+    const quotaStudies = ordered.filter((run) => run.quotaStudyMeasurement);
+    if (quotaStudies.length) overview.append(quotaStudyCard(quotaStudies.at(-1)));
     const ramps = ordered.filter((run) => run.rampMeasurement);
     if (ramps.length) overview.append(rampSummaryCard(ramps.at(-1)));
     const latestBaseline = ordered.filter(isCountBaseline).sort((a, b) => a.pacedMeasurement.startedAt.localeCompare(b.pacedMeasurement.startedAt)).at(-1);
@@ -401,7 +405,7 @@ function renderStages(runs) {
     table(results, "Reviewed stage explorer", ["Stage / surface", "Load shape", "Actual arrival or observation", "Success / attempts", "Failed / pending", "Result"],
       selection.map((run) => [
         `${run.runKey} / ${label(run.surface)}`,
-        run.rampMeasurement ? "Continuous 25-50 nominal RPM ramp" : run.pacedMeasurement ? `${number(run.pacedMeasurement.targetRpm)} intended/min` : run.nativeInvocation ? `${run.counts.attempted}-request burst; not RPM` : "Single visible turn",
+        run.quotaStudyMeasurement ? `${number(run.quotaStudyMeasurement.targetRpm)} intended/min; interrupted quota study` : run.rampMeasurement ? "Continuous 25-50 nominal RPM ramp" : run.pacedMeasurement ? `${number(run.pacedMeasurement.targetRpm)} intended/min` : run.nativeInvocation ? `${run.counts.attempted}-request burst; not RPM` : "Single visible turn",
         run.pacedMeasurement ? `${number(run.pacedMeasurement.arrivalSeconds)} s arrivals + ${postCloseSummary(run)}` : run.windowSeconds === null ? "Not measured" : `${number(run.windowSeconds)} s observation`,
         outcomeRatio(run.counts), `${run.counts.failed} / ${run.counts.pending}`,
         nativeMeasurement(run) ? loadStatus(run) : "Visible requested-operation outcome; not a load calibration."
@@ -556,7 +560,7 @@ function renderReviewedWindows(report, evidence) {
   const headline = byId("benchmark-kpis");
   headline.replaceChildren();
   const missing = report.runs.filter((run) => nativeMeasurement(run) && !evidence.runs.some((item) => item.runKey === run.runKey));
-  if (missing.length) headline.append(paragraph(`Rolling-window scope: ${evidence.runs.length} reviewed native cohorts only. Excludes ${missing.map(cohortName).join(", ")}; these are not maxima across every displayed run. Any separately reviewed ramp windows remain in that run's result, outside this seven-cohort supplement.`, "fine"));
+  if (missing.length) headline.append(paragraph(`Rolling-window scope: ${evidence.runs.length} reviewed native cohorts only. Excludes ${missing.map(cohortName).join(", ")}; these are not maxima across every displayed run. Separately reviewed ramp and quota-study windows remain in their own results, outside this seven-cohort supplement.`, "fine"));
   for (const group of summarizeReviewedWindows(evidence, report)) {
     const minute = group.windows.find((window) => window.seconds === 60);
     const five = group.windows.find((window) => window.seconds === 300);
@@ -653,6 +657,47 @@ function renderErrorTimeline(evidence, report) {
       ];
     }));
   target.append(stops, paragraph("The dispatch-close assignment was not separately timestamped; synchronous callback order supplies inclusive bounds. Post-trigger outcomes may arrive before the observed arrival end or during the separately measured drain. Final failures include calls already in flight. Zero client pending is not proof that remote work, retries, admission or cost have settled.", "fine"));
+}
+
+function quotaStudyCard(run) {
+  const study = run.quotaStudyMeasurement, clock = study.phaseClock;
+  const card = node("article", undefined, "note block");
+  card.dataset.quotaStudy = run.runKey;
+  card.append(paragraph("INTERRUPTED QUOTA STUDY / OBJECTIVE UNRESOLVED", "eyebrow"),
+    node("h3", `${number(run.counts.completed)} greetings / ${number(run.counts.attempted)} study attempts`),
+    paragraph(`${number(run.counts.failed)} failed / ${number(run.counts.pending)} pending. First invocation disconnected/invoke in ${number(study.failure.maxMs)} ms with no returned conversation ID; all subsequent ${number(run.counts.completed)} greetings succeeded. No HTTP 429 or exposed backoff was observed in this study. Remote admission of the failed invocation remains unknown.`),
+    paragraph(`Only phase ${study.phase} ran: ${study.targetRpm} target RPM for ${number(study.arrivalSeconds)} s of the planned 1,800 s; actual window-average ${number(run.counts.attempted / study.arrivalSeconds * 60)}/min. Final drain ${number(study.drainSeconds)} s. ${number(study.unofferedLoadSlots)} unoffered phase slots and ${number(study.unusedStudyCeiling)} unused study-ceiling calls are not failures or restart authorization.`),
+    paragraph(`${quotaStopLabel}. PermissionError (errno ${study.localObserverIncident.errno}) while reading the local summary caused the parent to request stop-new-dispatch and drain. Stored controller reason: ${study.localObserverIncident.storedControllerReason}. Atomic-replacement contention is a hypothesis, not an established cause.`),
+    paragraph(`No recovery probes, second 50 RPM phase, retries or restart. ${number(run.units.conversations)} distinct returned conversations; peak ${number(study.peakOutstanding)} outstanding client calls, not model concurrency. Costs ${run.cost.status}. The configured quota, counting window and reset remain unknown.`),
+    paragraph(`Observed phase ${study.startedAt} to ${study.arrivalEndedAt}; drain through ${study.observedThroughAt}. Local observation loop ended ${number((clock.arrivalObservationLoopEndOffsetMs - clock.startOffsetMs) / 1000)} s after phase start, not extra arrival time. Study bookkeeping finished ${study.studyFinishedAt}.`, "fine"));
+  const minute = study.rollingDispatchWindows.find((window) => window.windowSeconds === 60);
+  if (minute) card.append(node("h3", `${number(minute.maximumStarts)} starts in a fully observed 60-second window`),
+    paragraph(`Separately selected successful dispatch window: ${number(minute.greetingsWindowCounts.completed)} eventual greetings from ${number(minute.greetingsWindowCounts.attempted)} starts in 60 s. These are outcomes of calls started within the window, not necessarily replies completed inside it. ${minute.maximumStarts > 30 ? "The observed starts exceed 30 in a full minute; 30 is not an observed hard ceiling on client calls in any 60 s." : "No above-30-start minute is established by this record."} This does not identify a configured service quota or sustained capacity.`));
+  return card;
+}
+
+function renderQuotaStudy(run, target) {
+  const study = run.quotaStudyMeasurement, quiet = study.initialQuietEvidence, paired = study.pairedClockEvidence;
+  const article = node("article", undefined, "stack");
+  article.dataset.quotaWindows = run.runKey;
+  article.append(node("h3", `${run.runKey} / one observed phase and full dispatch windows`),
+    paragraph(`${study.targetRpm} target RPM; ${number(run.counts.attempted)} starts / ${number(run.counts.completed)} greetings / ${number(run.counts.failed)} failure / ${number(run.counts.pending)} pending. Local observer interruption after ${number(study.arrivalSeconds)} s, not a completed thirty-minute phase. No unobserved phase or probe result rows.`));
+  const container = node("div");
+  table(container, `${run.runKey} / independently selected rolling dispatch populations`,
+    ["Full window / candidates", "Maximum starts / representative interval (s)", "Eventual outcomes of those starts", "Maximum eventual greetings / separate interval (s)", "Eventual outcomes of greeting-selected starts"],
+    study.rollingDispatchWindows.map((window) => [
+      `${number(window.windowSeconds)} s / ${number(window.candidateWindowsChecked)}`,
+      `${number(window.maximumStarts)} / [${number(window.startsRepresentativeSeconds)}, ${number(window.startsRepresentativeSeconds + window.windowSeconds)})`,
+      ["attempted", "completed", "failed", "pending"].map((key) => number(window.startsWindowCounts[key])).join(" / "),
+      `${number(window.maximumEventualGreetings)} / [${number(window.greetingsRepresentativeSeconds)}, ${number(window.greetingsRepresentativeSeconds + window.windowSeconds)})`,
+      ["attempted", "completed", "failed", "pending"].map((key) => number(window.greetingsWindowCounts[key])).join(" / ")
+    ]));
+  article.append(container,
+    paragraph("Outcome columns: attempts / eventual greetings / failures / pending. Half-open [start, end) windows require full arrival coverage. The maximum-start and maximum-greeting representatives are independently selected: equal 35-start counts do not mean identical windows. No within-window successful callback count is inferred.", "fine"),
+    paragraph(`Controlled-client quiet evidence: previous controlled run finished ${quiet.previousControlledRunFinishedAt}; identity was permitted after ${quiet.earliestPermittedIdentityAt} and completed ${quiet.initialIdentityCompletedAt}. One identity read is separate from greetings. Quiet does not mean tenant/account-wide inactivity or a known reset; external traffic and internal service request counts remain unknown.`, "fine"),
+    paragraph(`Dispatch windows use retained request-start monotonic timestamps; completion timelines use those starts plus matching native durations. Separately sampled event reads differ by at most ${number(paired.maximumStartReadDeltaMs)} ms at start and ${number(paired.maximumCompletionReadDeltaMs)} ms at completion, below the ${paired.allowedReadDeltaLessThanMs} ms allowance. Do not force different clock reads or rounded UTC metadata into decimal equality. Clock/evidence verified.`, "fine"),
+    paragraph("The original seven-cohort window supplement and the separate ramp maxima are unchanged. Neither those earlier windows nor this interrupted phase settles the configured quota, reset window, sustained capacity or overall testing objective.", "fine"));
+  target.append(article);
 }
 
 function rampSummaryCard(run) {
@@ -791,6 +836,7 @@ function renderRampTimings(run, target) {
 }
 
 function loadStatus(run) {
+  if (run.quotaStudyMeasurement) return `${quotaStopLabel}. Study incomplete; quota/reset unresolved.`;
   if (run.rampMeasurement) return `Variable-rate arrival ${label(run.rampMeasurement.arrivalStatus)}; final drain ${label(run.rampMeasurement.drainStatus)}${run.rampMeasurement.stopReason ? `; ${rampStopLabel(run)}` : ""}. No fixed-rate qualification.`;
   const paced = run.pacedMeasurement;
   if (!paced) return "Finished burst; not a sustained arrival rate.";
@@ -810,8 +856,8 @@ function renderReliability(runs) {
     native.map((run) => {
       const measurement = nativeMeasurement(run);
       return [
-        `${run.runKey} / ${run.rampMeasurement ? `25-50 nominal RPM ramp; ${measurement.campaignKey}` : run.pacedMeasurement ? `${number(measurement.targetRpm)} intended RPM; ${measurement.campaignKey}` : `${number(run.counts.attempted)}-request burst`}`,
-        run.rampMeasurement ? `${number(measurement.arrivalSeconds)} s variable-rate arrivals + ${number(measurement.drainSeconds)} s final post-close observation` : run.pacedMeasurement ? `${number(measurement.arrivalSeconds)} s arrivals + ${postCloseSummary(run)}` : `${number(run.windowSeconds)} s batch, not an arrival-rate trial`,
+        `${run.runKey} / ${run.rampMeasurement ? `25-50 nominal RPM ramp; ${measurement.campaignKey}` : run.pacedMeasurement || run.quotaStudyMeasurement ? `${number(measurement.targetRpm)} intended RPM; ${measurement.campaignKey}` : `${number(run.counts.attempted)}-request burst`}`,
+        run.rampMeasurement ? `${number(measurement.arrivalSeconds)} s variable-rate arrivals + ${number(measurement.drainSeconds)} s final post-close observation` : run.quotaStudyMeasurement ? `${number(measurement.arrivalSeconds)} s partial phase + ${number(measurement.drainSeconds)} s drain` : run.pacedMeasurement ? `${number(measurement.arrivalSeconds)} s arrivals + ${postCloseSummary(run)}` : `${number(run.windowSeconds)} s batch, not an arrival-rate trial`,
         outcomeRatio(run.counts), `${number(run.counts.failed)} / ${number(run.counts.pending)}`,
         measurement.success ? seconds(measurement.success.p95Ms) : "No successful samples",
         measurement.peakOutstanding === null ? "Not measured" : `${number(measurement.peakOutstanding)} outstanding client calls`,
@@ -869,7 +915,7 @@ function renderFailureSummary(runs) {
         run.runKey,
         run.errors.map((error) => `${number(error.count)} ${label(error.evidence)}`).join("; "),
         first ? `${number(first.offsetSeconds)}-${number(first.offsetSeconds + first.durationSeconds)} s: ${number(first.failed)} eventual failure${first.failed === 1 ? "" : "s"} among ${number(first.attempted)} dispatches. Not the time the first error returned.` : "Not bucketed; exact first-error return time not available.",
-        ramp ? loadStatus(run) : paced ? (paced.stopReason ? `${number(paced.arrivalEndObservedSeconds)} s observed arrival end / ${pacedStopLabel(run)}. Final error count includes calls already in flight, not the guard's trigger count.`
+        ramp || run.quotaStudyMeasurement ? loadStatus(run) : paced ? (paced.stopReason ? `${number(paced.arrivalEndObservedSeconds)} s observed arrival end / ${pacedStopLabel(run)}. Final error count includes calls already in flight, not the guard's trigger count.`
           : `${isCountBound(run) ? "Count-bound" : "Full"} ${number(paced.arrivalSeconds)} s arrival window; ${label(paced.qualification)}. No arrival stop.`)
           : `${number(run.windowSeconds)} s batch observation; not a measured failure-onset time.`,
         http429 ? "Explicit native HTTP 429; normalized transport_failure/invoke. No returned conversation identifier or exposed backoff. Enforcing layer, quota scope and remote admission unknown; not a 30 RPM harness ceiling. No retry/restart."
@@ -970,6 +1016,13 @@ function renderOverview(report) {
       paragraph(`${number(run.rampMeasurement.arrivalSeconds)} s recorded arrival coverage; ${loadStatus(run)} Separate campaign ${run.rampMeasurement.campaignKey}. Segment details retain carry-over and actual dispatch denominators.`));
     overview.append(feature);
   }
+  for (const run of report.runs.filter((item) => item.quotaStudyMeasurement)) {
+    const feature = node("article", undefined, "note boundary quota-summary");
+    feature.dataset.runKey = run.runKey;
+    feature.append(node("h3", `${run.runKey} / interrupted first phase`), outcomeCards([run], true, "This observed study phase only"),
+      paragraph(loadStatus(run)));
+    overview.append(feature);
+  }
   for (const run of report.runs.filter((item) => item.nativeInvocation)) {
     const invocation = run.nativeInvocation;
     const feature = node("article", undefined, "note boundary burst-summary");
@@ -1040,6 +1093,7 @@ function renderResponses(runs) {
     article.append(tableContainer, paragraph(`Percentiles: ${words(invocation.percentileMethod)} within each population, never averaged or pooled with Teams timing. Display rounded to milliseconds; reviewed raw milliseconds remain in the public JSON.`, "fine"));
     if (run.pacedMeasurement) article.append(paragraph(`${pacedPhase(invocation)} only, using calibrated native RPC completion timing. Do not pool this cohort's percentiles with calibration stages, another hourly cohort or the earlier burst. Arrival window excludes the separately recorded drain.`, "fine"));
     else if (run.rampMeasurement) article.append(paragraph("One continuous variable-rate run, not six independent latency populations. Whole-run percentiles cannot be reconstructed by averaging segment percentiles. No pooled comparison with fixed-rate cohorts; final pending calls have no settled duration.", "fine"));
+    else if (run.quotaStudyMeasurement) article.append(paragraph("One interrupted study phase. Native durations use matching monotonic start/end reads; separately sampled event offsets can differ slightly and are not required to be decimal-identical. No visible response timing, backend timing or pooled quota inference.", "fine"));
     else {
       const calibration = invocation.calibration;
       article.append(paragraph(`Completion timing was independently calibrated: ${number(calibration.shortRequestedMs)} ms and ${number(calibration.longRequestedMs)} ms local native RPC operations returned in ${seconds(calibration.shortObservedMs)} and ${seconds(calibration.longObservedMs)}. Ordinary CLI event/hook timestamps were coalesced and excluded; calibration demonstrates distinct completion measurements, not backend timing or eliminated client overhead.`, "fine"));
@@ -1073,12 +1127,14 @@ function renderThroughput(report) {
   else table("throughput-content", "Observed windows, not platform capacity", ["Run / surface", "Observation window / outcomes", "Launch or arrival observation", "Maximum outstanding"],
     nativeFirst(report.runs).map((run) => [
       `${run.runKey} / ${label(run.surface)}`,
+      run.quotaStudyMeasurement ? `${number(run.quotaStudyMeasurement.arrivalSeconds)} s partial first phase + ${number(run.quotaStudyMeasurement.drainSeconds)} s drain; ${loadStatus(run)}` :
       run.rampMeasurement ? `${number(run.rampMeasurement.arrivalSeconds)} s variable-rate coverage; observed end offset ${number(run.rampMeasurement.arrivalEndObservedSeconds)} s + ${number(run.rampMeasurement.drainSeconds)} s final post-close observation; ${loadStatus(run)}` :
       run.pacedMeasurement ? `${pacedPhase(run.pacedMeasurement)}: ${number(run.pacedMeasurement.arrivalSeconds)} s offer window; observed end offset ${number(run.pacedMeasurement.arrivalEndObservedSeconds)} s + ${postCloseSummary(run)}; ${label(run.pacedMeasurement.arrivalStatus)} / ${label(run.pacedMeasurement.drainStatus)}` :
       run.nativeInvocation ? `${number(run.counts.completed)} replies / ${number(run.counts.attempted)} invocation outcomes in ${number(run.windowSeconds)} s; not a sustained capacity result` :
       run.windowSeconds === null ? "Not measured" : run.counts.attempted === 1
         ? `${number(run.windowSeconds)} s; one sent message, not a throughput trial`
         : `${number(run.counts.completed / run.windowSeconds * 60)} completed/min over ${number(run.windowSeconds)} s`,
+      run.quotaStudyMeasurement ? `${run.quotaStudyMeasurement.targetRpm} intended RPM / ${number(run.counts.attempted / run.quotaStudyMeasurement.arrivalSeconds * 60)} actual window-average dispatches/min; not sustained capacity` :
       run.rampMeasurement ? "25 / 30 / 35 / 40 / 45 / 50 nominal RPM; actual segment counts below. No single sustained-rate claim." :
       run.pacedMeasurement ? `${number(run.pacedMeasurement.targetRpm)} intended RPM / ${observedPacedRpm(run) === null ? "observed rate not measured; no partial-minute normalization" : `${achievedRpm(run)} achieved client dispatches/min`}; no network/server arrival claim` :
       run.nativeInvocation ? `${run.nativeInvocation.dispatchWindowMs} ms client RPC launch spread only; network/server arrival spread unmeasured` :
@@ -1099,6 +1155,7 @@ function renderThroughput(report) {
     byId("throughput-content").append(section);
   }
   for (const run of report.runs.filter((item) => item.rampMeasurement)) renderRampSegments(run, byId("throughput-content"));
+  for (const run of report.runs.filter((item) => item.quotaStudyMeasurement)) renderQuotaStudy(run, byId("throughput-content"));
   if (!report.documentedLimits.length) {
     const note = node("article", undefined, "note");
     note.append(node("h3", "No numerical entries in this dataset"), paragraph("This does not mean unlimited capacity. Separately cited documentation below is not an observed capacity result."));
@@ -1134,6 +1191,7 @@ function renderObservations(runs) {
         paragraph(`Offer-window duration: ${paced.arrivalSeconds} s. Independently observed arrival-end offset: ${paced.arrivalEndObservedSeconds} s; ${postCloseLabel(run)}: ${paced.drainSeconds} s; full observation: ${run.windowSeconds} s. Timer overshoot and separate cutoff reads are retained, not rounded into equality; wall-clock metadata is a separate clock source.`, "fine"),
         paragraph("Greeting-only requests; no workflow, approval or email workload. Native completion includes client/pipeline overhead. Unclassified invocation failures do not establish throttling or a harness-wide ceiling. No burst history or Monitor evidence is assumed to cover this cohort.", "fine"));
     }
+    if (run.quotaStudyMeasurement) card.append(paragraph(`${quotaStopLabel}. Stored reason manual_stop records the controller action, not user intent. Windows atomic-replacement contention remains an unproven hypothesis. First disconnected invocation was not HTTP 429; no later recovery probes or second phase. The study objective remains unresolved.`));
     if (run.nativeInvocation) {
       const invocation = run.nativeInvocation;
       const history = invocation.history;

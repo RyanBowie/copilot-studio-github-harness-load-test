@@ -17,7 +17,7 @@ const reject = (edit, expected, scenario = "full") => {
 
 test("optional paced support keeps the four earlier runs separate from reviewed campaign cohorts", async () => {
   const { report } = await loadPublicReport();
-  assert.equal(report.runs.filter((run) => !run.pacedMeasurement && !run.rampMeasurement).length, 4);
+  assert.equal(report.runs.filter((run) => !run.pacedMeasurement && !run.rampMeasurement && !run.quotaStudyMeasurement).length, 4);
   assert.equal(report.runs.find((run) => run.nativeInvocation).counts.attempted, 100);
 });
 

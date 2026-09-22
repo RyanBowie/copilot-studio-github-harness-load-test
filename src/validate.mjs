@@ -131,6 +131,66 @@ function checkInvocationTimings(invocation, counts, windowSeconds, path, fail) {
   }
 }
 
+function checkQuotaStudy(run, path, fail, checkDate) {
+  const study = run.quotaStudyMeasurement, counts = run.counts, clock = study.phaseClock;
+  if (run.pacedMeasurement || run.rampMeasurement || run.nativeInvocation !== null || run.workload !== "single_turn" || run.workflow !== "not_involved"
+    || run.clientIssues.length || [run.workflowState, run.followUp, run.firstVisibleActivity, run.firstVisibleLatency, run.latency, run.arrival, run.concurrency].some((value) => value !== null)) {
+    fail(path, "quota study must remain a separate native greeting phase, not a burst, ramp, qualified paced cohort or visible/workflow measurement.");
+  }
+  if (counts.pending !== 0 || counts.failed !== 1 || run.errors.length !== 1 || run.errors[0].evidence !== "native_disconnected_no_conversation"
+    || run.units.conversations !== counts.completed || study.peakOutstanding > counts.attempted) {
+    fail(path, "this interrupted-study shape requires settled greetings, one missing-ID disconnected invocation and verified returned conversations; no provider throttle.");
+  }
+  if (counts.attempted + study.unofferedLoadSlots !== study.plannedLoadSlots || counts.attempted + study.unusedStudyCeiling !== study.studyRequestCeiling) {
+    fail(path, "actual attempts and unoffered phase slots / unused study ceiling must reconcile separately; identity reads are not greetings.");
+  }
+  if (run.windowSeconds === null || Math.abs((clock.arrivalEndOffsetMs - clock.startOffsetMs) / 1000 - study.arrivalSeconds) > 0.000001
+    || Math.abs((clock.drainEndOffsetMs - clock.arrivalEndOffsetMs) / 1000 - study.drainSeconds) > 0.000001
+    || Math.abs((clock.drainEndOffsetMs - clock.startOffsetMs) / 1000 - run.windowSeconds) > 0.000001
+    || study.arrivalSeconds >= study.plannedArrivalSeconds || clock.arrivalObservationLoopEndOffsetMs < clock.arrivalEndOffsetMs
+    || clock.arrivalObservationLoopEndOffsetMs > clock.drainEndOffsetMs || study.studyFinishedOffsetMs < clock.drainEndOffsetMs
+    || study.studyFinishedOffsetMs > study.maximumStudySeconds * 1000) {
+    fail(path, "partial phase, dispatch close, local observation loop, drain and study finish must retain their ordered monotonic intervals.");
+  }
+  const quiet = study.initialQuietEvidence;
+  for (const value of [study.startedAt, study.arrivalEndedAt, study.observedThroughAt, study.studyFinishedAt,
+    quiet.previousControlledRunFinishedAt, quiet.earliestPermittedIdentityAt, quiet.initialIdentityCompletedAt]) {
+    const instant = new Date(value);
+    if (Number.isNaN(instant.valueOf()) || instant.toISOString() !== value) fail(path, "study clock markers must be real millisecond UTC instants.");
+    checkDate(value.slice(0, 10), path);
+  }
+  if (study.startedAt >= study.arrivalEndedAt || study.arrivalEndedAt > study.observedThroughAt || study.observedThroughAt > study.studyFinishedAt
+    || study.studyFinishedAt.slice(0, 10) !== run.observedOn
+    || Date.parse(quiet.earliestPermittedIdentityAt) - Date.parse(quiet.previousControlledRunFinishedAt) !== study.minimumControlledQuietSeconds * 1000
+    || quiet.initialIdentityCompletedAt < quiet.earliestPermittedIdentityAt || quiet.initialIdentityCompletedAt > study.startedAt) {
+    fail(path, "ordered UTC phase markers and controlled-client quiet eligibility must not imply tenant-wide quiet or a reset.");
+  }
+  const paired = study.pairedClockEvidence;
+  if (paired.maximumStartReadDeltaMs >= paired.allowedReadDeltaLessThanMs || paired.maximumCompletionReadDeltaMs >= paired.allowedReadDeltaLessThanMs) {
+    fail(path, "separately sampled paired-clock deltas must stay strictly below their reviewed allowance; do not require decimal equality.");
+  }
+  const durations = new Set();
+  for (const window of study.rollingDispatchWindows) {
+    if (durations.has(window.windowSeconds)) fail(path, "rolling study window durations must be unique.");
+    durations.add(window.windowSeconds);
+    if (window.startsRepresentativeSeconds + window.windowSeconds > study.arrivalSeconds
+      || window.greetingsRepresentativeSeconds + window.windowSeconds > study.arrivalSeconds
+      || window.maximumStarts !== window.startsWindowCounts.attempted
+      || window.maximumEventualGreetings !== window.greetingsWindowCounts.completed
+      || window.greetingsWindowCounts.attempted > window.maximumStarts
+      || window.startsWindowCounts.completed > window.maximumEventualGreetings) {
+      fail(path, "independently selected rolling dispatch populations require full coverage and consistent start/greeting maxima.");
+    }
+    for (const population of [window.startsWindowCounts, window.greetingsWindowCounts]) {
+      if (population.attempted !== population.completed + population.failed + population.pending
+        || Object.keys(population).some((key) => population[key] > counts[key])) {
+        fail(path, "rolling window eventual outcomes must partition its dispatches and fit the whole phase; never infer callback throughput.");
+      }
+    }
+  }
+  checkInvocationTimings(study, counts, run.windowSeconds, path, fail);
+}
+
 function checkRampDispatchWindows(run, path, fail, checkDate) {
   const ramp = run.rampMeasurement, evidence = ramp.dispatchWindowEvidence;
   checkDate(evidence.reviewedOn, `${path}.reviewedOn`);
@@ -163,7 +223,7 @@ function checkRampDispatchWindows(run, path, fail, checkDate) {
 function checkRampMeasurement(run, path, fail, checkDate) {
   const ramp = run.rampMeasurement;
   const { attempted, completed, failed, pending } = run.counts;
-  if (run.nativeInvocation !== null || run.pacedMeasurement || run.workload !== "single_turn" || run.workflow !== "not_involved"
+  if (run.nativeInvocation !== null || run.pacedMeasurement || run.quotaStudyMeasurement || run.workload !== "single_turn" || run.workflow !== "not_involved"
     || run.clientIssues.length || [run.workflowState, run.followUp, run.firstVisibleActivity, run.firstVisibleLatency, run.latency, run.arrival, run.concurrency].some((value) => value !== null)) {
     fail(path, "one continuous native greeting ramp cannot also be a burst, fixed-rate cohort, workflow or visible/UI measurement.");
   }
@@ -303,7 +363,7 @@ function checkRampMeasurement(run, path, fail, checkDate) {
 function checkPacedMeasurement(run, path, fail, checkDate) {
   const paced = run.pacedMeasurement;
   const { attempted, completed, failed, pending } = run.counts;
-  if (run.nativeInvocation !== null || run.rampMeasurement || run.workload !== "single_turn" || run.workflow !== "not_involved" || run.clientIssues.length
+  if (run.nativeInvocation !== null || run.rampMeasurement || run.quotaStudyMeasurement || run.workload !== "single_turn" || run.workflow !== "not_involved" || run.clientIssues.length
     || [run.workflowState, run.followUp, run.firstVisibleActivity, run.firstVisibleLatency, run.latency, run.arrival, run.concurrency].some((value) => value !== null)) {
     fail(path, "paced greeting cohorts exclude burst records, workflow requests, unsent drafts and visible/UI measurements.");
   }
@@ -650,7 +710,7 @@ export function validateReport(report, schema) {
     checkDate(run.observedOn, `${path}.observedOn`);
     const { attempted, completed, failed, pending } = run.counts;
     if (attempted !== completed + failed + pending) fail(`${path}.counts`, "attempted must equal completed + failed + pending.");
-    const pacedNative = run.pacedMeasurement ?? run.rampMeasurement;
+    const pacedNative = run.pacedMeasurement ?? run.rampMeasurement ?? run.quotaStudyMeasurement;
     if (run.units.conversations === 0 && (!pacedNative || completed > 0 || pacedNative.conversationEvidence !== "returned_ids_checked_unique")) {
       fail(`${path}.units.conversations`, "zero returned conversations requires reviewed paced native evidence with no successful greetings; unknown remains null.");
     }
@@ -714,6 +774,7 @@ export function validateReport(report, schema) {
     }
     if (run.pacedMeasurement) checkPacedMeasurement(run, `${path}.pacedMeasurement`, fail, checkDate);
     if (run.rampMeasurement) checkRampMeasurement(run, `${path}.rampMeasurement`, fail, checkDate);
+    if (run.quotaStudyMeasurement) checkQuotaStudy(run, `${path}.quotaStudyMeasurement`, fail, checkDate);
     if (run.nativeInvocation) {
       const invocation = run.nativeInvocation;
       if (run.windowSeconds === null || pending !== 0) fail(`${path}.nativeInvocation`, "requires a measured, finished invocation batch.");
@@ -798,11 +859,11 @@ export function validateReport(report, schema) {
   });
   if (report.studyContext?.runKeys.some((key) => !runKeys.has(key))) fail("report.studyContext.runKeys", "context can only reference existing reviewed runs.");
   checkPacedCampaigns(report.runs, fail);
-  for (const run of report.runs.filter((item) => item.rampMeasurement)) {
-    const key = run.rampMeasurement.campaignKey;
-    if (report.runs.filter((item) => (item.rampMeasurement ?? item.pacedMeasurement)?.campaignKey === key).length !== 1
+  for (const run of report.runs.filter((item) => item.rampMeasurement || item.quotaStudyMeasurement)) {
+    const key = (run.rampMeasurement ?? run.quotaStudyMeasurement).campaignKey;
+    if (report.runs.filter((item) => (item.rampMeasurement ?? item.pacedMeasurement ?? item.quotaStudyMeasurement)?.campaignKey === key).length !== 1
       || report.pacedCampaigns?.some((campaign) => campaign.campaignKey === key)) {
-      fail("report.runs", "a continuous ramp is one separate run, not repeated fixed-rate cohorts or a resumed campaign.");
+      fail("report.runs", "a continuous ramp or interrupted quota study is one separate run, not repeated fixed-rate cohorts or a resumed campaign.");
     }
   }
   const campaignKeys = new Set();
